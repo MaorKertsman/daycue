@@ -63,6 +63,22 @@ public sealed class RelayClient : ISignalTransport
         }
     }
 
+    /// <summary>
+    /// Best-effort unpair on the relay: <c>DELETE /v1/companion/self</c> with this device's own credential. Returns true when the relay
+    /// confirmed (200) or had already revoked the credential (401); false for any network or server problem (never throws).
+    /// </summary>
+    public static async Task<bool> RevokeSelfAsync(HttpClient http, Uri baseUrl, string deviceToken, CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Delete, new Uri(baseUrl, "v1/companion/self"));
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", deviceToken);
+            using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
+            return resp.IsSuccessStatusCode || resp.StatusCode == HttpStatusCode.Unauthorized;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or OperationCanceledException) { return false; }
+    }
+
     private static string DescribeError(HttpStatusCode status, string body)
     {
         try

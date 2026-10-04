@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "tsx watch src/node/server.ts",
@@ -13,7 +13,8 @@
     "stdio:built": "node dist/stdio.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen-secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64url'))\""
   },
   "dependencies": {
     "@hono/node-server": "^2.1.3",
@@ -24,8 +25,9 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^24.19.1",
     "@types/pg": "^8.23.1",
+    "pg-mem": "^3.0.14",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

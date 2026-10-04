@@ -1,7 +1,7 @@
 import { RelayError, hasScope, type Command, type Grantee, type Scope } from './types.js';
 import type { Relay } from './relay.js';
 import { markUntrusted } from './untrusted.js';
-import { iso } from './util.js';
+import { assertSecureRelayUrl, iso } from './util.js';
 
 /** What MCP tools talk to. Implemented in-process (LocalClientApi) and over HTTP for the stdio server. */
 export interface ClientApi {
@@ -39,10 +39,38 @@ export interface CommandView {
   summary: string;
   /** Phone-provided result; text fields are marked untrusted. */
   result?: unknown;
+  /** True when the result is hidden or reduced because it belongs to another client or concerns medication. */
+  resultWithheld?: boolean;
   lateAck?: boolean;
 }
 
 const MAX_WAIT_S = 25;
+const MEDICATION_WITHHELD = '(medication-related change; details withheld because this client does not hold the medication scope)';
+
+/** A command is medication-related when it was issued with the medication scope or its ops touch medication. */
+function medicationRelated(c: Command): boolean {
+  if (c.grant.scopes.includes('medication')) return true;
+  const ops = (c.payload as { ops?: unknown }).ops;
+  return Array.isArray(ops) && ops.some((o) => typeof (o as { type?: unknown })?.type === 'string' && /medication/i.test((o as { type: string }).type));
+}
+function redactedResult(r: Command['result']): Command['result'] {
+  if (!r) return r;
+  return { newVersion: r.newVersion, sensitivity: r.sensitivity, message: MEDICATION_WITHHELD };
+}
+
+/**
+ * Phone-published status lists (recent changes, next cues, sessions) can mention medication. The phone should tag such entries
+ * (`medication: true` or `kind: "medication"`); the relay also withholds any entry whose text mentions medication, for clients without the scope.
+ */
+export function redactStatusForScopes(status: unknown, hasMedication: boolean): unknown {
+  if (hasMedication || !status || typeof status !== 'object') return status;
+  const out: Record<string, unknown> = { ...(status as Record<string, unknown>) };
+  for (const k of ['recentChanges', 'nextCues', 'activeSessions']) {
+    const v = out[k];
+    if (Array.isArray(v)) out[k] = v.map((e) => (/medicat/i.test(JSON.stringify(e)) || (e as any)?.medication === true ? { redacted: 'medication-related entry withheld (needs the medication scope)' } : e));
+  }
+  return out;
+}
 const ago = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
   if (s < 90) return `${s}s`;
@@ -117,18 +145,28 @@ export class LocalClientApi implements ClientApi {
     this.need('config:read');
     const s = await this.relay.getSnapshot();
     const pending = await this.relay.pending();
+    const own = pending.filter((c) => c.grant.clientId === this.g.clientId);
     return {
       snapshot: await this.snapMeta(),
       phone: { ...(await this.relay.phoneStatus()), lastSeenAt: iso((await this.relay.phoneStatus()).lastSeenAt) },
-      pendingCommands: pending.map((c) => ({ commandId: c.id, type: c.type, state: c.state, createdAt: iso(c.createdAt), expiresAt: iso(c.expiresAt) })),
-      status: markUntrusted(s?.status ?? null),
+      // Only this client's own commands are listed; others are counted so "why is the phone busy" stays explainable.
+      pendingCommands: own.map((c) => ({ commandId: c.id, type: c.type, state: c.state, createdAt: iso(c.createdAt), expiresAt: iso(c.expiresAt) })),
+      pendingFromOtherClients: pending.length - own.length,
+      status: markUntrusted(redactStatusForScopes(s?.status ?? null, hasScope(this.g.scopes, 'medication'))),
     };
+  }
+
+  /** Own commands are always visible; another client's results need the scope that command type needs (config:write / sessions:control). */
+  private canSeeResult(c: Command): boolean {
+    if (c.grant.clientId === this.g.clientId) return true;
+    return hasScope(this.g.scopes, c.type === 'session.control' ? 'sessions:control' : 'config:write');
   }
 
   private async view(c: Command, extra: { deduplicated?: boolean } = {}): Promise<CommandView> {
     const ps = await this.relay.phoneStatus();
     const isPreview = c.type === 'config.preview';
-    const r = c.result;
+    const visible = this.canSeeResult(c);
+    const r = !visible ? undefined : medicationRelated(c) && !hasScope(this.g.scopes, 'medication') ? redactedResult(c.result) : c.result;
     const ver = r?.newVersion !== undefined ? ` Config is now at version ${r.newVersion}.` : '';
     let summary: string;
     switch (c.state) {
@@ -173,6 +211,7 @@ export class LocalClientApi implements ClientApi {
       expiresAt: iso(c.expiresAt)!,
       summary: extra.deduplicated ? `Duplicate request (same idempotencyKey): returning the original command. ${summary}` : summary,
       result: r ? markUntrusted(r) : undefined,
+      resultWithheld: !visible || (medicationRelated(c) && !hasScope(this.g.scopes, 'medication')) ? true : undefined,
       lateAck: c.lateAck,
     };
   }
@@ -214,13 +253,15 @@ export class LocalClientApi implements ClientApi {
     this.need('config:read');
     const s = await this.relay.getSnapshot();
     const remote = await this.relay.recentChanges(Math.min(limit, 50));
+    const hasMed = hasScope(this.g.scopes, 'medication');
+    const detail = (c: Command) => (this.canSeeResult(c) ? (medicationRelated(c) && !hasMed ? MEDICATION_WITHHELD : (c.result as any)?.summary ?? (c.result as any)?.message ?? null) : null);
     return {
       note: 'remoteChanges are changes applied through this relay (phone-acknowledged). phoneChanges is the phone\'s own recent-change list from its last snapshot, if it publishes one.',
       remoteChanges: remote.map((c) => ({
         commandId: c.id, type: c.type, appliedAt: iso(c.ackedAt), newVersion: c.result?.newVersion, requestedBy: markUntrusted(c.grant.clientLabel),
-        summary: markUntrusted((c.result as any)?.summary ?? (c.result as any)?.message ?? null),
+        summary: markUntrusted(detail(c)),
       })),
-      phoneChanges: markUntrusted((s?.status as any)?.recentChanges ?? null),
+      phoneChanges: markUntrusted((redactStatusForScopes(s?.status, hasMed) as any)?.recentChanges ?? null),
     };
   }
 
@@ -239,7 +280,9 @@ export class LocalClientApi implements ClientApi {
 
 /** Used by the stdio server: same interface over the relay's /v1/client/* HTTP endpoints. */
 export class HttpClientApi implements ClientApi {
-  constructor(private baseUrl: string, private token: string, private fetchImpl: typeof fetch = fetch) {}
+  constructor(private baseUrl: string, private token: string, private fetchImpl: typeof fetch = fetch) {
+    assertSecureRelayUrl(baseUrl);
+  }
 
   private async call(op: string, body: unknown = {}): Promise<any> {
     const res = await this.fetchImpl(`${this.baseUrl.replace(/\/$/, '')}/v1/client/${op}`, {

@@ -49,7 +49,7 @@ Config and state live in `%APPDATA%\DayCue\` (`pairing.json`, `state.json`, opti
 
 - Status lines: paired (relay host), this PC's state, last sent (time and state), connection (online, retrying, offline, credential rejected).
 - **Pause reporting**: for 1 hour, or until you resume. While paused nothing is sent. Because RELAY.md has no "paused" state, pausing sends one last signal repeating the current state with the minimum TTL (10 s), so the phone sees "unknown" within about 10 s instead of up to 3 minutes; then silence. A pause survives restarts. Resume sends the current state immediately.
-- **Pair... / Unpair...**
+- **Pair... / Unpair...** Unpair deletes the local key and credential and first asks the relay to revoke this device (`DELETE /v1/companion/self`, best effort with a short timeout; if the relay is unreachable you get a notice that the device may still be listed there).
 - **Run at startup**: off by default; writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\DayCueCompanion` (current user only).
 - **About / Privacy...**, **Exit** (sends a final minimum-TTL signal, best effort, then quits).
 
@@ -61,15 +61,15 @@ The relay may be asleep or you may be offline. Each signal gets up to 4 attempts
 
 ## Uninstall
 
-1. Tray, **Unpair...** (deletes the key and `pairing.json`), turn **Run at startup** off, **Exit**.
+1. Tray, **Unpair...** (revokes the credential on the relay when reachable, then deletes the key and `pairing.json`), turn **Run at startup** off, **Exit**.
 2. Delete `DayCueCompanion.exe` and the folder `%APPDATA%\DayCue\` if you want no trace.
-3. The relay keeps a record of the device until the owner revokes it: `DELETE /v1/owner/devices/<id>` (`docs/setup/MCP.md`, owner API). Revoke it there too; deleting the key already makes the credential unable to produce valid signals.
+3. If Unpair could not reach the relay, the credential stays valid there until the owner revokes it: `DELETE /v1/owner/devices/<id>` (`docs/setup/MCP.md`, owner API). Deleting the key already makes the credential unable to produce valid signals. The relay keeps a record (id, label, public key) of revoked devices.
 
 ## Development
 
 ```powershell
 & $dotnet build companion
-& $dotnet test companion      # 40 tests; 3 start the real relay from mcp/ (needs node and `npm install` in mcp/; skipped otherwise)
+& $dotnet test companion      # 42 tests; 5 start the real relay from mcp/ (needs node and `npm install` in mcp/; skipped otherwise)
 ```
 
 `DAYCUE_COMPANION_DIR` overrides the config folder (use a throwaway folder for experiments). `DayCueCompanion.exe --exit-after 10` starts and quits cleanly after 10 s (smoke test).

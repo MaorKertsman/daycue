@@ -88,11 +88,11 @@ function fail(e: unknown) {
 const guard = (fn: () => Promise<unknown>) => fn().then(ok, fail);
 
 /** Tool name -> scope(s) needed (any one of). Shared with the HTTP layer for 403 insufficient_scope. */
-export const TOOL_SCOPE: Record<string, Scope> = {
+export const TOOL_SCOPE: Record<string, Scope | Scope[]> = {
   get_config: 'config:read',
   get_status: 'config:read',
   list_recent_changes: 'config:read',
-  get_command_status: 'config:read',
+  get_command_status: ['config:read', 'sessions:control'],
   get_activity_summary: 'activity:read',
   propose_change: 'config:write',
   apply_change: 'config:write',
@@ -113,7 +113,7 @@ export function buildMcpServer(api: ClientApi, scopes: readonly string[]): McpSe
   );
   const allowed = (name: string) => {
     const need = TOOL_SCOPE[name];
-    return hasScope(scopes, need);
+    return (Array.isArray(need) ? need : [need]).some((n) => hasScope(scopes, n));
   };
   const reg = (name: string, cfg: any, handler: (a: any) => Promise<unknown>) => {
     if (!allowed(name)) return;

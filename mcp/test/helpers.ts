@@ -1,7 +1,7 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { Hono } from 'hono';
-import { createApp } from '../src/app.js';
-import { ackMessage, Relay, signalMessage } from '../src/relay.js';
+import { createApp, type AppOptions } from '../src/app.js';
+import { ackMessage, grantDecisionMessage, Relay, signalMessage, type RelayOptions } from '../src/relay.js';
 import { MemoryStore } from '../src/store.js';
 import { FakeWakeSender } from '../src/wake.js';
 import { bytesToB64u, type Clock } from '../src/util.js';
@@ -34,12 +34,13 @@ export interface Harness {
   json: (path: string, init?: RequestInit) => Promise<{ status: number; body: any; headers: Headers }>;
 }
 
-export function makeHarness(opts: { fetchImpl?: typeof fetch } = {}): Harness {
+export function makeHarness(opts: { fetchImpl?: typeof fetch; relay?: Partial<RelayOptions>; app?: AppOptions } = {}): Harness {
   const clock = new FakeClock();
   const store = new MemoryStore(() => clock.now());
   const wake = new FakeWakeSender();
-  const relay = new Relay({ baseUrl: BASE, ownerSecret: OWNER_SECRET, store, clock, wake, pollIntervalMs: 10, fetchImpl: opts.fetchImpl });
-  const app = createApp(relay);
+  // Phone approval of new grants is OFF in the default harness so the older scenario tests stay simple; tests/security.test.ts turns it on.
+  const relay = new Relay({ baseUrl: BASE, ownerSecret: OWNER_SECRET, store, clock, wake, pollIntervalMs: 10, fetchImpl: opts.fetchImpl, requirePhoneApprovalForNewGrants: false, ...opts.relay });
+  const app = createApp(relay, { trustProxyHops: 1, ...opts.app });
   const fetchFn = (path: string, init?: RequestInit) => Promise.resolve(app.request(`${BASE}${path}`, init));
   return {
     clock, store, wake, relay, app, fetch: fetchFn,
@@ -60,12 +61,12 @@ export const jsonInit = (method: string, body: unknown, headers: Record<string, 
   body: JSON.stringify(body),
 });
 
-async function genKey() {
+export async function genKey() {
   const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
   const spki = new Uint8Array(await crypto.subtle.exportKey('spki', kp.publicKey));
   return { kp, spki: bytesToB64u(spki) };
 }
-async function sign(kp: CryptoKeyPair, msg: string) {
+export async function sign(kp: CryptoKeyPair, msg: string) {
   return bytesToB64u(new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new TextEncoder().encode(msg))));
 }
 
@@ -97,6 +98,13 @@ export class FakePhone {
     this.token = r.body.token;
     this.deviceId = r.body.deviceId;
     return r.body;
+  }
+
+  /** Phone-signed decision on a grant (approve / decline / revoke). */
+  async decideGrant(grantId: string, decision: 'approve' | 'decline' | 'revoke', approvedScopes: string[] = [], opts: { decidedAt?: number; badSig?: boolean } = {}) {
+    const decidedAt = opts.decidedAt ?? this.h.clock.now();
+    const signature = await sign(this.key.kp, grantDecisionMessage(grantId, opts.badSig ? (decision === 'approve' ? 'decline' : 'approve') : decision, approvedScopes, decidedAt));
+    return this.h.json(`/v1/phone/grants/${grantId}/decision`, jsonInit('POST', { decision, approvedScopes, decidedAt, signature }, this.auth()));
   }
 
   async publish(extra: { medication?: unknown } = {}) {
@@ -229,7 +237,25 @@ export async function pkce() {
   return { verifier, challenge };
 }
 
-export const REDIRECT = 'https://claude.example/callback';
+export const REDIRECT = 'https://claude.ai/api/mcp/auth_callback';
+export const FORM = { 'content-type': 'application/x-www-form-urlencoded' };
+
+/** Opens the consent page and returns what a browser would post back (txn, csrf token and cookie). */
+export async function openConsent(h: Harness, params: Record<string, string>, headers: Record<string, string> = {}) {
+  const page = await h.fetch(`/authorize?${new URLSearchParams(params)}`, { headers });
+  const html = await page.text();
+  const csrf = /name="csrf" value="([^"]+)"/.exec(html)?.[1];
+  const cookie = /daycue_csrf=([^;]+)/.exec(page.headers.get('set-cookie') ?? '')?.[1];
+  return { status: page.status, html, headers: page.headers, txn: /name="txn" value="([^"]+)"/.exec(html)?.[1] ?? '', csrf: csrf ?? '', cookie: cookie ? `daycue_csrf=${cookie}` : '' };
+}
+/** Posts the consent decision like the page's form would. */
+export function postDecision(h: Harness, c: { txn: string; csrf: string; cookie: string }, fields: Record<string, string | string[]>, headers: Record<string, string> = {}) {
+  const body = new URLSearchParams();
+  body.set('txn', c.txn);
+  body.set('csrf', c.csrf);
+  for (const [k, v] of Object.entries(fields)) for (const x of ([] as string[]).concat(v)) body.append(k, x);
+  return h.fetch('/authorize/decision', { method: 'POST', headers: { ...FORM, cookie: c.cookie, ...headers }, body });
+}
 
 export async function oauthLogin(h: Harness, o: { scopes: string[]; grant?: string[]; resource?: string; clientName?: string } ) {
   const reg = await h.json('/register', jsonInit('POST', { client_name: o.clientName ?? 'Test Client', redirect_uris: [REDIRECT], token_endpoint_auth_method: 'none' }));
@@ -239,13 +265,10 @@ export async function oauthLogin(h: Harness, o: { scopes: string[]; grant?: stri
     response_type: 'code', client_id: clientId, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: 'S256',
     scope: o.scopes.join(' '), state: 'st123', resource: o.resource ?? `${BASE}/mcp`,
   });
-  const page = await h.fetch(`/authorize?${q}`);
-  const pageHtml = await page.text();
-  if (page.status !== 200) return { status: page.status, html: pageHtml, clientId };
-  const txn = /name="txn" value="([^"]+)"/.exec(pageHtml)![1];
-  const form = new URLSearchParams({ txn, owner_secret: OWNER_SECRET, decision: 'approve' });
-  for (const s of o.grant ?? o.scopes) form.append('scope', s);
-  const dec = await h.fetch('/authorize/decision', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form });
+  const c = await openConsent(h, Object.fromEntries(q));
+  const pageHtml = c.html;
+  if (c.status !== 200) return { status: c.status, html: pageHtml, clientId };
+  const dec = await postDecision(h, c, { owner_secret: OWNER_SECRET, decision: 'approve', scope: o.grant ?? o.scopes });
   const loc = new URL(dec.headers.get('location')!);
   const code = loc.searchParams.get('code')!;
   const tok = await h.json('/token', {

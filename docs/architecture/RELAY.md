@@ -64,8 +64,8 @@ Verified 2026-10-04 against `https://modelcontextprotocol.io/specification/lates
 | OAuth 2.1 + PKCE | `S256` only; code single-use, 60 s; public clients only (`token_endpoint_auth_method: none`) |
 | RFC 8707 audience (MUST) | `resource` accepted only if equal to `<base>/mcp` (else `invalid_target`); every access token is bound to the resource and re-checked on each request |
 | RFC 9207 `iss` (SHOULD) | Included on every authorization response (success and error); advertised via `authorization_response_iss_parameter_supported: true` |
-| CIMD (SHOULD) | `client_id` that is an `https://` URL is fetched (5 s timeout, 16 KiB cap, no redirects, `client_id` must equal the URL, redirect URIs validated, cached 1 h). Refused: non-https, IP literals, `localhost`, `.local`, `.internal`, single-label hosts. **Residual risk**: DNS names resolving to private addresses are not blocked (no resolver control on a generic runtime); on Render the relay has no private network peers configured, so impact is limited |
-| DCR (MAY, deprecated) | `POST /register`, public clients, redirect URIs must be https / loopback http / private-use scheme; capped at 50 live registrations (oldest evicted), 90 day expiry |
+| CIMD (SHOULD) | `client_id` that is an `https://` URL is fetched (5 s timeout, 16 KiB cap enforced while streaming, no redirects, port 443 only, `client_id` must equal the URL, redirect URIs validated, cache capped at 100 entries, 1 h). Refused by name, after stripping trailing dots (`localhost.` is `localhost`): non-https, IP literals in any numeric form, `localhost`, `.localhost`, `.local`, `.internal`, `.localdomain`, `.home.arpa`, single-label hosts. **DNS is vetted too** (Node server, `src/node/safefetch.ts`): the name is resolved once through a custom `lookup`, every returned address must be globally routable (private, loopback, link-local incl. 169.254.169.254, CGNAT, unique-local, multicast, IPv4-mapped/NAT64 forms are refused), and the socket connects to exactly that vetted address, so names like `127.0.0.1.nip.io` and DNS rebinding fail. TLS validates the certificate for the host name. **Residual risk**: on runtimes without `node:dns` (Workers/Deno/Bun using the portable default fetcher) only the name-level checks apply; outbound requests also reveal the relay's egress IP to the client-metadata host |
+| DCR (MAY, deprecated) | `POST /register`, public clients, redirect URIs must be `https` or loopback `http` (private-use schemes are refused, as the MCP spec requires `localhost` or HTTPS); 5 registrations per source per hour; capped at 50 live registrations: when full, the oldest registration that was never approved and holds no grant is evicted, and a client that was approved or holds an active grant is never evicted (otherwise 429); unused registrations expire after 7 days, approved ones after 90; registrations are not audited (unauthenticated, spammable) |
 | Token passthrough | None: tokens are opaque, issued and validated by this server only |
 | Refresh | Rotating refresh tokens (30 days); reuse of a used token revokes the whole grant |
 
@@ -73,7 +73,22 @@ Tokens are opaque random strings (`dca_...`, `dcr_...`), stored only as SHA-256 
 
 **Scopes**: `config:read`, `config:write` (implies `config:read`), `sessions:control`, `activity:read`, `medication`. Medication is independent, never implied, never pre-ticked on the consent page. Without it, medication labels are not served; in addition the relay tells the phone (`wants.medication`) whether any active grant holds the scope so the phone can avoid publishing medication data at all.
 
-**Consent**: `GET /authorize` renders a page (client name, redirect host, per-scope checkboxes; the owner may grant fewer scopes than requested). Approving requires the **owner secret** (`DAYCUE_OWNER_SECRET`, >= 24 chars) typed into the page; 5 consecutive failures lock owner checks for 30 s doubling to 15 min. The pending request is bound to an unguessable single-use transaction id (10 min); the page is `frame-ancestors 'none'`, `no-store`, `no-referrer`.
+**Consent**: `GET /authorize` renders a page (client name, client id, **redirect host in a bordered line at the top**, full return address, per-scope checkboxes; the owner may grant fewer scopes than requested). Approving requires the **owner secret** typed into the page (see owner-secret protection below). The pending request is bound to an unguessable single-use transaction id (10 min; at most 100 pending, oldest dropped).
+
+- **Trusted redirect hosts.** `DAYCUE_ALLOWED_REDIRECT_HOSTS` (default `claude.ai, claude.com, chatgpt.com`, exact host match over `https`) plus loopback `http` (`localhost`, `127.0.0.1`, `[::1]`, for Claude Code and other local clients, with a note that it is an app on this device). Any other host gets a red "UNRECOGNIZED REDIRECT ADDRESS" block, and approval needs an extra explicit tick ("I recognize <host>"). Official values, checked 2026-10-04: Claude's connector callback is `https://claude.ai/api/mcp/auth_callback` and "may change to `https://claude.com/api/mcp/auth_callback`" (Claude connector docs, <https://claude.com/docs/connectors/custom/remote-mcp>, and the Anthropic support article <https://support.claude.com/en/articles/11503834>); Claude Code uses RFC 8252 loopback redirects on ephemeral ports (a third-party report, not Anthropic documentation: <https://sunpeak.ai/blogs/claude-connector-oauth-authentication/>; the MCP spec itself allows `localhost` redirects); ChatGPT redirects to `https://chatgpt.com/connector/oauth/{callback_id}`, with the legacy `https://chatgpt.com/connector_platform_oauth_redirect` still working for older apps (OpenAI Apps SDK auth guide, <https://developers.openai.com/apps-sdk/build/auth>). Only the host is matched, not the path. The list is configuration; re-check those pages when a connector stops showing as trusted.
+- **No open redirect.** Denying (or approving nothing) redirects the browser only when the host is trusted; for an unrecognized host the relay shows a local "denied" page and does not redirect. Redirect URIs must match the registration; private-use schemes are refused.
+- **CSRF.** `GET /authorize` sets `daycue_csrf` (HttpOnly, SameSite=Strict, Secure on https, path `/authorize`, 10 min); the form carries the same token; `POST /authorize/decision` requires cookie == form token == the hash stored with the transaction, and refuses a cross-site `Origin` / `Sec-Fetch-Site`. These checks run before any owner-secret comparison, so forged posts cannot burn the owner's attempt budget.
+- **Clickjacking.** `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Cache-Control: no-store`, `Referrer-Policy: no-referrer` on every page including errors.
+
+**Owner-secret protection.** The secret must be >= 32 characters with ~128 bits of estimated entropy (the relay refuses to start otherwise); generate it with `npm run gen-secret` (`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`). Comparison is over fixed-length SHA-256 digests without early exit. Attempts are counted **before** the comparison in one synchronous step (so parallel requests cannot exceed the budget), **per source address** (Render: the entry of `X-Forwarded-For` that the trusted proxy appended, counted from the right via `DAYCUE_TRUSTED_PROXY_HOPS`; entries to the left are client-controlled and ignored): 5 failures lock only that source for 30 s doubling to 15 min (`429` + `Retry-After`). Separate buckets exist for the owner API, the consent page and pairing, so none can be used to block another. A global ceiling (120 checks/minute across all sources) throttles only sources that have never authenticated; a source that authenticated before is exempt, so a distributed flood cannot lock the owner out of a known address. **Revocation and the kill path never depend on those lockouts**: `DELETE /v1/owner/grants/:id`, `POST /v1/owner/revoke-all` and `DELETE /v1/owner/devices/:id` accept the secret even from a locked-out source and are only rate limited (30/min/source), which is safe because of the entropy floor. Lockout counters live in process memory (a restart resets them; failed requests never cost disk writes); failed attempts are audited at most 12 per hour in total.
+
+**Request limits.** Bodies: 64 KiB default, 300 KiB for `PUT /v1/phone/snapshot`, 128 KiB for `/mcp` and `/v1/client/*` (`413`, enforced on `Content-Length` and while streaming, before parsing). Per source and minute: 600 requests overall (`/healthz` exempt); `/register` 5/hour, `GET /authorize` 20/10 min, `/authorize/decision` 30/10 min, `/token` 60/min, `/revoke` 30/min, `/v1/pair/*` 30/10 min; per grant 120 commands/hour; at most 100 commands waiting for the phone (`429 too_many_pending`). Audit log: at most 2000 entries (trimmed to 1500). A store that rewrites a whole file per mutation would degrade with size, so `FileStore` coalesces writes (one async write per 250 ms; a hard crash can lose up to that window; SIGTERM/SIGINT flush). Limits are in memory and per process: the relay is a single instance by design.
+
+**Authorization code reuse.** A code is single use; a tombstone is kept 10 minutes. Redeeming a used code again revokes the grant (and with it all tokens) issued from the first redemption and is audited (`oauth.code_reuse`), including when the replay races the first redemption.
+
+**Per-client isolation and medication redaction.** A client sees full results of its own commands (same `clientId`). For another client's command it sees only id/state/type unless it holds the scope that command needs (`config:write`; `sessions:control` for session commands). A command is medication-related if its grant held `medication` or its ops have a medication type; its `result` is reduced to `newVersion`/`sensitivity` plus a "withheld" message for viewers without the `medication` scope, in `get_command_status` and `list_recent_changes` (marked `resultWithheld`). `get_status.pendingCommands` lists only the caller's own commands (others are counted in `pendingFromOtherClients`). Phone-published `status.recentChanges`, `nextCues` and `activeSessions` entries that mention medication (or carry `"medication": true`) are replaced with a withheld placeholder for clients without the scope (the phone should tag them). `get_activity_summary` carries only coarse state and companion labels, nothing medication-related, so it needs no redaction.
+
+**New grants and the phone** (`requirePhoneApprovalForNewGrants`, env `DAYCUE_REQUIRE_PHONE_APPROVAL`, default **on**): while a phone is paired, a new grant (OAuth consent or owner-minted client token) that includes `config:write`, `sessions:control` or `medication` starts `approval: "pending"`; those scopes are inactive (tools hidden, calls `403` saying the phone must approve; `wants.medication` ignores it) until the phone approves. Read-only grants are active at once. The owner secret alone therefore cannot silently activate write access. The phone API is in 4.6.
 
 **Owner API** (`Authorization: Bearer <owner secret>`): `POST /v1/owner/pair-codes`, `POST /v1/owner/client-tokens`, `GET /v1/owner/grants`, `DELETE /v1/owner/grants/:id`, `POST /v1/owner/revoke-all`, `GET /v1/owner/devices`, `DELETE /v1/owner/devices/:id`, `GET /v1/owner/audit?limit=`.
 
@@ -86,7 +101,8 @@ Spec says stdio servers should take credentials from the environment, not OAuth.
 1. Owner calls `POST /v1/owner/pair-codes` -> `{code: "ABCDE-FGHJK", expiresAt}` (10 min, single use, stored hashed). The app shows an input (or QR carrying relay URL + code).
 2. Phone generates an **ECDSA P-256** key in Android Keystore and calls `POST /v1/pair/phone {code, publicKey, label, fcmToken?}` where `publicKey` is base64/base64url of `PublicKey.getEncoded()` (X.509 SPKI). Response `201 {deviceId, token, serverTime}`. `token` (`dcd_...`) is the device credential: `Authorization: Bearer` on every `/v1/phone/*` call. Store it in encrypted storage.
 3. Pairing again (new code) revokes the previous phone credential and marks every non-terminal command `expired` ("phone re-paired").
-4. 5 wrong codes lock pairing attempts (30 s doubling). Codes are ~49 bits.
+4. 5 wrong codes from one source address lock pairing attempts from that source (30 s doubling, `Retry-After`); other sources are unaffected. Codes are ~49 bits.
+5. Unpairing: `DELETE /v1/phone/self` (4.4) revokes the phone credential on the relay.
 
 Why ECDSA P-256 and not Ed25519: Android Keystore supports P-256 on all API levels; Ed25519 only recently. Signatures may be raw `r||s` (64 bytes) or Java's DER output; both are accepted (base64 or base64url).
 
@@ -118,7 +134,7 @@ All bodies JSON, `Content-Type: application/json`, times are epoch milliseconds 
 
 - `version` is `DayCueConfig.version`; an older version than the stored one is rejected `409 stale_snapshot`. Same version may be re-sent to refresh `status`.
 - **Redaction is the phone's job**: no coordinates, no calendar event contents, no tokens, no history. Place names only. `config` section names above are what MCP `get_config` exposes (`habits`, `routines`, `cueProfiles`, `calendarRules`, `places`, `settings`, `alarms`, `postureCycle`, `contextRules`; `all` returns the whole object). Use these key names (or tell me to change `clientApi.ts`).
-- `medication` is optional and **only stored if an active grant holds the `medication` scope**; otherwise it is silently dropped. Defensively, a `medications`/`medication` key inside `config` is moved out of `config` the same way. The response tells you: `{ok, wants: {medication: boolean}, pendingCommands, serverTime}`; publish medication only when `wants.medication` is true and the owner has enabled it.
+- `medication` is optional and **only stored if an active grant holds the `medication` scope**; otherwise it is silently dropped. Defensively, a `medications`/`medication` key inside `config` is moved out of `config` the same way. The response tells you: `{ok, wants: {medication: boolean}, grantsVersion, pendingCommands, serverTime}`; publish medication only when `wants.medication` is true (an ACTIVE medication grant exists, see 4.6) and the owner has enabled it.
 - Max 256 KiB. Publish after every applied change (including phone-originated ones), and on app start.
 
 ### 4.2 Commands (relay -> phone)
@@ -131,7 +147,8 @@ All bodies JSON, `Content-Type: application/json`, times are epoch milliseconds 
     "baseVersion": 41, "idempotencyKey": "...", "payloadHash": "9f2c...", "createdAt": 1791114000000, "expiresAt": 1791135600000,
     "grant": { "clientLabel": "Claude", "scopes": ["config:read", "config:write"] }
   }],
-  "wants": { "medication": false }, "serverTime": 1791114001000 }
+  "wants": { "medication": false },
+  "grants": { "version": 7, "items": [ /* see 4.6 */ ] }, "serverTime": 1791114001000 }
 ```
 
 | `type` | `payload` | Phone behavior |
@@ -180,8 +197,11 @@ A signed ack that arrives after the relay marked the command `expired` is accept
 |---|---|
 | `PUT /v1/phone/push {fcmToken?: string\|null, wakeOnActivity?: boolean}` | Register/clear the FCM registration token; opt in to wake on companion state change |
 | `POST /v1/phone/companion-codes` | Mint a companion pairing code |
-| `GET /v1/phone/activity` | The latest signed signal **per companion** plus the companion public keys, so **the phone verifies companion signatures itself** instead of trusting the relay (signature over the message in 4.5, using `signals[].signature`). Used by the opt-in "frequent check" mode. Response below |
+| `GET /v1/phone/activity` | The latest signed signal **per companion** plus the companion public keys; the phone verifies each signal's signature (message in 4.5, `signals[].signature`) with the listed key. **Trust model: see 4.4.1.** Used by the opt-in "frequent check" mode. Response below |
 | `DELETE /v1/companion/self` | Companion credential only (see 3.4): the companion revokes itself |
+| `DELETE /v1/phone/self` | Phone credential only: **unpair**. Revokes this phone (credential and FCM token dropped, record keeps id/label/public key), clears the paired-phone slot, expires every non-terminal command ("phone was unpaired"), audits `phone.self_revoked`; `200 {ok, serverTime}`. The app should call it best effort before deleting its local credential; afterwards the old credential gets `401`. Without it the credential stays valid until the owner revokes the device |
+| `GET /v1/phone/grants` | The grant list (4.6) |
+| `POST /v1/phone/grants/:id/decision` | Approve, decline or revoke a grant (4.6) |
 
 ```json
 { "signals": [{ "companionId": "co_...", "state": "active", "observedAt": 1791114000000, "ttlSeconds": 180, "signature": "<base64url>", "receivedAt": 1791114000500 }],
@@ -191,6 +211,10 @@ A signed ack that arrives after the relay marked the command `expired` is accept
 ```
 
 `signals` has one entry per non-revoked companion that has a stored signal (most recent `observedAt` first; `[]` if none). `signal` is the legacy single-signal field, kept for backward compatibility: the most recent signal by `observedAt` in the old shape (`sig` instead of `signature`), or `null`. New clients should read `signals`. The relay does not filter by freshness here; the phone applies `observedAt + ttlSeconds` itself.
+
+#### 4.4.1 Trust model for companion keys (corrected)
+
+The phone verifies signatures itself, but it learns each companion's **public key from the relay** (`companions[].publicKey`). A compromised relay (or whoever holds the owner secret) can pair its own fake companion, or list a key it controls, and then produce signals that verify. So this check protects against **tampering with a genuine companion's signal in transit and against replay**, but it does **not** remove the relay from the trust base for "which keys count as my companions". The residual risk is limited to forged activity state (it can make the phone believe the PC is active/idle/locked; it cannot change configuration, apply anything or read anything). Not implemented, and the intended fix needs phone and companion UI work (not part of the relay): bind the key at pairing time on the two devices, not through the relay. Design: (1) the phone **pins** each companion key the first time it sees it, stores the pin locally and ignores any later key for that id or any new companion id until the owner confirms it; (2) at pairing the companion shows a short fingerprint of its own key (e.g. the first 10 base32 characters of SHA-256 of the SPKI) and the phone shows the fingerprint it computed itself from the key it received; the owner compares the two screens before accepting. A phone-generated pairing code that also carries that fingerprint is an equivalent alternative. Until that exists, treat activity as relay-trusted.
 
 ### 4.5 Companion signal
 
@@ -213,6 +237,33 @@ daycue.signal.v1
 Send on every state change and a heartbeat at about one third of the TTL while the state holds. The relay keeps the latest signal **per companion** (store collection `signal`, key `latest:<companionId>`, so replay protection is per companion) plus a shared transition log (`signal/log`, entries `{state, at, companionId}`, max 100 entries, 24 h). A signal that differs from that companion's previous one, or follows an expired one, is a transition. Reads past `observedAt + ttl` report `unknown`, never the stale state.
 
 MCP `get_activity_summary` reports each companion's freshness (`companions: [{companionId, label, state, fresh, observedAt, expiresAt, ttlSeconds}]`) and an overall `state` combined from the **fresh** signals only: any `active` -> `active`, else any `idle` -> `idle`, else any `locked` -> `locked`, else `asleep`; no fresh signal -> `unknown`.
+
+### 4.6 Grants on the phone (new)
+
+`GET /v1/phone/commands` now also returns `grants: {version, items}`, and `PUT /v1/phone/snapshot` returns `grantsVersion` so the phone can tell cheaply that the list changed; `GET /v1/phone/grants` returns `{grants: {version, items}, serverTime}`. `version` increases on every create, approve, decline and revoke. Items (revoked grants are omitted):
+
+```json
+{ "id": "gr_...", "label": "Claude", "kind": "oauth", "scopes": ["config:read","config:write"], "activeScopes": ["config:read"],
+  "approval": "pending", "createdAt": 1791114000000, "lastUsedAt": null }
+```
+
+`approval`: `pending` (gated scopes inactive), `approved`, `not_required` (read-only or no phone was paired). Labels are client-supplied and unverified: show them as such.
+
+`POST /v1/phone/grants/:id/decision` body `{decision: "approve"|"decline"|"revoke", approvedScopes?: string[], decidedAt: <epoch ms>, signature}`. `approve` activates the grant (optionally narrowed to `approvedScopes`, a non-empty subset of the grant's scopes; it can never widen), `decline` and `revoke` revoke it. The signature is ECDSA P-256/SHA-256 with the **phone key** (so a stolen device token alone cannot approve) over the UTF-8 string (lines joined with `\n`, no trailing newline):
+
+```
+daycue.grant.v1
+<grant id>
+<decision>
+<approvedScopes sorted and joined with a single space, empty string if none>
+<decidedAt as integer>
+```
+
+`decidedAt` must be within 10 minutes of the relay clock. Answers `200 {ok, approval|revoked, grants, serverTime}`, `400` bad scopes or stale time, `403 bad_signature` (audited), `404` unknown or already revoked grant. Audit actions: `grant.phone_approved`, `grant.phone_declined`, `grant.phone_revoked`.
+
+Phone to do (Android, not part of this change): notify on a new `pending` grant, show label/scopes, require an explicit on-device approval (biometric for `medication`), sign and post the decision; offer revoke for active grants; treat `401` after the relay revoked it as "this phone was unpaired from the relay" and say so. Tag medication entries in `status.recentChanges`/`nextCues` with `"medication": true`. Optional hardening: sign acks with `daycue.ack.v2` (below).
+
+**Ack v2 (optional).** Send `signatureVersion: 2` with the ack and sign `daycue.ack.v2\n<id>\n<payloadHash>\n<outcome>\n<newVersion or empty>\n<ackedAt>\n<hex SHA-256 of canonicalJson(result ?? null)>` (`canonicalJson`: sorted keys, `undefined` dropped, as in `src/util.ts`). This binds the summary/errors/preview to the phone's key so a compromised relay cannot alter what the phone reported; v1 acks remain accepted until the phone adopts v2. Snapshot versions may not jump by more than 10 000 above the stored one (`400 version_jump`), which stops a stolen phone credential from blocking snapshots with a huge version.
 
 ## 5. Command state machine
 
@@ -277,10 +328,10 @@ A relay on a public URL is required for Claude.ai and ChatGPT (their servers con
 | Activity | latest signal per companion + transition log (state, time, companion id) | 24 h, max 100 log entries; a companion's slot is deleted when it is revoked |
 | Grants | client id/label, scopes, last used | until revoked (revoked grants remain as records) |
 | Access/refresh tokens | SHA-256 hashes | 1 h / 30 days |
-| OAuth codes, pending authorizations, CIMD cache | hashed codes / request data | 60 s / 10 min / 1 h |
-| DCR clients | name, redirect URIs | 90 days, max 50 |
-| Audit log | actor, action, ids, scope names, **no ops, no snapshot content, no IPs** | 90 days |
-| Lockout counters | failure counts | 1 h |
+| OAuth codes, pending authorizations, CIMD cache | hashed codes (tombstone after use, for replay detection) / request data incl. CSRF token hash / client metadata | 60 s (+10 min tombstone) / 10 min, max 100 / 1 h, max 100 |
+| DCR clients | name, redirect URIs, approved flag | 7 days unused / 90 days once approved; max 50 |
+| Audit log | actor, action, ids, scope names, redirect host of approved consents, **no ops, no snapshot content, no IPs** | 90 days, at most 2000 entries |
+| Lockout / rate-limit counters | per source address, **in process memory only** (never in the store or the audit log), bounded to 10 000 keys | at most 15 min to 1 h; reset by a restart |
 
 Not stored: raw tokens/secrets, calendar contents, coordinates, history. The relay holds ops text the model wrote (habit ids, intervals, rule text) until purge, and anything the phone puts in `result` or the snapshot. Purge runs hourly in the Node server and lazily on read. The JSON file on the disk is `0600`.
 
@@ -290,8 +341,10 @@ Not stored: raw tokens/secrets, calendar contents, coordinates, history. The rel
 - **Prompt injection through data**: calendar titles, place names, labels are wrapped as untrusted data and tool text says never to follow them; the phone never interprets them. Wrapping reduces but cannot eliminate model-side injection risk; sensitive changes still need on-phone confirmation, which is the real backstop.
 - **Confused deputy / token theft**: audience-bound opaque tokens, scope per grant, 1 h access tokens, rotating refresh with reuse detection, immediate grant revocation, no token passthrough.
 - **Open registration**: DCR is open by protocol design; it only creates unprivileged client ids. Every grant needs the owner secret on the consent page. Capped and expiring.
-- **Brute force**: owner secret, pairing codes: counted lockouts with exponential backoff (stored, so they survive restarts). The owner secret is long random; do not reuse a human password.
-- **CIMD SSRF**: see 3.1 residual risk.
+- **Brute force**: owner secret and pairing codes: per-source counted lockouts with exponential backoff, attempts reserved atomically before the comparison, in-memory (a restart resets them), plus an entropy floor on the owner secret (the real protection; the lockout bounds noise). Revocation and the kill path are not subject to lockouts. See 3.1 "Owner-secret protection". Residual: a botnet with many addresses can make a brand-new, never-authenticated source wait out the global ceiling (<= 1 minute per window); the kill path and any previously authenticated address still work.
+- **CIMD SSRF**: see 3.1. The literal-name filter alone is bypassable (trailing dot, `nip.io`-style names); the DNS-vetted, connect-to-vetted-address fetch on Node closes that. `https` plus certificate validation still means internal plain-HTTP services are unreachable.
+- **Phishing the consent page**: the redirect host is shown prominently, unrecognized hosts need an explicit extra confirmation and never receive a redirect on deny, CSRF and framing are blocked, and (default) a write or medication grant additionally needs approval on the phone. The owner secret is still typed into a web page: only type it on the relay's own origin and use `DAYCUE_ALLOWED_REDIRECT_HOSTS` to keep the trusted list short.
+- **Rotating the owner secret**: change `DAYCUE_OWNER_SECRET`, redeploy, `POST /v1/owner/revoke-all` with the new secret, re-pair the phone. (An overlap window for the old secret is not implemented.)
 - **Replay**: acks are signed over command id and hash and idempotent; companion signals need strictly increasing `observedAt`.
 - **DNS rebinding (local dev)**: when the base URL is localhost the Host header must be loopback.
 - **Free-tier spin-down / restarts** are availability issues, not integrity issues (state is durable under option A/B).
@@ -300,9 +353,11 @@ Not stored: raw tokens/secrets, calendar contents, coordinates, history. The rel
 
 | Item | Level |
 |---|---|
-| Pairing, OAuth (DCR + CIMD with fake fetch), audience/expiry/revocation, scopes, idempotency, offline pending, expiry, late ack, undo, sensitive confirmation flow, medication exclusion, untrusted marking, companion expiry/replay/forgery, several companions (per-companion replay, combined state), companion self-revoke, op-name/example checks against `ConfigOp.kt`, FileStore restart survival, stdio server as a real child process, FCM request shape | **Unit/integration** (`mcp`: `npm test`, 60 tests, fake phone/companion) |
+| Pairing, OAuth (DCR + CIMD with fake fetch), audience/expiry/revocation, scopes, idempotency, offline pending, expiry, late ack, undo, sensitive confirmation flow, medication exclusion, untrusted marking, companion expiry/replay/forgery, several companions (per-companion replay, combined state), companion self-revoke, op-name/example checks against `ConfigOp.kt`, FileStore restart survival and write coalescing, stdio server as a real child process, FCM request shape; security review fixes: body/rate/cap limits, per-source owner throttling and kill path, consent page (trusted hosts, CSRF, headers), CIMD name/IP/DNS/size checks, code-reuse revocation, per-client isolation and medication redaction, phone approval of grants, phone self-revoke, ack v2 | **Unit/integration** (`mcp`: `npm test`, 103 tests, fake phone/companion; ran on Node 20.20 locally, the deployment target is Node 24 which is unverified here) |
 | Built server (`npm run build`, `node dist/node/server.js`): health, 401 challenge, PRM | Smoke-tested locally with curl |
 | Real Claude.ai / ChatGPT / Claude Code connection | **Unverified** (needs a public HTTPS URL and the owner's accounts) |
 | Render deployment, `render.yaml` validity | **Unverified** (keys checked against Render's blueprint spec page; plan name `starter` may need adjusting) |
-| `PgStore` | **Unverified** (no Postgres available) |
+| `PgStore` | **Partially verified**: the Store contract and the full pairing/command flow pass against `pg-mem` (in-process Postgres emulation, `test/pgstore.test.ts`, including parallel updates). Not run against a real Postgres (isolation, pooling, TLS) |
+| DNS-vetted CIMD fetch | **Unit** with a stubbed resolver (private, rebinding and `nip.io`-style answers are refused); no real outbound connection was made |
+| Node 24 | **Unverified locally** (Node 20.20.2 on this machine); CI and `render.yaml` use Node 24, `engines` is `>=22`. Node 24 and 22 are the supported LTS lines per <https://nodejs.org/en/about/previous-releases> (checked 2026-10-04); Node 20 is end-of-life |
 | Real FCM, Android Keystore signatures, .NET signatures against this verifier | **Unverified**; the DER/raw ECDSA path is unit-tested with WebCrypto-generated keys only |

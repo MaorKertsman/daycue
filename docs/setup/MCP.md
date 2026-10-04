@@ -2,26 +2,30 @@
 
 Design and wire protocol: `docs/architecture/RELAY.md`. Code: `mcp/`. The remote path is optional: the phone works with no relay at all.
 
-Requirements: Node 20 (on PATH on this machine). All commands below are run from `mcp/` unless stated. Nothing in this document has been run against a real phone, Render, Claude.ai or ChatGPT; see "Verification status" in RELAY.md.
+Requirements: Node 22 or 24 (the supported LTS lines; the deployment targets Node 24). This machine only has Node 20 on PATH, so tests here ran on Node 20.20 (the code is compatible; Node 24 itself is unverified locally). All commands below are run from `mcp/` unless stated. Nothing in this document has been run against a real phone, Render, Claude.ai or ChatGPT; see "Verification status" in RELAY.md.
 
 ## 1. Run locally
 
 ```powershell
 cd mcp
 npm ci
-npm test            # 47 tests, no network or accounts needed
+npm test            # about 100 tests, no network or accounts needed
 npm run typecheck
 ```
 
-Create a secret and start the relay (the secret protects the consent page and owner API; keep it out of the repo):
+Create a secret and start the relay (the secret protects the consent page and owner API; keep it out of the repo). The relay **refuses to start** unless the secret is at least 32 characters with about 128 bits of randomness, so generate it rather than inventing one:
 
 ```powershell
-$env:DAYCUE_OWNER_SECRET = node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+$env:DAYCUE_OWNER_SECRET = npm run --silent gen-secret    # = node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 $env:DAYCUE_OWNER_SECRET   # note it down somewhere private
 npm run dev                # http://localhost:8787, data in mcp/.data/relay.json (git-ignored)
 ```
 
 `mcp/.env.example` lists every variable. Without `DAYCUE_DATA_FILE`/`DATABASE_URL` the dev server stores data in `.data/relay.json`.
+
+Abuse protection you will notice: wrong owner secrets lock out only the calling address (`429` with `Retry-After`); `DELETE /v1/owner/grants/<id>`, `POST /v1/owner/revoke-all` and `DELETE /v1/owner/devices/<id>` still work while locked out. Behind Render the relay reads the client address from `X-Forwarded-For` (`DAYCUE_TRUSTED_PROXY_HOPS`, default 1 on Render, 0 elsewhere); on a different proxy set it correctly or all callers share one bucket. Details: RELAY.md section 3.1.
+
+**Phone approval of new grants.** By default (`DAYCUE_REQUIRE_PHONE_APPROVAL=true`) a new grant with `config:write`, `sessions:control` or `medication` stays read-only until the phone approves it (API in RELAY.md 4.6; the Android UI for this is not built yet, so until it is, write grants stay inactive once a phone is paired; set `DAYCUE_REQUIRE_PHONE_APPROVAL=false` to opt out explicitly). Read-only grants work immediately.
 
 Owner API examples (PowerShell):
 
@@ -79,7 +83,7 @@ Steps:
 
 1. Push the repo to a Git provider Render can read (the repo is public, which is fine: no secrets are in it).
 2. Render dashboard -> New -> Blueprint -> select the repo; it reads `mcp/render.yaml` (set the blueprint path to `mcp/render.yaml` if asked). Check the plan name against the dashboard (Render may expect `starter` or the newer compute-plan names).
-3. When prompted, enter `DAYCUE_OWNER_SECRET` (random, >= 24 chars, from a password manager). Leave `FCM_SERVICE_ACCOUNT_JSON` empty for now.
+3. When prompted, enter `DAYCUE_OWNER_SECRET`: generate it with `npm run gen-secret` (>= 32 chars, ~128 bits; weaker values make the relay refuse to start) and keep a copy in a password manager. Leave `FCM_SERVICE_ACCOUNT_JSON` empty for now.
 4. After deploy, note the service URL, e.g. `https://daycue-relay.onrender.com`. It is injected as `RENDER_EXTERNAL_URL`, which the server uses as its public origin; if you add a custom domain set `DAYCUE_BASE_URL` to it (tokens are bound to this origin).
 5. Check `https://<url>/healthz` returns `{"ok":true}` and `https://<url>/.well-known/oauth-protected-resource/mcp` returns JSON.
 6. Back up: Render takes daily disk snapshots (kept at least 7 days). Redeploys briefly stop the service because a disk is attached.
@@ -88,7 +92,7 @@ Optional FCM wake (needs the owner's free Firebase project): create a Firebase p
 
 ## 5. Connect Claude.ai (REQUIRES THE OWNER'S CLAUDE ACCOUNT AND A PUBLIC HTTPS RELAY)
 
-Per <https://claude.com/docs/connectors/custom/remote-mcp>: Customize -> Connectors -> Add custom connector (Free plan allows one custom connector), URL `https://<relay>/mcp`, Authentication "Sign in now", OAuth client "Use Claude's published identity" (CIMD) or "Register automatically" (DCR). Claude opens `/authorize`; choose scopes, type the owner secret, Approve. Keep `medication` unticked unless you want medication labels visible to Claude. Revoke any time with `DELETE /v1/owner/grants/<id>`. Unverified until the owner tries it.
+Per <https://claude.com/docs/connectors/custom/remote-mcp>: Customize -> Connectors -> Add custom connector (Free plan allows one custom connector), URL `https://<relay>/mcp`, Authentication "Sign in now", OAuth client "Use Claude's published identity" (CIMD) or "Register automatically" (DCR). Claude opens `/authorize`; check that the page shows **claude.ai** (or claude.com) as the return address, choose scopes, type the owner secret, Approve. Any other host gets a red warning: press Deny unless you started that connection yourself. Claude Code and other local clients return to `127.0.0.1`/`localhost` and are recognized as local. Callback hosts (verified 2026-10-04): Claude `https://claude.ai/api/mcp/auth_callback` (may move to claude.com), ChatGPT `https://chatgpt.com/connector/oauth/{callback_id}` and the legacy `https://chatgpt.com/connector_platform_oauth_redirect`; override the list with `DAYCUE_ALLOWED_REDIRECT_HOSTS`. Keep `medication` unticked unless you want medication labels visible to Claude. Revoke any time with `DELETE /v1/owner/grants/<id>`. Unverified until the owner tries it.
 
 ## 6. Connect ChatGPT (REQUIRES THE OWNER'S CHATGPT ACCOUNT AND A PUBLIC HTTPS RELAY)
 

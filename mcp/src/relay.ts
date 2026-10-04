@@ -1,4 +1,5 @@
-import { AuthService } from './auth.js';
+import { AuthService, DEFAULT_TRUSTED_REDIRECT_HOSTS, type CimdFetch } from './auth.js';
+import { AttemptGuard, RateLimiter } from './limits.js';
 import type { Store } from './store.js';
 import {
   COMMAND_SCOPE,
@@ -18,8 +19,10 @@ import {
 } from './types.js';
 import { NoopWakeSender, type WakeSender } from './wake.js';
 import {
+  MIN_OWNER_SECRET_BITS,
   b64ToBytes,
   canonicalJson,
+  estimateEntropyBits,
   normalizePairCode,
   randomId,
   randomPairCode,
@@ -42,6 +45,22 @@ export interface RelayOptions {
   pollIntervalMs?: number;
   accessTtlS?: number;
   refreshTtlS?: number;
+  /** Hardened fetcher for client metadata documents (Node: src/node/safefetch.ts). Default: capped fetchImpl wrapper (no DNS vetting). */
+  cimdFetch?: CimdFetch;
+  /** HTTPS hosts treated as official connector callback hosts on the consent page. Default: claude.ai, claude.com, chatgpt.com (loopback is always recognized). */
+  trustedRedirectHosts?: string[];
+  /** Default true: write-capable scopes (config:write, sessions:control, medication) of a NEW grant stay inactive until the phone approves it. Only applies while a phone is paired. */
+  requirePhoneApprovalForNewGrants?: boolean;
+}
+
+/** Throws when the owner secret is too weak to be a root of trust on a public URL. */
+export function assertOwnerSecretStrength(secret: string) {
+  if (secret.length < 32 || estimateEntropyBits(secret) < MIN_OWNER_SECRET_BITS) {
+    throw new Error(
+      'DAYCUE_OWNER_SECRET is too weak: use at least 32 characters with about ' + MIN_OWNER_SECRET_BITS + ' bits of randomness. ' +
+        'Generate one with: npm run gen-secret',
+    );
+  }
 }
 
 const DAY = 86400_000;
@@ -57,10 +76,22 @@ const TTL_MAX_S: Record<CommandType, number> = { 'config.preview': 3600, 'config
 export function ackMessage(c: { id: string; payloadHash: string }, outcome: string, newVersion: number | undefined, ackedAt: number) {
   return `daycue.ack.v1\n${c.id}\n${c.payloadHash}\n${outcome}\n${newVersion ?? ''}\n${ackedAt}`;
 }
+/** v2 additionally binds a hash of the canonical result (summary, errors, preview) so the relay cannot alter what the phone reported. */
+export function ackMessageV2(c: { id: string; payloadHash: string }, outcome: string, newVersion: number | undefined, ackedAt: number, resultHash: string) {
+  return `daycue.ack.v2\n${c.id}\n${c.payloadHash}\n${outcome}\n${newVersion ?? ''}\n${ackedAt}\n${resultHash}`;
+}
+/** Phone decision on a grant. Signed with the phone key so a stolen phone credential alone cannot approve grants. */
+export function grantDecisionMessage(grantId: string, decision: string, scopes: string[], decidedAt: number) {
+  return `daycue.grant.v1\n${grantId}\n${decision}\n${[...scopes].sort().join(' ')}\n${decidedAt}`;
+}
 export function signalMessage(companionId: string, state: string, observedAt: number, ttlSeconds: number) {
   return `daycue.signal.v1\n${companionId}\n${state}\n${observedAt}\n${ttlSeconds}`;
 }
 
+const AUDIT_MAX = 2000;
+const AUDIT_KEEP = 1500;
+const MAX_PENDING_COMMANDS = 100;
+const MAX_SNAPSHOT_VERSION_JUMP = 10_000;
 const signalKey = (companionId: string) => `latest:${companionId}`;
 const SIGNAL_PREFIX = 'latest:';
 const STATE_RANK: Record<ActivityState, number> = { active: 0, idle: 1, locked: 2, asleep: 3 };
@@ -73,10 +104,15 @@ export class Relay {
   readonly auth: AuthService;
   readonly wakeSender: WakeSender;
   readonly pollIntervalMs: number;
+  readonly limiter: RateLimiter;
   private ownerSecret: string;
+  private ownerGuard: AttemptGuard;
+  private consentGuard: AttemptGuard;
+  private pairGuard: AttemptGuard;
+  private auditCount?: number;
 
   constructor(o: RelayOptions) {
-    if (o.ownerSecret.length < 24) throw new Error('DAYCUE_OWNER_SECRET must be at least 24 characters');
+    assertOwnerSecretStrength(o.ownerSecret);
     this.issuer = o.baseUrl.replace(/\/$/, '');
     this.resource = `${this.issuer}/mcp`;
     this.store = o.store;
@@ -84,6 +120,10 @@ export class Relay {
     this.ownerSecret = o.ownerSecret;
     this.wakeSender = o.wake ?? new NoopWakeSender();
     this.pollIntervalMs = o.pollIntervalMs ?? 500;
+    this.limiter = new RateLimiter(this.clock);
+    this.ownerGuard = new AttemptGuard(this.clock);
+    this.consentGuard = new AttemptGuard(this.clock);
+    this.pairGuard = new AttemptGuard(this.clock);
     this.auth = new AuthService({
       store: o.store,
       clock: this.clock,
@@ -93,6 +133,10 @@ export class Relay {
       fetchImpl: o.fetchImpl ?? fetch,
       accessTtlS: o.accessTtlS ?? 3600,
       refreshTtlS: o.refreshTtlS ?? 30 * 86400,
+      cimdFetch: o.cimdFetch,
+      trustedRedirectHosts: (o.trustedRedirectHosts ?? DEFAULT_TRUSTED_REDIRECT_HOSTS).map((h) => h.toLowerCase()),
+      requirePhoneApproval: o.requirePhoneApprovalForNewGrants ?? true,
+      phonePaired: async () => !!(await this.currentPhone()),
     });
   }
 
@@ -105,37 +149,57 @@ export class Relay {
   async audit(actor: string, action: string, detail: Record<string, unknown> = {}) {
     const key = `${String(this.now).padStart(15, '0')}_${randomId('a')}`;
     await this.store.put('audit', key, { at: this.now, actor, action, detail }, { expiresAt: this.now + RETENTION.auditMs });
+    // Bounded growth: keep at most AUDIT_MAX entries (oldest dropped first).
+    this.auditCount = (this.auditCount ?? (await this.store.list('audit')).length - 1) + 1;
+    if (this.auditCount > AUDIT_MAX) {
+      const all = await this.store.list('audit');
+      for (const x of all.slice(0, all.length - AUDIT_KEEP)) await this.store.delete('audit', x.key);
+      this.auditCount = AUDIT_KEEP;
+    }
   }
 
   async listAudit(limit = 100) {
+    const n = Math.min(Math.max(Math.trunc(Number.isFinite(limit) ? limit : 100), 1), 500);
     const all = await this.store.list<{ at: number; actor: string; action: string; detail: unknown }>('audit');
-    return all.slice(-limit).reverse().map((x) => ({ ...x.value, at: new Date(x.value.at).toISOString() }));
+    return all.slice(-n).reverse().map((x) => ({ ...x.value, at: new Date(x.value.at).toISOString() }));
   }
 
-  private async guard(bucket: string) {
-    const s = await this.store.get<{ fails: number; until: number }>('lock', bucket);
-    if (s && s.until > this.now) throw new RelayError('locked', 'Too many failed attempts. Try again later.', 429);
-  }
-  private async failed(bucket: string) {
-    await this.store.update<{ fails: number; until: number }>('lock', bucket, (c) => {
-      const fails = (c?.fails ?? 0) + 1;
-      return { fails, until: fails >= 5 ? this.now + Math.min(900_000, 30_000 * 2 ** (fails - 5)) : 0 };
-    }, { expiresAt: this.now + 3600_000 });
-  }
-  private async cleared(bucket: string) {
-    await this.store.delete('lock', bucket);
+  /** Audit of failed owner attempts is itself rate limited so unauthenticated callers cannot grow the log. */
+  private async auditAuthFailure() {
+    try {
+      this.limiter.hit('audit:auth_failed', 12, 3600_000);
+    } catch {
+      return;
+    }
+    await this.audit('unknown', 'owner.auth_failed');
   }
 
   // ------------------------------------------------------------------ owner
 
-  async assertOwner(secret: string | undefined): Promise<void> {
-    await this.guard('owner');
+  /**
+   * Checks the owner secret. The attempt is counted BEFORE the comparison (atomic with respect to parallel requests),
+   * per source address, in a bucket separate for the owner API and the consent page. A caller can only lock out its own source.
+   */
+  async assertOwner(secret: string | undefined, source = 'unknown', bucket: 'api' | 'consent' = 'api'): Promise<void> {
+    const guard = bucket === 'consent' ? this.consentGuard : this.ownerGuard;
+    guard.reserve(source);
     if (!secret || !(await secretEquals(secret, this.ownerSecret))) {
-      await this.failed('owner');
-      await this.audit('unknown', 'owner.auth_failed');
+      await this.auditAuthFailure();
       throw new RelayError('unauthorized', 'Invalid owner secret', 401);
     }
-    await this.cleared('owner');
+    guard.release(source);
+  }
+
+  /**
+   * Revocation / kill path: never locked out by failed attempts (so an attacker cannot block it), only rate limited per source.
+   * Safe because the owner secret must carry >= 128 bits of entropy.
+   */
+  async assertOwnerEmergency(secret: string | undefined, source = 'unknown'): Promise<void> {
+    this.limiter.hit(`emergency:${source}`, 30, 60_000);
+    if (!secret || !(await secretEquals(secret, this.ownerSecret))) {
+      await this.auditAuthFailure();
+      throw new RelayError('unauthorized', 'Invalid owner secret', 401);
+    }
   }
 
   async createPairCode(kind: 'phone' | 'companion', issuedBy: string) {
@@ -146,8 +210,8 @@ export class Relay {
     return { code, expiresAt: new Date(expiresAt).toISOString() };
   }
 
-  private async consumePairCode(code: string, kind: 'phone' | 'companion') {
-    await this.guard('pair');
+  private async consumePairCode(code: string, kind: 'phone' | 'companion', source: string) {
+    this.pairGuard.reserve(source);
     let ok = false;
     await this.store.update<{ kind: string }>('pair', await sha256Hex(normalizePairCode(code)), (c) => {
       if (c && c.kind === kind) {
@@ -156,11 +220,8 @@ export class Relay {
       }
       return undefined;
     });
-    if (!ok) {
-      await this.failed('pair');
-      throw new RelayError('invalid_pair_code', 'Pairing code is invalid, expired or already used', 403);
-    }
-    await this.cleared('pair');
+    if (!ok) throw new RelayError('invalid_pair_code', 'Pairing code is invalid, expired or already used', 403);
+    this.pairGuard.release(source);
   }
 
   // ------------------------------------------------------------------ devices
@@ -199,9 +260,9 @@ export class Relay {
     return { ok: true, serverTime: this.now };
   }
 
-  async pairPhone(body: { code: string; publicKey: string; label?: string; fcmToken?: string }) {
+  async pairPhone(body: { code: string; publicKey: string; label?: string; fcmToken?: string }, source = 'unknown') {
     const key = await this.validateKey(body.publicKey);
-    await this.consumePairCode(String(body.code ?? ''), 'phone');
+    await this.consumePairCode(String(body.code ?? ''), 'phone', source);
     const prev = await this.store.get<string>('meta', 'phoneId');
     if (prev) {
       await this.revokeDevice(prev);
@@ -218,13 +279,44 @@ export class Relay {
     return { deviceId: dev.id, token, serverTime: this.now };
   }
 
+  /** The phone revokes itself (unpair): credential and FCM token are dropped and its pending commands expire. */
+  async revokePhoneSelf(phone: Device) {
+    await this.revokeDevice(phone.id);
+    const cur = await this.store.get<string>('meta', 'phoneId');
+    if (cur === phone.id) await this.store.delete('meta', 'phoneId');
+    for (const c of await this.allCommands()) {
+      if (!TERMINAL.includes(c.state) && c.state !== 'expired') {
+        await this.store.update<Command>('command', c.id, (x) => (x ? { ...x, state: 'expired', result: { message: 'Phone was unpaired before this command was handled.' } } : undefined));
+      }
+    }
+    await this.audit(`phone:${phone.id}`, 'phone.self_revoked', { deviceId: phone.id });
+    return { ok: true, serverTime: this.now };
+  }
+
+  /** Signed phone decision on a grant (approve / decline / revoke). */
+  async phoneGrantDecision(phone: Device, grantId: string, body: { decision?: string; approvedScopes?: string[]; decidedAt?: number; signature?: string }) {
+    const decision = body.decision;
+    if (decision !== 'approve' && decision !== 'decline' && decision !== 'revoke') throw new RelayError('invalid_request', 'decision must be approve, decline or revoke', 400);
+    if (!Number.isFinite(body.decidedAt) || Math.abs(this.now - (body.decidedAt as number)) > 10 * 60_000) {
+      throw new RelayError('invalid_request', 'decidedAt must be within 10 minutes of the relay clock', 400);
+    }
+    const scopes = Array.isArray(body.approvedScopes) ? body.approvedScopes.map(String) : [];
+    const msg = grantDecisionMessage(grantId, decision, scopes, body.decidedAt as number);
+    if (typeof body.signature !== 'string' || !(await verifyEcdsaP256(phone.publicKey, msg, body.signature))) {
+      await this.audit('phone', 'grant.bad_signature', { grantId });
+      throw new RelayError('bad_signature', 'Decision signature does not verify against the paired device key', 403);
+    }
+    const r = await this.auth.phoneDecideGrant(grantId, decision, scopes.length ? scopes : undefined);
+    return { ...r, grants: await this.auth.grantsForPhone(), serverTime: this.now };
+  }
+
   async createCompanionCode(phone: Device) {
     return this.createPairCode('companion', `phone:${phone.id}`);
   }
 
-  async pairCompanion(body: { code: string; publicKey: string; label?: string }) {
+  async pairCompanion(body: { code: string; publicKey: string; label?: string }, source = 'unknown') {
     const key = await this.validateKey(body.publicKey);
-    await this.consumePairCode(String(body.code ?? ''), 'companion');
+    await this.consumePairCode(String(body.code ?? ''), 'companion', source);
     const { dev, token } = await this.createDevice('companion', body.label ?? 'companion', key);
     await this.audit('companion', 'companion.paired', { deviceId: dev.id });
     return { deviceId: dev.id, token, serverTime: this.now };
@@ -307,15 +399,21 @@ export class Relay {
       status: body.status && typeof body.status === 'object' ? body.status : {},
     };
     let stale = false;
+    let jump = false;
     await this.store.update<Snapshot>('snapshot', 'latest', (c) => {
       if (c && c.version > snap.version) {
         stale = true;
         return undefined;
       }
+      if (c && snap.version - c.version > MAX_SNAPSHOT_VERSION_JUMP) {
+        jump = true;
+        return undefined;
+      }
       return snap;
     });
     if (stale) throw new RelayError('stale_snapshot', 'A newer snapshot version is already stored', 409);
-    return { ok: true, wants: { medication: wantsMed }, pendingCommands: (await this.pending()).length, serverTime: this.now };
+    if (jump) throw new RelayError('version_jump', `snapshot version may not jump by more than ${MAX_SNAPSHOT_VERSION_JUMP}`, 400);
+    return { ok: true, wants: { medication: wantsMed }, grantsVersion: await this.auth.grantsVersion(), pendingCommands: (await this.pending()).length, serverTime: this.now };
   }
 
   async getSnapshot(): Promise<Snapshot | undefined> {
@@ -364,12 +462,16 @@ export class Relay {
     if (JSON.stringify(input.payload).length > 65_536) throw new RelayError('too_large', 'command payload exceeds 64 KiB', 413);
     const phone = await this.currentPhone();
     if (!phone) throw new RelayError('no_phone_paired', 'No phone is paired with this relay', 409);
+    this.limiter.hit(`enqueue:${g.grantId}`, 120, 3600_000);
 
     const ttl = Math.min(Math.max(input.ttlSeconds ?? TTL_DEFAULT_S[input.type], 30), TTL_MAX_S[input.type]);
     const payloadHash = await sha256Hex(canonicalJson({ type: input.type, payload: input.payload, baseVersion: input.baseVersion ?? null }));
     const id = randomId('cmd');
     const expiresAt = this.now + ttl * 1000;
     const idemKey = await sha256Hex(`${g.clientId}\n${input.idempotencyKey}`);
+    if ((await this.pending()).length >= MAX_PENDING_COMMANDS) {
+      throw new RelayError('too_many_pending', 'Too many commands are waiting for the phone. Try again after it syncs.', 429, undefined, 60);
+    }
     const reserved = await this.store.update<{ id: string; hash: string }>('idem', idemKey, (c) => c ?? { id, hash: payloadHash }, { expiresAt: expiresAt + RETENTION.commandAfterExpiryMs });
     if (reserved && reserved.id !== id) {
       if (reserved.hash !== payloadHash) throw new RelayError('idempotency_conflict', 'This idempotencyKey was already used with different content', 409);
@@ -425,13 +527,13 @@ export class Relay {
         grant: { clientLabel: n.grant.clientLabel, scopes: n.grant.scopes },
       });
     }
-    return { commands: out, wants, serverTime: this.now };
+    return { commands: out, wants, grants: await this.auth.grantsForPhone(), serverTime: this.now };
   }
 
   async ackCommand(
     phone: Device,
     id: string,
-    body: { outcome: AckOutcome; result?: CommandResult; ackedAt: number; payloadHash: string; signature: string },
+    body: { outcome: AckOutcome; result?: CommandResult; ackedAt: number; payloadHash: string; signature: string; signatureVersion?: number },
   ) {
     const cmd = await this.store.get<Command>('command', id);
     if (!cmd) throw new RelayError('not_found', 'Unknown command', 404);
@@ -439,7 +541,10 @@ export class Relay {
     if (!Number.isFinite(body.ackedAt) || body.payloadHash !== cmd.payloadHash || typeof body.signature !== 'string') {
       throw new RelayError('invalid_request', 'ackedAt, payloadHash and signature are required and must match the command', 400);
     }
-    const msg = ackMessage(cmd, body.outcome, body.result?.newVersion, body.ackedAt);
+    const v2 = body.signatureVersion === 2;
+    const msg = v2
+      ? ackMessageV2(cmd, body.outcome, body.result?.newVersion, body.ackedAt, await sha256Hex(canonicalJson(body.result ?? null)))
+      : ackMessage(cmd, body.outcome, body.result?.newVersion, body.ackedAt);
     if (!(await verifyEcdsaP256(phone.publicKey, msg, body.signature))) {
       await this.audit('phone', 'ack.bad_signature', { commandId: id });
       throw new RelayError('bad_signature', 'Ack signature does not verify against the paired device key', 403);
@@ -453,8 +558,9 @@ export class Relay {
         return undefined;
       }
       wasExpired = c.state === 'expired';
+      if (wasExpired && body.outcome === 'awaiting_confirmation') return undefined; // an expired command cannot become pending again
       const state: CommandState = body.outcome;
-      return { ...c, state, ackedAt: this.now, result: sanitizeResult(body.result), lateAck: wasExpired || c.lateAck };
+      return { ...c, state, ackedAt: this.now, result: sanitizeResult(body.result), lateAck: wasExpired || c.lateAck, ackVersion: v2 ? 2 : 1 };
     });
     if (conflict) throw new RelayError('conflict', 'Command already finished with a different outcome', 409);
     await this.audit('phone', `command.${body.outcome}`, { commandId: id, type: cmd.type, newVersion: body.result?.newVersion, late: wasExpired || undefined });

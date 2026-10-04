@@ -1,5 +1,7 @@
 export const SCOPES = ['config:read', 'config:write', 'sessions:control', 'activity:read', 'medication'] as const;
 export type Scope = (typeof SCOPES)[number];
+/** Scopes that stay inactive on a new grant until the phone approves it (requirePhoneApprovalForNewGrants). */
+export const PHONE_GATED_SCOPES: readonly Scope[] = ['config:write', 'sessions:control', 'medication'];
 export const DEFAULT_SCOPES: Scope[] = ['config:read', 'activity:read'];
 
 /** config:write implies config:read. `medication` is independent and never implied. */
@@ -33,7 +35,10 @@ export interface Grantee {
   grantId: string;
   clientId: string;
   clientLabel: string;
+  /** Effective (active) scopes. Gated scopes of a grant that still awaits phone approval are not included. */
   scopes: string[];
+  /** Scopes the owner granted that stay inactive until the phone approves the grant. */
+  pendingScopes?: string[];
 }
 
 export interface CommandResult {
@@ -65,6 +70,8 @@ export interface Command {
   result?: CommandResult;
   /** True if the phone's signed ack arrived after the relay had already marked it expired. */
   lateAck?: boolean;
+  /** 2 when the phone's signature also covered the canonical result (daycue.ack.v2). */
+  ackVersion?: 1 | 2;
   wake?: { requestedAt: number; ok: boolean; detail?: string };
 }
 
@@ -107,6 +114,7 @@ export class RelayError extends Error {
     message: string,
     public status = 400,
     public requiredScopes?: string[],
+    public retryAfterS?: number,
   ) {
     super(message);
   }

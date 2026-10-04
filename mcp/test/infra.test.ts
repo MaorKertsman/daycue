@@ -14,8 +14,11 @@ describe('FileStore durability (Render persistent disk path)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'daycue-'));
     const file = join(dir, 'relay.json');
     const clock = new FakeClock();
+    const stores: FileStore[] = [];
     const mk = () => {
-      const relay = new Relay({ baseUrl: BASE, ownerSecret: OWNER_SECRET, store: new FileStore(file, () => clock.now()), clock, pollIntervalMs: 10 });
+      const store = new FileStore(file, () => clock.now());
+      stores.push(store);
+      const relay = new Relay({ baseUrl: BASE, ownerSecret: OWNER_SECRET, store, clock, pollIntervalMs: 10, requirePhoneApprovalForNewGrants: false });
       const app = createApp(relay);
       const fetchFn = (p: string, i?: RequestInit) => Promise.resolve(app.request(`${BASE}${p}`, i));
       const h: Harness = {
@@ -32,7 +35,8 @@ describe('FileStore durability (Render persistent disk path)', () => {
       const { token } = await h1.relay.auth.createStaticToken('c', ['config:write']);
       const g = await h1.relay.auth.verifyAccess(token);
       const { command } = await h1.relay.enqueue(g, { type: 'config.apply', payload: { ops: [{ type: 'setHabitInterval', id: 'sunscreen', minutes: 60 }] }, baseVersion: 1, idempotencyKey: 'durable-key-1' });
-      // "restart"
+      // "restart": a clean shutdown flushes the coalesced write
+      await stores[0].flush();
       const h2 = mk();
       expect((await h2.relay.auth.verifyAccess(token)).clientLabel).toBe('c'); // grant survived
       expect((await h2.relay.getCommand(command.id))!.state).toBe('queued'); // queue survived

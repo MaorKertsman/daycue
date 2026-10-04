@@ -323,9 +323,11 @@ public sealed class TrayApp : ApplicationContext
     {
         var r = MessageBox.Show(
             "Delete this PC's DayCue key and credentials and stop reporting?\r\n\r\n" +
-            "The relay keeps a record of this device until you remove it there (relay owner API: DELETE /v1/owner/devices/<id>).",
+            "The app also asks the relay to revoke this device's credential (best effort; if the relay is unreachable the credential stays valid " +
+            "until you remove the device there: relay owner API DELETE /v1/owner/devices/<id>).",
             "Unpair DayCue Companion", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
         if (r != DialogResult.OK) return;
+        var revoked = TryRevokeOnRelay();
         _sender?.Dispose();
         _sender = null;
         _http?.Dispose();
@@ -333,6 +335,24 @@ public sealed class TrayApp : ApplicationContext
         _data.DeletePairing();
         _pairing = null;
         RefreshUi();
+        if (!revoked)
+            MessageBox.Show("Unpaired on this PC. The relay could not be reached, so it may still list this device as active. Remove it with the relay owner API (DELETE /v1/owner/devices/<id>) when convenient.",
+                "Unpair DayCue Companion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    /// <summary>Asks the relay to revoke this device's credential before the local secrets are deleted. Bounded to a few seconds; never throws.</summary>
+    private bool TryRevokeOnRelay()
+    {
+        try
+        {
+            var p = _pairing;
+            if (p is null || !Wire.TryNormalizeRelayUrl(p.RelayUrl, out var url)) return true;
+            var token = AppData.Unprotect(p.TokenProtected);
+            using var http = RelayClient.CreateHttpClient(TimeSpan.FromSeconds(5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+            return Task.Run(() => RelayClient.RevokeSelfAsync(http, url, token, cts.Token)).GetAwaiter().GetResult();
+        }
+        catch (Exception e) when (e is CryptographicException or FormatException or InvalidOperationException) { return false; }
     }
 
     // ------------------------------------------------------------------ lifecycle

@@ -45,13 +45,36 @@ export function normalizePairCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-/** Constant-time comparison by comparing digests. */
+/** Constant-time comparison: compares fixed-length SHA-256 digests byte by byte without early exit (length-independent). */
 export async function secretEquals(a: string, b: string): Promise<boolean> {
-  const [ha, hb] = await Promise.all([sha256Hex(a), sha256Hex(b)]);
+  const [da, db] = await Promise.all([crypto.subtle.digest('SHA-256', enc.encode(a)), crypto.subtle.digest('SHA-256', enc.encode(b))]);
+  const x = new Uint8Array(da);
+  const y = new Uint8Array(db);
   let diff = 0;
-  for (let i = 0; i < ha.length; i++) diff |= ha.charCodeAt(i) ^ hb.charCodeAt(i);
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
   return diff === 0;
 }
+
+/**
+ * Estimated entropy in bits: the lower of a character-pool estimate and the Shannon entropy of the
+ * observed character distribution times the length (catches repeats and keyboard runs). Heuristic, conservative.
+ */
+export function estimateEntropyBits(secret: string): number {
+  const chars = [...secret];
+  if (chars.length === 0) return 0;
+  let pool = 0;
+  if (/[a-z]/.test(secret)) pool += 26;
+  if (/[A-Z]/.test(secret)) pool += 26;
+  if (/[0-9]/.test(secret)) pool += 10;
+  if (/[^A-Za-z0-9]/.test(secret)) pool += 32;
+  const counts = new Map<string, number>();
+  for (const c of chars) counts.set(c, (counts.get(c) ?? 0) + 1);
+  let h = 0;
+  for (const n of counts.values()) h -= (n / chars.length) * Math.log2(n / chars.length);
+  return Math.min(chars.length * Math.log2(Math.max(pool, 2)), chars.length * h);
+}
+
+export const MIN_OWNER_SECRET_BITS = 128;
 
 /** Deterministic JSON (sorted keys) used for payload hashing. */
 export function canonicalJson(v: unknown): string {
@@ -108,6 +131,21 @@ export async function verifyEcdsaP256(publicKeySpki: string, message: string, si
   } catch {
     return false;
   }
+}
+
+/** The relay URL carries bearer credentials: refuse plain http unless it points at this machine. */
+export function assertSecureRelayUrl(raw: string): URL {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error('DAYCUE_RELAY_URL is not a valid URL');
+  }
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && loopback)) {
+    throw new Error('DAYCUE_RELAY_URL must be https (plain http is only allowed for localhost); refusing to send credentials in clear text');
+  }
+  return u;
 }
 
 export interface Clock {

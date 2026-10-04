@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BASE, REDIRECT, jsonInit, makeHarness, mcpClient, oauthLogin, ownerAuth, pkce, OWNER_SECRET } from './helpers.js';
+import { BASE, FORM, REDIRECT, jsonInit, makeHarness, mcpClient, oauthLogin, openConsent, ownerAuth, pkce, postDecision, OWNER_SECRET } from './helpers.js';
 
 const INIT = {
   jsonrpc: '2.0', id: 1, method: 'initialize',
@@ -72,11 +72,10 @@ describe('OAuth 2.1 + PKCE happy path', () => {
     expect((await h.fetch(`/authorize?${new URLSearchParams({ ...base, redirect_uri: 'https://evil.example/cb' })}`)).status).toBe(400);
     // wrong resource refused
     expect((await h.fetch(`/authorize?${new URLSearchParams({ ...base, resource: 'https://other.example/mcp' })}`)).status).toBe(400);
-    const page = await (await h.fetch(`/authorize?${new URLSearchParams(base)}`)).text();
-    const txn = /name="txn" value="([^"]+)"/.exec(page)![1];
-    const wrong = await h.fetch('/authorize/decision', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ txn, owner_secret: 'nope', decision: 'approve', scope: 'config:read' }) });
+    const consent = await openConsent(h, base);
+    const wrong = await postDecision(h, consent, { owner_secret: 'nope', decision: 'approve', scope: 'config:read' });
     expect(wrong.status).toBe(401);
-    const dec = await h.fetch('/authorize/decision', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ txn, owner_secret: OWNER_SECRET, decision: 'approve', scope: 'config:read' }) });
+    const dec = await postDecision(h, consent, { owner_secret: OWNER_SECRET, decision: 'approve', scope: 'config:read' });
     const code = new URL(dec.headers.get('location')!).searchParams.get('code')!;
     const tokenReq = (v: string, c = code) => h.json('/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code: c, code_verifier: v, client_id: reg.client_id, redirect_uri: REDIRECT }) });
     const badVerifier = await tokenReq('a'.repeat(43));
@@ -89,9 +88,8 @@ describe('OAuth 2.1 + PKCE happy path', () => {
     const h = makeHarness();
     const reg = (await h.json('/register', jsonInit('POST', { client_name: 'c', redirect_uris: [REDIRECT] }))).body;
     const { challenge } = await pkce();
-    const page = await (await h.fetch(`/authorize?${new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: 'S256' })}`)).text();
-    const txn = /name="txn" value="([^"]+)"/.exec(page)![1];
-    const dec = await h.fetch('/authorize/decision', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ txn, decision: 'deny' }) });
+    const consent = await openConsent(h, { response_type: 'code', client_id: reg.client_id, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: 'S256' });
+    const dec = await postDecision(h, consent, { decision: 'deny' });
     const loc = new URL(dec.headers.get('location')!);
     expect(loc.searchParams.get('error')).toBe('access_denied');
     expect(loc.searchParams.get('iss')).toBe(BASE);

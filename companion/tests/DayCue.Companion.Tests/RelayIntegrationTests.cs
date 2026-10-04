@@ -186,6 +186,33 @@ public class RelayIntegrationTests(RelayFixture relay) : IClassFixture<RelayFixt
     }
 
     [RelayFact]
+    public async Task Unpair_revokes_the_credential_on_the_relay_best_effort()
+    {
+        var (_, co) = await PairEverything();
+        try
+        {
+            var client = new RelayClient(relay.Http, relay.Base, co.Result.Token);
+            var signer = new EcdsaSigner(co.Result.DeviceId, co.Key);
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var ok = await client.PostSignalAsync("active", now, 180, signer.Sign(Wire.SignalMessage(co.Result.DeviceId, "active", now, 180)), CancellationToken.None);
+            Assert.Equal(SendOutcome.Ok, ok.Outcome);
+
+            Assert.True(await RelayClient.RevokeSelfAsync(relay.Http, relay.Base, co.Result.Token, CancellationToken.None));
+            var after = await client.PostSignalAsync("idle", now + 10, 180, signer.Sign(Wire.SignalMessage(co.Result.DeviceId, "idle", now + 10, 180)), CancellationToken.None);
+            Assert.Equal(SendOutcome.Unauthorized, after.Outcome); // the credential is dead on the relay
+            Assert.True(await RelayClient.RevokeSelfAsync(relay.Http, relay.Base, co.Result.Token, CancellationToken.None)); // already revoked is fine
+        }
+        finally { co.Key.Dispose(); KeyVault.Delete(co.KeyName); }
+    }
+
+    [Fact]
+    public async Task Revoke_on_an_unreachable_relay_returns_false_instead_of_throwing()
+    {
+        using var http = RelayClient.CreateHttpClient(TimeSpan.FromSeconds(2));
+        Assert.False(await RelayClient.RevokeSelfAsync(http, new Uri("http://127.0.0.1:1/"), "dcd_token", CancellationToken.None));
+    }
+
+    [RelayFact]
     public async Task Relay_enforces_replay_expiry_and_signature_and_client_maps_them()
     {
         var (_, co) = await PairEverything();
