@@ -36,6 +36,7 @@ data class Reduction(val state: EngineState, val effects: List<Effect>)
 ```
 
 - `Event`: `Tick` (alarm fired), `Ack(habitId)`, `Snooze`, `Pause/Resume`, `SignalObserved`, `ManualOverride`, `ConfigChanged`, `BootCompleted`, `TimeChanged`, `TimezoneChanged`, routine/posture/alarm controls.
+- The lists here are indicative; `docs/PRODUCT.md` is authoritative for behavior. Also required: `LeavingNow`, `CalendarSynced(events)`, and delivery feedback (`SpeechFinished/Failed`) as events; config ops for places, cue profiles, quiet hours/settings, per-event and per-series calendar overrides, and alarms.
 - `Effect`: `ScheduleWake(at, exact)`, `CancelWake`, `Deliver(Cue)`, `DismissCue`, `Speak`, `StartAlarm`, `RecordHistory`.
 - After every reduce the app persists `EngineState` (Room, single transaction) and re-arms **one** next-wake alarm from `state.nextWakeAt`. On process start / boot / time change the app replays `BootCompleted`/`TimeChanged` and the engine recomputes; nothing depends on in-memory timers.
 - Time semantics: interval habits store **UTC instants** (`lastAckAt`, `dueAt`), unaffected by timezone. Fixed-clock schedules (medication, alarms, routines) store **local time + days** and resolve to instants through `Clock.zone()`, with an explicit per-item travel policy (`FollowLocalTime` | `KeepHomeTimezone`).
@@ -71,6 +72,7 @@ relay --(FCM data message = "wake and sync", no payload)--> phone --(HTTPS pull 
 - Commands carry an idempotency key and `baseVersion`; the phone applies each at most once via `command_log`.
 - Wake: FCM high-priority data message when configured (needs the owner's free Firebase project). Without FCM the phone syncs on app open, on session start, and via periodic WorkManager (>= 15 min, not guaranteed) and the MCP tools say so.
 - Medication labels are excluded from the remote snapshot unless the owner enables the `medication` scope.
+- Companion latency: activity signals go stale after ~3 minutes (`docs/PRODUCT.md`). They only arrive in time with FCM wake, or with the opt-in "frequent check" mode (the phone polls the relay every few minutes only while it is at a work/study-enabled place inside permitted hours). With neither, automatic session detection is off and sessions are manual; the app states this on the readiness screen.
 - External text (calendar titles, place names) is returned to MCP clients as clearly delimited data, never interpreted by the phone.
 
 ## 4. Repository layout

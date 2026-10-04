@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" width="720" height="240">
+  <!-- DayCue adaptive icon concept on the 108dp canvas (safe zone = circle r33 at 54,54). Original work. -->
+  <!-- 1: full color (background + foreground) -->
+  <g>
+    <rect width="108" height="108" fill="#F4EFE6"/>
+    <rect x="30" y="44" width="38" height="30" rx="3" transform="rotate(-6 49 59)" fill="#3F5A8A"/>
+    <circle cx="66" cy="44" r="13" fill="#E3A72F"/>
+    <rect x="33" y="75" width="42" height="3" rx="1.5" fill="#1F1D1A"/>
+    <circle cx="54" cy="54" r="33" fill="none" stroke="#C4453A" stroke-width="0.4" stroke-dasharray="2 2"/>
+  </g>
+  <!-- 2: dark launcher background variant -->
+  <g transform="translate(126,0)">
+    <rect width="108" height="108" fill="#191816"/>
+    <rect x="30" y="44" width="38" height="30" rx="3" transform="rotate(-6 49 59)" fill="#5370A3"/>
+    <circle cx="66" cy="44" r="13" fill="#E3A72F"/>
+    <rect x="33" y="75" width="42" height="3" rx="1.5" fill="#EEE7DB"/>
+  </g>
+  <!-- 3: monochrome (themed icon): disc separated from plane by a 2.5dp cut -->
+  <g transform="translate(252,0)">
+    <rect width="108" height="108" fill="#DCD6EA"/>
+    <mask id="cut">
+      <rect width="108" height="108" fill="#fff"/>
+      <circle cx="66" cy="44" r="15.5" fill="#000"/>
+    </mask>
+    <g fill="#2A2640">
+      <g mask="url(#cut)"><rect x="30" y="44" width="38" height="30" rx="3" transform="rotate(-6 49 59)"/></g>
+      <circle cx="66" cy="44" r="13"/>
+      <rect x="33" y="75" width="42" height="3" rx="1.5"/>
+    </g>
+  </g>
+</svg>
