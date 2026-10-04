@@ -53,10 +53,10 @@ Invoke-RestMethod -Uri "http://localhost:8787/v1/owner/audit?limit=50" -Headers 
 
    ```powershell
    npm run build
-   claude mcp add daycue --scope user -e DAYCUE_RELAY_URL=http://localhost:8787 -e DAYCUE_CLIENT_TOKEN=$env:DAYCUE_CLIENT_TOKEN -- node C:\Users\maork\my-stuff\daycue\mcp\dist\stdio.js
+   claude mcp add daycue --scope user -e DAYCUE_RELAY_URL=http://localhost:8787 -e DAYCUE_CLIENT_TOKEN=$env:DAYCUE_CLIENT_TOKEN -- node <repo>\mcp\dist\stdio.js
    ```
 
-   or, without building, `-- node C:\Users\maork\my-stuff\daycue\mcp\node_modules\tsx\dist\cli.mjs C:\Users\maork\my-stuff\daycue\mcp\src\stdio.ts`.
+   or, without building, `-- node <repo>\mcp\node_modules\tsx\dist\cli.mjs <repo>\mcp\src\stdio.ts`.
    (Passing the token with `-e` stores it in Claude Code's config on your machine. To avoid that, use a `.mcp.json` outside the repo or inside it with `"env": {"DAYCUE_CLIENT_TOKEN": "${DAYCUE_CLIENT_TOKEN}"}`; never commit a literal token.)
 
 4. In Claude Code run `/mcp`; `daycue` should list tools matching the token's scopes. The automated test `mcp/test/stdio.test.ts` starts this exact process and lists tools via the MCP SDK client.
