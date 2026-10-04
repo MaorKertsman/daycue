@@ -248,6 +248,7 @@ export function createApp(relay: Relay): Hono {
   // ------------------------------------------------------------ companion
   app.post('/v1/pair/companion', async (c) => c.json(await relay.pairCompanion(await json(c)), 201));
   app.post('/v1/companion/signal', async (c) => c.json(await relay.postSignal(await companion(c), await json(c))));
+  app.delete('/v1/companion/self', async (c) => c.json(await relay.revokeCompanionSelf(await companion(c))));
 
   // ------------------------------------------------------------ client ops (used by the stdio server)
   app.post('/v1/client/:op', async (c) => {

@@ -95,6 +95,7 @@ Why ECDSA P-256 and not Ed25519: Android Keystore supports P-256 on all API leve
 1. App calls `POST /v1/phone/companion-codes` (device auth) -> `{code, expiresAt}`; user types it into the companion.
 2. Companion generates an ECDSA P-256 key (e.g. `ECDsa.Create(ECCurve.NamedCurves.nistP256)`, `ExportSubjectPublicKeyInfo()`), calls `POST /v1/pair/companion {code, publicKey, label}` -> `201 {deviceId, token, serverTime}`; credential `dcd_...`.
 3. The companion can post only activity signals. Its credential cannot read anything.
+4. Uninstalling or unpairing: the companion calls `DELETE /v1/companion/self` with its own credential (`200 {ok, serverTime}`). The relay revokes that companion (its device record keeps id, label and public key, and loses the credential hash), deletes its signal slot and audits `companion.self_revoked`; the credential then gets `401`. Other companions are unaffected. A phone credential or the owner secret cannot call it (`401`); the owner can still revoke any device with `DELETE /v1/owner/devices/:id`.
 
 ## 4. Wire protocol
 
@@ -126,7 +127,7 @@ All bodies JSON, `Content-Type: application/json`, times are epoch milliseconds 
 
 ```json
 { "commands": [{
-    "id": "cmd_...", "type": "config.apply", "payload": { "ops": [ { "type": "SetHabitInterval", "habitId": "..." } ] },
+    "id": "cmd_...", "type": "config.apply", "payload": { "ops": [ {"type":"setHabitInterval","id":"...","minutes":90} ] },
     "baseVersion": 41, "idempotencyKey": "...", "payloadHash": "9f2c...", "createdAt": 1791114000000, "expiresAt": 1791135600000,
     "grant": { "clientLabel": "Claude", "scopes": ["config:read", "config:write"] }
   }],
@@ -144,7 +145,7 @@ Rules for the phone:
 
 - **Expiry**: never apply a command whose `expiresAt` has passed on the phone's clock.
 - **Sensitivity**: the relay passes the grant's `scopes`. The phone decides sensitivity via `preview().sensitivity`. `sensitive`/`destructive` changes (medication schedule edits and deletions, deletions generally) must show an on-phone confirmation unless the owner has explicitly granted otherwise; ack `awaiting_confirmation` immediately, then a second ack (`applied`/`rejected`) after the owner decides. Changes touching medication also require the `medication` scope in `grant.scopes`, else `rejected` with an error code (the relay cannot know).
-- `ops` JSON is the `ConfigOp` shape from `docs/architecture/DOMAIN.md` (not yet available when this was written; the relay treats ops as opaque objects that each have a string `type`). **`update_calendar_rules` uses provisional op names** (`SetCalendarRule`, `DeleteCalendarRule`, `ReorderCalendarRules`) in `src/tools.ts` `CALENDAR_OP`; align that constant with the domain module.
+- `ops` JSON is the `ConfigOp` shape from `android/domain/.../edit/ConfigOp.kt` (`docs/architecture/DOMAIN.md`): camelCase `type` discriminator (`setHabitInterval`, `upsertCalendarRule`, ...) plus that op's fields, encoded with `DayCueJson`. The relay treats ops as opaque objects that each have a string `type`. `update_calendar_rules` emits the real op names `upsertCalendarRule {rule, index?}`, `deleteCalendarRule {id}` and `reorderCalendarRules {ruleIds}` (`CALENDAR_OP` in `src/tools.ts`); the tool descriptions of `propose_change`/`apply_change` carry checked JSON examples (`OP_EXAMPLES`, verified by a test against the op names in `ConfigOp.kt`).
 - Pull on: app open, FCM wake, WorkManager periodic sync, session start. Ack immediately after applying (retry acks on network failure; acks are idempotent).
 
 ### 4.3 Ack (phone -> relay)
@@ -179,7 +180,17 @@ A signed ack that arrives after the relay marked the command `expired` is accept
 |---|---|
 | `PUT /v1/phone/push {fcmToken?: string\|null, wakeOnActivity?: boolean}` | Register/clear the FCM registration token; opt in to wake on companion state change |
 | `POST /v1/phone/companion-codes` | Mint a companion pairing code |
-| `GET /v1/phone/activity` | `{signal, companions: [{id, label, publicKey}], serverTime}`: the latest raw signed signal and the companion public keys, so **the phone verifies companion signatures itself** instead of trusting the relay. Used by the opt-in "frequent check" mode |
+| `GET /v1/phone/activity` | The latest signed signal **per companion** plus the companion public keys, so **the phone verifies companion signatures itself** instead of trusting the relay (signature over the message in 4.5, using `signals[].signature`). Used by the opt-in "frequent check" mode. Response below |
+| `DELETE /v1/companion/self` | Companion credential only (see 3.4): the companion revokes itself |
+
+```json
+{ "signals": [{ "companionId": "co_...", "state": "active", "observedAt": 1791114000000, "ttlSeconds": 180, "signature": "<base64url>", "receivedAt": 1791114000500 }],
+  "companions": [{ "id": "co_...", "label": "pc", "publicKey": "<base64 SPKI>" }],
+  "signal": { "companionId": "co_...", "state": "active", "observedAt": 1791114000000, "ttlSeconds": 180, "sig": "<base64url>", "receivedAt": 1791114000500 },
+  "serverTime": 1791114001000 }
+```
+
+`signals` has one entry per non-revoked companion that has a stored signal (most recent `observedAt` first; `[]` if none). `signal` is the legacy single-signal field, kept for backward compatibility: the most recent signal by `observedAt` in the old shape (`sig` instead of `signature`), or `null`. New clients should read `signals`. The relay does not filter by freshness here; the phone applies `observedAt + ttlSeconds` itself.
 
 ### 4.5 Companion signal
 
@@ -199,7 +210,9 @@ daycue.signal.v1
 <ttlSeconds>
 ```
 
-Send on every state change and a heartbeat at about one third of the TTL while the state holds. The relay keeps only the latest signal plus a transition log (max 100 entries, 24 h). Reads past `observedAt + ttl` report `unknown`, never the stale state.
+Send on every state change and a heartbeat at about one third of the TTL while the state holds. The relay keeps the latest signal **per companion** (store collection `signal`, key `latest:<companionId>`, so replay protection is per companion) plus a shared transition log (`signal/log`, entries `{state, at, companionId}`, max 100 entries, 24 h). A signal that differs from that companion's previous one, or follows an expired one, is a transition. Reads past `observedAt + ttl` report `unknown`, never the stale state.
+
+MCP `get_activity_summary` reports each companion's freshness (`companions: [{companionId, label, state, fresh, observedAt, expiresAt, ttlSeconds}]`) and an overall `state` combined from the **fresh** signals only: any `active` -> `active`, else any `idle` -> `idle`, else any `locked` -> `locked`, else `asleep`; no fresh signal -> `unknown`.
 
 ## 5. Command state machine
 
@@ -212,6 +225,7 @@ Send on every state change and a heartbeat at about one third of the TTL while t
                    expired <---------------------- expired  awaiting_confirmation --+ (second signed ack)
 ```
 
+- States: `queued`, `delivered`, `awaiting_confirmation`, `applied`, `rejected`, `failed`, `expired`. `awaiting_confirmation` is not terminal: it can still end `applied`/`rejected` by a second signed ack, or `expired` if `expiresAt` passes first.
 - `queued`: stored, phone has not fetched. `delivered`: phone fetched, no result yet (may or may not have applied). `awaiting_confirmation`: waiting for on-device owner confirmation. Terminal: `applied`, `rejected`, `failed`, `expired`.
 - Expiry is evaluated lazily on every read (and by the purge job); default TTL: apply/undo 6 h, session control and preview 10 min; bounds 30 s .. 7 d (apply/undo) or 1 h (session/preview).
 - **Idempotency**: key scope is `(client, idempotencyKey)`; same key + same content returns the original command (`deduplicated: true`); same key + different content is `409 idempotency_conflict`. Applied-once on the phone is enforced by the phone's `command_log` keyed by command id; the relay re-delivers until acked, so the phone must dedupe.
@@ -256,11 +270,11 @@ A relay on a public URL is required for Claude.ai and ChatGPT (their servers con
 | Data | Contents | Retention |
 |---|---|---|
 | Pairing codes | SHA-256 of code, kind | 10 min, deleted on use |
-| Devices | id, label, public key, last seen, FCM token, hash of device credential | until revoked or re-paired (a revoked record keeps id, label and public key, with the FCM token and credential hash removed) |
+| Devices | id, label, public key, last seen, FCM token, hash of device credential | until revoked or re-paired (a revoked record keeps id, label and public key, with the FCM token and credential hash removed; this applies to owner revocation and to companion self-revoke) |
 | Config snapshot | redacted config + status (+ medication only with scope) | latest only, overwritten |
 | Commands | type, ops payload, result, grant label/scopes, state | until `expiresAt` + 14 days, then purged |
 | Idempotency index | hash of (client, key) -> command id | same as command |
-| Activity | latest signal + transition log (state + time) | 24 h, max 100 entries |
+| Activity | latest signal per companion + transition log (state, time, companion id) | 24 h, max 100 log entries; a companion's slot is deleted when it is revoked |
 | Grants | client id/label, scopes, last used | until revoked (revoked grants remain as records) |
 | Access/refresh tokens | SHA-256 hashes | 1 h / 30 days |
 | OAuth codes, pending authorizations, CIMD cache | hashed codes / request data | 60 s / 10 min / 1 h |
@@ -286,7 +300,7 @@ Not stored: raw tokens/secrets, calendar contents, coordinates, history. The rel
 
 | Item | Level |
 |---|---|
-| Pairing, OAuth (DCR + CIMD with fake fetch), audience/expiry/revocation, scopes, idempotency, offline pending, expiry, late ack, undo, sensitive confirmation flow, medication exclusion, untrusted marking, companion expiry/replay/forgery, FileStore restart survival, stdio server as a real child process, FCM request shape | **Unit/integration** (`mcp`: `npm test`, 47 tests, fake phone/companion) |
+| Pairing, OAuth (DCR + CIMD with fake fetch), audience/expiry/revocation, scopes, idempotency, offline pending, expiry, late ack, undo, sensitive confirmation flow, medication exclusion, untrusted marking, companion expiry/replay/forgery, several companions (per-companion replay, combined state), companion self-revoke, op-name/example checks against `ConfigOp.kt`, FileStore restart survival, stdio server as a real child process, FCM request shape | **Unit/integration** (`mcp`: `npm test`, 60 tests, fake phone/companion) |
 | Built server (`npm run build`, `node dist/node/server.js`): health, 401 challenge, PRM | Smoke-tested locally with curl |
 | Real Claude.ai / ChatGPT / Claude Code connection | **Unverified** (needs a public HTTPS URL and the owner's accounts) |
 | Render deployment, `render.yaml` validity | **Unverified** (keys checked against Render's blueprint spec page; plan name `starter` may need adjusting) |

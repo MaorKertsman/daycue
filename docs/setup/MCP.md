@@ -107,3 +107,42 @@ Per <https://developers.openai.com/api/docs/guides/developer-mode>: enable Devel
 | ChatGPT developer mode | plan-dependent | OpenAI docs above |
 
 The relay itself needs no paid API (no LLM calls); the only recurring cost is Render hosting.
+
+## 8. Phone sync triggers, frequent check and battery (phone side)
+
+Status: unit/emulator tested against the local relay; **not run on a physical phone**. API for the UI: `docs/architecture/APP_API.md` section 10.
+
+Pairing in the app: relay URL + the 10-minute code from `POST /v1/owner/pair-codes`. The app creates a non-exportable ECDSA P-256 key in the Android Keystore, registers its public key, and stores the device credential AES-GCM encrypted with a Keystore key. Release builds accept `https://` relays only; debug builds also accept `http://localhost` and `http://10.0.2.2` (debug network security config; on the emulator `adb reverse tcp:<port> tcp:<port>` plus `http://localhost:<port>` worked, `10.0.2.2` timed out here because of the host firewall).
+
+When the phone talks to the relay:
+
+| Trigger | Latency | Notes |
+|---|---|---|
+| App open / foreground | immediate | |
+| After a local or remote config change (debounced 1.5 s) | seconds | republishes the redacted snapshot |
+| WorkManager periodic | **at least 15 minutes, not guaranteed** | Doze, standby buckets and battery saver can delay it much longer |
+| FCM wake (optional, below) | seconds when warm, best effort | needs the owner's Firebase project |
+| **Frequent check** (opt-in, off by default) | every 3 to 30 minutes (default 5) | inexact `setAndAllowWhileIdle` alarm chain, only while the engine says the phone is at a saved place with auto/suggested sessions or allowed activities, on a permitted day, inside the session permitted hours, with "use companion activity" on. In Doze the OS may stretch each tick to 9+ minutes. **Battery:** one short wakeup plus an HTTPS round trip per tick (a cold relay can hold the connection up to ~100 s); with a free-tier relay that sleeps, each tick may wait about a minute. It stops by itself outside the conditions. |
+
+Companion activity: during a sync the phone fetches `GET /v1/phone/activity`, verifies each signal's ECDSA signature with the companion public key the relay lists (DER and raw r||s both accepted), and feeds the engine a `CompanionActivity` whose expiry is `observedAt + ttlSeconds` (3 minutes for active/idle/locked, 10 minutes for asleep). Stale signals are never fed (state unknown). A TTL of 30 s or less is the companion's "paused" marker (10 s): it is fed with its short expiry so the state lapses within seconds; if the marker is already expired when the phone looks, nothing is fed and the engine's earlier fresh signal runs out on its own TTL (the domain cannot retract a signal; limitation). Several companions combine like the relay does (any active, else idle, locked, asleep). Without FCM wake or frequent check, signals older than ~3 minutes are stale by the time the phone looks, so automatic work sessions mostly do not start: sessions stay manual (`docs/PRODUCT.md` WRK-8).
+
+Local controls (kill switch, change policy, medication allowance) are phone-only; see APP_API.md section 10.
+
+## 9. Phone push wake (optional)
+
+Without this the app builds and runs normally (`PushProvider` defaults to a no-op, nothing about Firebase is in the build). FCM only wakes the phone to sync; the data message carries no config (`{type: "sync"}`, RELAY.md section 6). **Not verified end to end** (needs your Firebase project and a device): the template compiles against `firebase-messaging:25.1.3` (checked in a scratch copy of the project), nothing else is tested.
+
+What you do (Firebase accounts are free; I did not verify Firebase pricing, see <https://firebase.google.com/pricing>):
+
+1. Firebase console: create a project (no Google Analytics needed), then Add app > Android, package name **`app.daycue`** (debug and release use the same package). Download `google-services.json` and place it at `android/app/google-services.json` (git-ignored by the root `.gitignore`; never commit it).
+2. In the same project, Project settings > Service accounts > Generate new private key (a JSON file). Paste its **whole content as one line** into the relay environment variable `FCM_SERVICE_ACCOUNT_JSON` (Render dashboard or local shell; see section 4). Never commit it.
+3. Android Gradle changes (three small edits; versions current on 2026-10-04):
+   - `android/build.gradle.kts` (root), in the `plugins { }` block: `id("com.google.gms.google-services") version "4.5.0" apply false`
+   - `android/app/build.gradle.kts`, in `plugins { }`: `id("com.google.gms.google-services")`
+   - `android/app/build.gradle.kts`, in `dependencies { }`: `implementation("com.google.firebase:firebase-messaging:25.1.3")`
+   - Not tested: the google-services Gradle plugin 4.5.0 together with AGP 9.4.1 (only the `firebase-messaging` dependency and the template were compiled). If the plugin fails, check the plugin's release notes for an AGP 9 compatible version.
+4. Copy `android/app/fcm-template/FirebasePushProvider.kt` to `android/app/src/main/kotlin/app/daycue/integrations/relay/FirebasePushProvider.kt`, and paste the `<service>` from `android/app/fcm-template/manifest-snippet.xml` into `<application>` of `android/app/src/main/AndroidManifest.xml`. `RelayService` finds the class by name and registers the token with `PUT /v1/phone/push`.
+5. Build, install, pair, and switch on "Push wake" (`facade.remote.setPushWake(true)`). Then `GET /v1/owner/devices` shows `push: true`.
+6. To test: queue a change from any MCP client and watch whether it applies within seconds with the app closed. High-priority FCM messages can be downgraded if they never produce a visible notification; the phone therefore posts a low-priority "DayCue applied a change from ..." notice after an applied remote change.
+
+Remove the steps (or the file) and the app goes back to periodic sync only.

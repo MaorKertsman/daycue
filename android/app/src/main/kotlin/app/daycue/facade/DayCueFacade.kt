@@ -54,6 +54,22 @@ class DayCueFacade(private val c: AppContainer) {
 
     init { c.scope.launch { c.host.ensureLoaded() } }
 
+    /** Remote access / MCP relay: pairing, kill switch, local scopes, on-phone confirmations (APP_API.md section 10). */
+    val remote: RelayFacade get() = c.remote
+
+    /**
+     * Spotify alarm source for the ringing alarm: `Connecting`, `Playing` (confirmed from player state, tone silent) or
+     * `FellBack(failure, recovery)` (tone ringing; show the reason and a button for `recovery`). APP_API.md section 11.
+     */
+    val alarmMusic: StateFlow<app.daycue.integrations.spotify.AlarmMusicState> get() = c.spotify.alarmMusic
+
+    /** The system intent for a recovery action (install Spotify, open it, network settings), or null. */
+    fun alarmMusicRecoveryIntent(action: app.daycue.integrations.spotify.RecoveryAction): Intent? =
+        app.daycue.integrations.spotify.SpotifyIntegration.recoveryIntent(c.app, action)
+
+    /** "Try again" / "Authorize" from the alarm screen (visible, so the Spotify auth view may be shown when [interactive]). */
+    fun retryAlarmMusic(interactive: Boolean = false) = c.spotify.player.retry(interactive)
+
     // ---- Observation -------------------------------------------------------------------------
 
     /** Current config + engine state (null until the first load finishes, normally a few ms). */
@@ -179,6 +195,20 @@ class DayCueFacade(private val c: AppContainer) {
     fun speechRate(): Float = c.speechPrefs.rate()
     fun setVoice(language: Language, voiceName: String?) = c.speechPrefs.setVoice(language, voiceName)
     fun voice(language: Language): String? = c.speechPrefs.voice(language)
+
+    // ---- Context producers: places, location/motion permissions, calendar (APP_API.md §10-§12) ----
+
+    /** Saved places CRUD, "Use current location", progressive location permission flow. */
+    val places: PlacesFacade by lazy { PlacesFacade(c, this) }
+
+    /** Device calendars (Calendar Provider, read-only): selection, preview with "why matched", one-tap overrides. */
+    val calendar: CalendarFacade by lazy { CalendarFacade(c, this) }
+
+    private val _contextReadiness = MutableStateFlow<ContextReadinessReport?>(null)
+    val contextReadiness: StateFlow<ContextReadinessReport?> = _contextReadiness.asStateFlow()
+
+    /** Rows for location / background location / activity recognition / calendar (call from onResume with [refreshReadiness]). */
+    suspend fun refreshContextReadiness(): ContextReadinessReport = ContextReadinessCheck.check(c).also { _contextReadiness.value = it }
 
     private fun ticker(ms: Long): Flow<Unit> = flow { while (true) { emit(Unit); delay(ms) } }
 }

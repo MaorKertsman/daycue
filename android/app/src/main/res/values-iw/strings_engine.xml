@@ -178,4 +178,50 @@
     <string name="dc_routine_playback_body">שלב {index} מתוך {count}: {step}</string>
     <string name="dc_routine_playback_body_alt">מתחילים…</string>
     <string name="dc_routine_playback_paused">מושהה בשלב: {step}</string>
+
+    <!-- גישה מרחוק (relay): בקשות אישור. -->
+    <string name="dc_remote_confirm_title">אישור שינוי מרחוק</string>
+    <string name="dc_remote_confirm_title_routine">להתחיל שגרה?</string>
+    <string name="dc_remote_confirm_body">%s ביקש/ה מ-DayCue לשנות משהו. שום דבר לא קורה עד שתחליטו.</string>
+    <string name="dc_remote_decline">דחייה</string>
+    <string name="dc_remote_applied_title">DayCue יישמה שינוי מ-%s</string>
+    <!-- שעון מעורר עם Spotify: למה מתנגן צליל מקומי. -->
+    <string name="dc_spotify_fail_not_installed">Spotify לא מותקנת, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_not_authorized">Spotify לא מחוברת או לא מאושרת עבור DayCue, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_no_network">אין חיבור לרשת, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_no_device">לא ניתן היה להגיע ל-Spotify בטלפון הזה, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_account">Spotify סירבה לנגן עבור החשבון (ייתכן שנדרש Premium), לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_timeout">Spotify לא התחילה לנגן בזמן, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_sdk_missing">הגרסה הזו לא כוללת תמיכה ב-Spotify, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_fail_unknown">ההשמעה מ-Spotify נכשלה, לכן מתנגן צליל השעון המעורר.</string>
+    <string name="dc_spotify_stopped">Spotify הפסיקה לנגן, לכן צליל השעון המעורר חזר.</string>
+
+    <!-- Calendar: fallback kind "event" -->
+    <string name="dc_cue_calendar_title_event">אירוע בעוד {minutes} דק׳</string>
+    <string name="dc_cue_calendar_generic_title_event">אירוע בעוד {minutes} דק׳</string>
+    <string name="dc_speech_calendar_generic_event">יש לך אירוע בעוד {minutes} דקות</string>
+
+    <!-- Calendar preview "why matched" (CAL-1) -->
+    <string name="dc_calmatch_canceled">בוטל, לכן אין תזכורת</string>
+    <string name="dc_calmatch_declined">דחית את ההזמנה, לכן אין תזכורת</string>
+    <string name="dc_calmatch_tentative_excluded">אירועים לא סופיים מוחרגים</string>
+    <string name="dc_calmatch_all_day">אירועים של יום שלם לא מקבלים תזכורת</string>
+    <string name="dc_calmatch_override_always_instance">תמיד לאירוע הזה</string>
+    <string name="dc_calmatch_override_always_series">תמיד לסדרה הזו</string>
+    <string name="dc_calmatch_override_never_instance">אף פעם לאירוע הזה</string>
+    <string name="dc_calmatch_override_never_series">אף פעם לסדרה הזו</string>
+    <string name="dc_calmatch_calendar_always">כל אירוע ביומן הזה מקבל תזכורת</string>
+    <string name="dc_calmatch_calendar_never">אף פעם ליומן הזה</string>
+    <string name="dc_calmatch_has_own_reminders">יש לו תזכורת משלו, לכן אין תזכורת נוספת</string>
+    <string name="dc_calmatch_rule_match">תאם לכלל „{rule}” ({matched})</string>
+    <string name="dc_calmatch_rule_match_alt">תאם לכלל</string>
+    <string name="dc_calmatch_rule_no_cue">הכלל „{rule}” קובע שאין תזכורת</string>
+    <string name="dc_calmatch_rule_no_cue_alt">כלל קובע שאין תזכורת</string>
+    <string name="dc_calmatch_default">אף כלל לא תאם, לכן אין תזכורת</string>
+    <string name="dc_calmatch_default_cue">אף כלל לא תאם; תזכורת ברירת מחדל</string>
+    <string name="dc_calmatch_cond_attendees">משתתפים נוספים</string>
+    <string name="dc_calmatch_cond_conferencing">קישור לשיחת וידאו</string>
+    <string name="dc_calmatch_cond_keyword">מילת מפתח</string>
+    <string name="dc_calmatch_cond_color">צבע</string>
+    <string name="dc_calmatch_cond_availability">זמינות</string>
 </resources>

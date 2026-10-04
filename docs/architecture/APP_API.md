@@ -152,6 +152,76 @@ JSON uses the domain discriminator `type`, e.g. `{"type":"habitAck","habitId":"d
   document (new items are appended).
 - Routine step cues show in the playback FGS notification (one notification). The notification itself alerts via
   the `routine` channel; speech plays in-process.
-- Spotify: `AlarmMusicPlayer` seam with a no-op implementation; the local tone always rings.
+- Spotify: implemented behind `AlarmMusicPlayer` (section 11) but **unverified on a live account**, and Spotify's
+  Developer Policy prohibits alarm functionality without written approval (docs/setup/SPOTIFY.md). Off unless the
+  App Remote AAR is added locally; the local tone always rings first. Relay and companion producers: section 10.
 - Calendar, geofence, companion and relay producers are not implemented (tables `signal`, `calendar_event_cache`,
   `command_log` exist; `SignalObserved` rows are stored).
+
+## 10. Remote access (relay) — `facade.remote`
+
+Owner: integrations engineer. Code: `integrations/relay/**`, `facade/RelayFacade.kt`. Protocol: `docs/architecture/RELAY.md`;
+setup: `docs/setup/MCP.md`. Labels: **unit** = JVM test, **emu** = instrumented on an emulator, **unverified** = not run.
+Everything is optional: with no relay paired nothing here runs and no network call is made.
+
+```kotlin
+val remote: RelayFacade = facade.remote
+```
+
+| Member | Notes |
+|---|---|
+| `paired: StateFlow<Boolean>`, `relayHost(): String?` | Host name only; the credential never leaves encrypted storage. |
+| `parsePairing(text)` | Accepts `https://relay`, `daycue://pair?relay=<url>&code=ABCDE-FGHJK`, or a bare code. No QR scanner is built in (the UI can scan and pass the text). |
+| `pair(relayUrl, code, deviceLabel)` -> `PairResult` | `Ok`, `InvalidUrl`, `CleartextNotAllowed` (http only in debuggable builds), `Rejected(code, message)` (e.g. `invalid_pair_code`, `locked`), `Offline`. Generates a non-exportable ECDSA P-256 Keystore key (StrongBox if present), registers it, stores the credential AES-GCM encrypted. Allow up to ~100 s on a cold relay. |
+| `unpair()` | Stops all triggers, deletes the key and credential. The relay keeps the device record until the owner revokes it. |
+| `setEnabled(Boolean)` | Kill switch ("Disable remote access"): off = nothing is pulled, applied, published or polled; periodic work and alarms are cancelled. Credentials stay so it can be re-enabled. |
+| `settings: StateFlow<RelaySettings>` + setters | `setConfigPolicy(Auto \| AlwaysConfirm \| Deny)` (Auto: ordinary changes apply, sensitive/destructive always ask), `setSessionPolicy(Allow \| Deny)`, `setAllowMedication`, `setUseCompanionActivity`, `setFrequentCheck(enabled, minutes)`, `setPushWake` + `pushAvailable`. Held on the phone only. |
+| `status: StateFlow<RelayStatus>` | `paired`, `lastSyncAtMs`, `lastResult` (`Ok / Disabled / NotPaired / Offline / Unauthorized / Failed`), `lastError`, `lastPublishedVersion`, `companion` (e.g. `active (fresh)`, `unknown (stale)`, `ignored: bad signature`). `Unauthorized` = the relay revoked this phone: show "re-pair". |
+| `syncNow()`, `syncNowAwait()` | Pull + apply + ack + publish + companion check. |
+| `pending: StateFlow<List<PendingRemote>>` | Remote commands waiting for the owner: `commandId`, `clientLabel` (untrusted text), `kind` (`ConfigChange`, `Undo`, `RoutineStart`), `sensitivity`, `lines` (unredacted diff lines, owner is the audience), `expiresAtMs`, `needsVisibleStart`, `routineId`. |
+| `confirm(activityContext, commandId)` / `decline(commandId)` -> `DecisionResult` | Call `confirm` from a visible Activity: a routine start begins playback through `RoutinePlaybackService` (Android 17 needs a user action for audio). `Failed` = could not start from this screen; the command stays pending. A change that became stale (version moved on) is rejected with a conflict and reported to the relay. |
+| `createCompanionCode()` | 10-minute code for pairing the Windows companion. |
+| `facade.audit(limit)` | Every remote command has `remote.<type>.<outcome>` rows with actor `mcp:<client label>` (plus the engine's own `config.apply` row for applied changes). |
+
+**UI needs (UI engineer):** (1) a Remote access settings screen over the members above; (2) a confirmation screen showing
+`pending` (diff lines, who asked, sensitivity, expiry) with Approve / Decline; notification taps open
+`daycue://open/remote?item=<commandId>` (target `remote`, not yet routed in `DeepLinks.targetFor`; the UI should handle the
+target in `MainActivity`); (3) strings: `dc_remote_*` exist in `strings_engine.xml` (en + iw) for the notifications only.
+
+Behavior facts (all **unit** unless noted): command ids are applied at most once (`command_log` row written before any
+effect, redelivery is ignored, an interrupted command is acked `failed`); expired commands (phone clock) are rejected, never
+applied; `baseVersion` mismatch is `rejected` with `conflict.currentVersion`; sensitivity comes from the domain `preview`
+(`destructive`/`sensitive` always wait for the owner; medication edits additionally need the grant's `medication` scope and
+the local `allowMedication`); undo is only valid while `targetVersion` is the current version and the previous document is the
+one before it; acks are signed exactly as RELAY.md section 4.3 and an unsent ack is retried at the next sync; the snapshot is
+republished after every applied change (local or remote) and on app start; coordinates, medication (unless the relay wants it
+**and** the owner allows it) and sensitive audit summaries are redacted on the phone. Session control: `work_session` `start`/`stop`
+map to `StartSession`/`EndSession`; `pause`/`resume` are **rejected** (sessions pause from companion activity only); routine
+`pause`/`resume`/`stop` map to `RoutineControl`; routine `start` is always `awaiting_confirmation` (needs a visible tap).
+Signature/format interop with the real relay: **emu** (Keystore DER signatures verified by the relay) and **unit** (real relay
+child process with a software key). Real FCM, real Windows companion signals, real phone hardware, Render: **unverified**.
+
+Triggers: app open, after every config change (debounced 1.5 s), WorkManager periodic (15 min minimum, best effort), opt-in
+frequent check (inexact alarm chain every 3-30 min only at a work/study place inside permitted hours and days; Doze can
+stretch it to 9+ minutes), FCM wake via `PushProvider` (no-op by default; `fcm-template/`).
+
+## 11. Alarm music (Spotify) — `facade.alarmMusic`
+
+Code: `integrations/spotify/**`; the ringing service calls `AlarmMusicPlayer.startAsync` (added to the existing interface;
+the synchronous `start` path is unchanged). Contract: the **local tone rings from the first moment** and is silenced only
+after `SpotifyPlayback` confirmed playback from player state (requested URI as track or context, not paused, position
+advancing between two samples). If playback fails or stops later the tone is (back) on at full volume and the engine gets
+`AlarmControl(SpotifyFellBack)`.
+
+| Member | Notes |
+|---|---|
+| `alarmMusic: StateFlow<AlarmMusicState>` | `Idle`, `Connecting`, `Playing`, `FellBack(failure, recovery, stoppedAfterPlaying)`. |
+| `SpotifyFailure` | `NotInstalled`, `NotAuthorized` (not signed in / not authorized / expired), `NoNetwork`, `RemoteUnavailable` (connect failed or dropped: Spotify not running or not startable from the background), `AccountRestriction`, `Timeout` (default 10 s = `MorningAlarm.spotifyStartTimeoutSec`), `SdkNotBundled`, `Unknown`. Strings `dc_spotify_fail_*` / `dc_spotify_stopped` (en + iw). |
+| `RecoveryAction` | `InstallSpotify`, `AuthorizeSpotify`, `CheckNetwork`, `OpenSpotify`, `CheckAccount`, `Retry`, `None`. |
+| `alarmMusicRecoveryIntent(action)` | System intent to start from the alarm screen (Play Store page, Spotify launch, network settings). |
+| `retryAlarmMusic(interactive)` | "Try again" / "Authorize" from the visible alarm screen; `interactive = true` lets the SDK show its auth view. |
+
+Verification: failure reasons, confirmation rule, watcher and fallback callbacks **unit** (fake remote); the AAR-based adapter
+compiles (**build**); live playback, locked/sleeping phone, auth expiry, Premium rules: **unverified** (needs the owner's
+account and a physical phone; list in docs/setup/SPOTIFY.md). Service-side tone handling (silence on confirm, resume on loss)
+is code-reviewed only; not exercised on an emulator because it needs a Spotify app.

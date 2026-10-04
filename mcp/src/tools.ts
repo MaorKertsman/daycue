@@ -4,17 +4,65 @@ import type { ClientApi } from './clientApi.js';
 import { RelayError, hasScope, type Scope } from './types.js';
 import { UNTRUSTED_NOTICE } from './untrusted.js';
 
+/** ConfigOp `type` names exactly as in android/domain/.../edit/ConfigOp.kt (kotlinx.serialization discriminator `type`). */
+export const CALENDAR_OP = { set: 'upsertCalendarRule', delete: 'deleteCalendarRule', reorder: 'reorderCalendarRules' } as const;
+
+export const CONFIG_OP_TYPES = [
+  'upsertHabit', 'deleteHabit', 'setHabitEnabled', 'setHabitInterval', 'setHabitActiveHours', 'setPause',
+  'setPostureCycle', 'setPostureModes', 'setPostureEnabled',
+  'upsertMedication', 'deleteMedication', 'setMedicationTimes', 'setMedicationTravelPolicy', 'setMedicationEndDate',
+  'upsertRoutine', 'deleteRoutine', 'duplicateRoutine', 'upsertRoutineStep', 'deleteRoutineStep', 'reorderRoutineSteps',
+  'upsertAlarm', 'deleteAlarm', 'setAlarmEnabled', 'skipNextAlarm',
+  'upsertPlace', 'deletePlace', 'setPlaceLocation',
+  'upsertCueProfile', 'deleteCueProfile',
+  'setCalendarConfig', 'upsertCalendarRule', 'deleteCalendarRule', 'reorderCalendarRules', 'setCalendarPreference', 'removeCalendarPreference', 'setEventOverride',
+  'setContextRules', 'setSessionRules',
+  'setQuietHours', 'setSpeechSettings', 'setCollisionSettings', 'setLanguage', 'setGlobalSettings',
+] as const;
+
 /**
- * Provisional ConfigOp type names for update_calendar_rules. The authoritative ConfigOp JSON is defined by
- * the Kotlin domain module (docs/architecture/DOMAIN.md); adjust here when it lands.
+ * Examples shown to chat models; shapes verified against the Kotlin ConfigOp / config classes. Instants are ISO-8601 UTC strings,
+ * LocalTime is "HH:mm", localized text is {"en","he"} (missing keys default to ""), enums use their Kotlin names.
  */
-export const CALENDAR_OP = { set: 'SetCalendarRule', delete: 'DeleteCalendarRule', reorder: 'ReorderCalendarRules' } as const;
+export const OP_EXAMPLES = {
+  setHabitInterval: { type: 'setHabitInterval', id: 'sunscreen', minutes: 90 },
+  setPostureModes: {
+    type: 'setPostureModes',
+    modes: [
+      { id: 'sitting', kind: 'Sitting', name: { en: 'Sitting' }, durationMin: 45, enabled: true, phrase: { en: 'Time to sit' } },
+      { id: 'standing', kind: 'Standing', name: { en: 'Standing' }, durationMin: 15, enabled: true, phrase: { en: 'Time to stand' } },
+      { id: 'walking', kind: 'Walking', name: { en: 'Walking' }, durationMin: 10, enabled: true, phrase: { en: 'Time to walk' } },
+    ],
+  },
+  upsertRoutineStep: {
+    type: 'upsertRoutineStep', routineId: 'morning', index: 2,
+    step: { id: 'floss', name: 'Floss', phrase: 'Time to floss', durationSec: 120, completion: 'Timed', repeat: 1, optional: false },
+  },
+  setPause: {
+    type: 'setPause', target: { type: 'habit', habitId: 'sunscreen' },
+    pause: { type: 'until', setAt: '2026-10-04T12:00:00Z', until: '2026-10-06T08:00:00Z' },
+  },
+  upsertCalendarRule: {
+    type: 'upsertCalendarRule',
+    rule: { id: 'meetings', name: 'Meetings', enabled: true, anyOf: [{ type: 'attendees', min: 1 }, { type: 'conferencing' }], leadsMin: [15, 5], kind: { en: 'meeting' }, noCue: false, isMeeting: true },
+  },
+} as const;
+
+const EX = (k: keyof typeof OP_EXAMPLES) => JSON.stringify(OP_EXAMPLES[k]);
+export const OPS_EXAMPLES_TEXT =
+  `Examples. Interval habit every 90 min: ${EX('setHabitInterval')}. ` +
+  `Posture cycle durations (replaces ALL modes, so list every mode; kind is Sitting|Standing|Walking|Custom): ${EX('setPostureModes')}. ` +
+  `Add a routine step at position 2 (0-based; omit index to append): ${EX('upsertRoutineStep')}. ` +
+  `Pause a habit until a time (target: {"type":"habit","habitId":..} | {"type":"posture"} | {"type":"all"}; pause: {"type":"until","setAt","until"} | {"type":"indefinite","setAt"} | null to resume): ${EX('setPause')}. ` +
+  `Calendar rule with lead times in minutes before the event: ${EX('upsertCalendarRule')}. ` +
+  `Other op types: ${CONFIG_OP_TYPES.filter((t) => !(t in OP_EXAMPLES)).join(', ')}.`;
+const SHORT_EXAMPLE = `Example ops: [${EX('setHabitInterval')}, ${EX('setPause')}]. See the ops parameter for more examples and all op types.`;
 
 const ops = z
-  .array(z.looseObject({ type: z.string().min(1).describe('ConfigOp type name, e.g. SetHabitInterval') }))
+  .array(z.looseObject({ type: z.string().min(1).describe('ConfigOp type name in camelCase, e.g. setHabitInterval') }))
   .min(1)
   .max(50)
-  .describe('ConfigOp objects exactly as defined by the DayCue config schema. The phone validates them; invalid ops are rejected there.');
+  .describe(`ConfigOp objects exactly as defined by the DayCue config schema (camelCase "type" plus that op's fields). The phone validates them; invalid ops are rejected there. ${OPS_EXAMPLES_TEXT}`);
 const idem = z
   .string()
   .regex(/^[\w.:-]{8,128}$/)
@@ -94,7 +142,7 @@ export function buildMcpServer(api: ClientApi, scopes: readonly string[]): McpSe
     title: 'Preview a config change (does not apply)',
     description:
       'PREVIEW ONLY: ask the phone to validate ConfigOps and compute the human-readable diff and sensitivity (ordinary / sensitive / destructive) WITHOUT changing anything. ' +
-      'If the phone does not answer in time the result is state=queued/delivered and the preview is UNVERIFIED (nothing was validated). A preview is not a commitment; call apply_change to make the change. ' + PENDING_NOTE,
+      SHORT_EXAMPLE + ' If the phone does not answer in time the result is state=queued/delivered and the preview is UNVERIFIED (nothing was validated). A preview is not a commitment; call apply_change to make the change. ' + PENDING_NOTE,
     inputSchema: z.object({ ops, baseVersion: z.number().int().min(0).optional().describe('Config version the ops were written against (from get_config snapshot.configVersion).'), idempotencyKey: idem, waitSeconds: wait(10), ttlSeconds: ttl }),
     annotations: W,
   }, (a) => api.submit({ type: 'config.preview', payload: { ops: a.ops }, baseVersion: a.baseVersion, idempotencyKey: a.idempotencyKey, ttlSeconds: a.ttlSeconds, waitSeconds: a.waitSeconds ?? 10 }));
@@ -103,7 +151,7 @@ export function buildMcpServer(api: ClientApi, scopes: readonly string[]): McpSe
     title: 'Apply a config change',
     description:
       'Ask the phone to validate and apply ConfigOps. Ordinary reversible changes within your granted scope are applied by the phone; sensitive or destructive changes (e.g. medication schedules, deletions) require the owner to confirm on the phone and are reported as state=awaiting_confirmation. ' +
-      'baseVersion (recommended) makes the phone reject the change if the config changed since you read it. Retrying with the same idempotencyKey never applies twice. ' + PENDING_NOTE,
+      SHORT_EXAMPLE + ' baseVersion (recommended) makes the phone reject the change if the config changed since you read it. Retrying with the same idempotencyKey never applies twice. ' + PENDING_NOTE,
     inputSchema: z.object({ ops, baseVersion: z.number().int().min(0).optional(), idempotencyKey: idem, waitSeconds: wait(10), ttlSeconds: ttl }),
     annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: true, idempotentHint: true },
   }, (a) => api.submit({ type: 'config.apply', payload: { ops: a.ops }, baseVersion: a.baseVersion, idempotencyKey: a.idempotencyKey, ttlSeconds: a.ttlSeconds, waitSeconds: a.waitSeconds ?? 10 }));
@@ -111,10 +159,11 @@ export function buildMcpServer(api: ClientApi, scopes: readonly string[]): McpSe
   reg('update_calendar_rules', {
     title: 'Update calendar cue rules',
     description:
-      'Create/replace, delete or reorder calendar cue rules (which calendar events trigger which cues). This is a convenience wrapper that submits the equivalent ConfigOp via the same validated path as apply_change. Rule content is validated on the phone. ' + PENDING_NOTE,
+      'Create/replace, delete or reorder calendar cue rules (which calendar events trigger which cues). This is a convenience wrapper that submits the equivalent ConfigOp (upsertCalendarRule / deleteCalendarRule / reorderCalendarRules) via the same validated path as apply_change. Rule content is validated on the phone. ' + PENDING_NOTE,
     inputSchema: z.object({
       action: z.enum(['set', 'delete', 'reorder']),
-      rule: z.looseObject({}).optional().describe('For action=set: the rule object (with its id).'),
+      rule: z.looseObject({}).optional().describe('For action=set: the CalendarRule object (with its id), e.g. ' + JSON.stringify(OP_EXAMPLES.upsertCalendarRule.rule)),
+      index: z.number().int().min(0).optional().describe('For action=set: position in the evaluation order (omit to keep/append).'),
       ruleId: z.string().optional().describe('For action=delete.'),
       order: z.array(z.string()).optional().describe('For action=reorder: rule ids in the desired evaluation order.'),
       baseVersion: z.number().int().min(0).optional(),
@@ -126,13 +175,13 @@ export function buildMcpServer(api: ClientApi, scopes: readonly string[]): McpSe
     let op: Record<string, unknown>;
     if (a.action === 'set') {
       if (!a.rule) throw new RelayError('invalid_request', 'rule is required for action=set', 400);
-      op = { type: CALENDAR_OP.set, rule: a.rule };
+      op = { type: CALENDAR_OP.set, rule: a.rule, ...(a.index !== undefined ? { index: a.index } : {}) };
     } else if (a.action === 'delete') {
       if (!a.ruleId) throw new RelayError('invalid_request', 'ruleId is required for action=delete', 400);
-      op = { type: CALENDAR_OP.delete, ruleId: a.ruleId };
+      op = { type: CALENDAR_OP.delete, id: a.ruleId };
     } else {
       if (!a.order?.length) throw new RelayError('invalid_request', 'order is required for action=reorder', 400);
-      op = { type: CALENDAR_OP.reorder, order: a.order };
+      op = { type: CALENDAR_OP.reorder, ruleIds: a.order };
     }
     return api.submit({ type: 'config.apply', payload: { ops: [op] }, baseVersion: a.baseVersion, idempotencyKey: a.idempotencyKey, waitSeconds: a.waitSeconds ?? 10 });
   });

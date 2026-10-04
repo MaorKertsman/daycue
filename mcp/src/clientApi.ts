@@ -229,8 +229,9 @@ export class LocalClientApi implements ClientApi {
     const a = await this.relay.activity();
     return {
       ...a,
+      companions: a.companions.map((c) => ({ ...c, label: markUntrusted(c.label) })),
       note: a.fresh
-        ? 'Last signal from the Windows companion is still within its ttl.'
+        ? 'State combines the fresh signals of all Windows companions (any active -> active, else idle, else locked, else asleep); stale companions are ignored. See companions[] for each one\'s freshness.'
         : 'No fresh signal from the Windows companion (stale, missing, or companion offline). State is UNKNOWN, not idle: do not infer that the user is away or working.',
     };
   }

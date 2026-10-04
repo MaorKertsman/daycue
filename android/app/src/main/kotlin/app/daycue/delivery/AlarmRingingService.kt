@@ -84,9 +84,14 @@ class AlarmRingingService : Service() {
         _ringing.value = alarm
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "daycue:alarm").apply { acquire(MAX_RING_MS) }
 
-        val musicStarted = runCatching { AlarmMusicPlayer.current.start(this, intent.getStringExtra(EXTRA_SOURCE_URI)) }.getOrDefault(false)
+        val sourceUri = intent.getStringExtra(EXTRA_SOURCE_URI)
+        // Async sources (Spotify): the local tone rings from the first moment and stays until the source reports
+        // CONFIRMED playback; if it stops or fails the tone is (back) on. Launching a link is never success.
+        val asyncSource = sourceUri != null && !locked &&
+            runCatching { AlarmMusicPlayer.current.startAsync(this, alarm.alarmId, sourceUri, musicCallbacks(alarm.alarmId, intent.getStringExtra(EXTRA_TONE))) }.getOrDefault(false)
+        val musicStarted = !asyncSource && runCatching { AlarmMusicPlayer.current.start(this, sourceUri) }.getOrDefault(false)
         if (!musicStarted) playTone(intent.getStringExtra(EXTRA_TONE), intent.getIntExtra(EXTRA_RAMP_SEC, 30))
-        if (intent.getStringExtra(EXTRA_SOURCE_URI) != null && !musicStarted && !locked) {
+        if (sourceUri != null && !musicStarted && !asyncSource && !locked) {
             // ALM-2: tell the engine the fallback played (readiness + ALM-5 test report).
             fallbackReporter?.invoke(alarm.alarmId)
         }
@@ -95,6 +100,19 @@ class AlarmRingingService : Service() {
         }
         handler.postDelayed({ Log.w(TAG, "alarm safety cap reached"); stopRinging(); stopSelf() }, MAX_RING_MS)
         Log.i(TAG, "alarm ringing ${alarm.alarmId} locked=$locked test=${alarm.isTest} music=$musicStarted")
+    }
+
+    private fun musicCallbacks(alarmId: String, toneId: String?) = object : AlarmMusicPlayer.Callbacks {
+        private var reported = false
+        override fun onConfirmed() { handler.post {
+            if (_ringing.value?.alarmId != alarmId) return@post
+            runCatching { player?.stop() }; player?.release(); player = null // streaming took over; the tone is silenced
+        } }
+        override fun onLost() { handler.post {
+            if (_ringing.value?.alarmId != alarmId) return@post
+            if (player == null) playTone(toneId, 0) // (back) on at full volume
+            if (!reported) { reported = true; fallbackReporter?.invoke(alarmId) }
+        } }
     }
 
     private fun playTone(toneId: String?, rampSec: Int) {
@@ -213,6 +231,19 @@ class AlarmRingingService : Service() {
 interface AlarmMusicPlayer {
     fun start(context: Context, sourceUri: String?): Boolean
     fun stop()
+
+    /**
+     * Asynchronous source (Spotify). Return true if this player takes the source: the service then rings the local
+     * tone immediately and silences it only on [Callbacks.onConfirmed]; [Callbacks.onLost] (failure or playback
+     * stopped later) brings the tone back. The reason is published by the player (integrations/spotify
+     * `AlarmMusicStatus`, facade `alarmMusic`). Default: not handled, the synchronous [start] path is used.
+     */
+    fun startAsync(context: Context, alarmId: String, sourceUri: String, callbacks: Callbacks): Boolean = false
+
+    interface Callbacks {
+        fun onConfirmed()
+        fun onLost()
+    }
 
     object NoOp : AlarmMusicPlayer {
         override fun start(context: Context, sourceUri: String?) = false

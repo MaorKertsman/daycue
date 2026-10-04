@@ -12,7 +12,7 @@ async function setup(scopes = ['config:read', 'config:write', 'sessions:control'
   const call = async (name: string, args: Record<string, unknown> = {}) => client.callTool({ name, arguments: args });
   return { h, phone, client, call, token };
 }
-const OPS = [{ type: 'SetHabitInterval', habitId: 'sunscreen', intervalMinutes: 90 }];
+const OPS = [{ type: 'setHabitInterval', id: 'sunscreen', minutes: 90 }];
 
 describe('scenario 15: validated, applied once, acknowledged by the phone', () => {
   it('apply -> phone applies -> tool reports applied with the new version', async () => {
@@ -46,7 +46,7 @@ describe('scenario 15: validated, applied once, acknowledged by the phone', () =
   it('same key with different content is a conflict', async () => {
     const { call } = await setup();
     await call('apply_change', { ops: OPS, idempotencyKey: 'same-key-01', waitSeconds: 0 });
-    const r = await call('apply_change', { ops: [{ type: 'SetHabitInterval', habitId: 'sunscreen', intervalMinutes: 30 }], idempotencyKey: 'same-key-01', waitSeconds: 0 });
+    const r = await call('apply_change', { ops: [{ type: 'setHabitInterval', id: 'sunscreen', minutes: 30 }], idempotencyKey: 'same-key-01', waitSeconds: 0 });
     expect(r.isError).toBe(true);
     expect(toolText(r)).toContain('idempotency_conflict');
   });
@@ -76,7 +76,7 @@ describe('scenario 15: validated, applied once, acknowledged by the phone', () =
 
   it('sensitive change waits for on-phone confirmation and is reported as awaiting_confirmation', async () => {
     const { phone, call } = await setup();
-    const ops = [{ type: 'DeleteMedication', id: 'med1' }];
+    const ops = [{ type: 'deleteMedication', id: 'med1' }];
     const p = phone.whileWaiting(call('apply_change', { ops, idempotencyKey: 'sensitive-01', waitSeconds: 5 }));
     const res = toolJson(await p);
     expect(res.state).toBe('awaiting_confirmation');
@@ -313,6 +313,7 @@ describe('companion activity signals', () => {
     let a = toolJson(await call('get_activity_summary'));
     expect(a.state).toBe('active');
     expect(a.fresh).toBe(true);
+    expect(a.companions[0]).toMatchObject({ companionId: co.id, state: 'active', fresh: true });
     h.clock.advance(181_000);
     a = toolJson(await call('get_activity_summary'));
     expect(a.state).toBe('unknown');
@@ -337,7 +338,9 @@ describe('companion activity signals', () => {
     expect(h.wake.sent.some((w) => w.reason === 'activity')).toBe(true);
     const r = await h.json('/v1/phone/activity', { headers: phone.auth() });
     expect(r.body.signal.state).toBe('active');
-    expect(r.body.signal.sig).toBeTruthy();
+    expect(r.body.signal.sig).toBeTruthy(); // legacy shape
+    expect(r.body.signals[0]).toMatchObject({ companionId: co.id, state: 'active', ttlSeconds: 180, signature: r.body.signal.sig });
+    expect(typeof r.body.signals[0].receivedAt).toBe('number');
     expect(r.body.companions[0].publicKey).toBe(co.key.spki);
   });
 });
@@ -345,7 +348,7 @@ describe('companion activity signals', () => {
 describe('data minimisation / retention', () => {
   it('commands are purged after expiry + retention; audit never contains op payloads', async () => {
     const { call, h } = await setup();
-    await call('apply_change', { ops: [{ type: 'SetHabitInterval', habitId: 'secret-habit-id', intervalMinutes: 1 }], idempotencyKey: 'retention-01', ttlSeconds: 60, waitSeconds: 0 });
+    await call('apply_change', { ops: [{ type: 'setHabitInterval', id: 'secret-habit-id', minutes: 1 }], idempotencyKey: 'retention-01', ttlSeconds: 60, waitSeconds: 0 });
     const audit = JSON.stringify((await h.json('/v1/owner/audit', { headers: ownerAuth })).body);
     expect(audit).not.toContain('secret-habit-id');
     h.clock.advance(60_000 + 14 * 86400_000 + 1000);

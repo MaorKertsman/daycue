@@ -61,6 +61,10 @@ export function signalMessage(companionId: string, state: string, observedAt: nu
   return `daycue.signal.v1\n${companionId}\n${state}\n${observedAt}\n${ttlSeconds}`;
 }
 
+const signalKey = (companionId: string) => `latest:${companionId}`;
+const SIGNAL_PREFIX = 'latest:';
+const STATE_RANK: Record<ActivityState, number> = { active: 0, idle: 1, locked: 2, asleep: 3 };
+
 export class Relay {
   readonly issuer: string;
   readonly resource: string;
@@ -184,7 +188,15 @@ export class Relay {
     const d = await this.store.get<Device>('device', id);
     if (!d || d.revokedAt) return;
     if (d.tokenHash) await this.store.delete('devtoken', d.tokenHash);
-    await this.store.put('device', id, { ...d, revokedAt: this.now, fcmToken: undefined });
+    await this.store.put('device', id, { ...d, revokedAt: this.now, fcmToken: undefined, tokenHash: undefined });
+    if (d.role === 'companion') await this.store.delete('signal', signalKey(id));
+  }
+
+  /** A companion revokes itself (e.g. the user uninstalls it). Keeps id/label/public key, drops credential and signal slot. */
+  async revokeCompanionSelf(co: Device) {
+    await this.revokeDevice(co.id);
+    await this.audit(`companion:${co.id}`, 'companion.self_revoked', { deviceId: co.id });
+    return { ok: true, serverTime: this.now };
   }
 
   async pairPhone(body: { code: string; publicKey: string; label?: string; fcmToken?: string }) {
@@ -482,8 +494,9 @@ export class Relay {
     let stale = false;
     let transition = false;
     const sig: ActivitySignal = { companionId: co.id, state: body.state, observedAt: body.observedAt, ttlSeconds: body.ttlSeconds, sig: body.signature, receivedAt: this.now };
-    await this.store.update<ActivitySignal>('signal', 'latest', (c) => {
-      if (c && c.companionId === co.id && c.observedAt >= sig.observedAt) {
+    // One slot per companion: replay protection (strictly newer observedAt) is independent per companion.
+    await this.store.update<ActivitySignal>('signal', signalKey(co.id), (c) => {
+      if (c && c.observedAt >= sig.observedAt) {
         stale = true;
         return undefined;
       }
@@ -492,9 +505,9 @@ export class Relay {
     }, { expiresAt: this.now + RETENTION.signalLogMs });
     if (stale) throw new RelayError('stale_signal', 'A newer or equal signal was already accepted (replay?)', 409);
     if (transition) {
-      await this.store.update<Array<{ state: string; at: number }>>('signal', 'log', (c) => {
+      await this.store.update<Array<{ state: string; at: number; companionId?: string }>>('signal', 'log', (c) => {
         const cutoff = this.now - RETENTION.signalLogMs;
-        return [...(c ?? []).filter((e) => e.at >= cutoff), { state: sig.state, at: sig.observedAt }].slice(-100);
+        return [...(c ?? []).filter((e) => e.at >= cutoff), { state: sig.state, at: sig.observedAt, companionId: co.id }].slice(-100);
       }, { expiresAt: this.now + RETENTION.signalLogMs });
       const phone = await this.currentPhone();
       if (phone?.wakeOnActivity) await this.requestWake(phone, 'activity');
@@ -502,24 +515,51 @@ export class Relay {
     return { ok: true, serverTime: this.now };
   }
 
+  private async allSignals(): Promise<ActivitySignal[]> {
+    return (await this.store.list<ActivitySignal>('signal', { prefix: SIGNAL_PREFIX })).map((x) => x.value);
+  }
+
   async activity() {
-    const s = await this.store.get<ActivitySignal>('signal', 'latest');
-    const log = (await this.store.get<Array<{ state: string; at: number }>>('signal', 'log')) ?? [];
-    const fresh = !!s && s.observedAt + s.ttlSeconds * 1000 > this.now;
+    const signals = (await this.allSignals()).sort((a, b) => b.observedAt - a.observedAt);
+    const labels = new Map((await this.store.list<Device>('device')).map((x) => [x.value.id, x.value.label]));
+    const log = (await this.store.get<Array<{ state: string; at: number; companionId?: string }>>('signal', 'log')) ?? [];
+    const companions = signals.map((s) => {
+      const fresh = s.observedAt + s.ttlSeconds * 1000 > this.now;
+      return {
+        companionId: s.companionId,
+        label: labels.get(s.companionId) ?? s.companionId,
+        state: (fresh ? s.state : 'unknown') as ActivityState | 'unknown',
+        fresh,
+        observedAt: s.observedAt,
+        expiresAt: s.observedAt + s.ttlSeconds * 1000,
+        ttlSeconds: s.ttlSeconds,
+      };
+    });
+    const freshStates = companions.filter((c) => c.fresh).map((c) => c.state as ActivityState);
+    const state: ActivityState | 'unknown' = freshStates.length ? freshStates.reduce((a, b) => (STATE_RANK[b] < STATE_RANK[a] ? b : a)) : 'unknown';
+    const latest = signals[0];
     return {
-      state: fresh ? s!.state : 'unknown',
-      fresh,
-      lastSignal: s ? { state: s.state, observedAt: s.observedAt, expiresAt: s.observedAt + s.ttlSeconds * 1000, ttlSeconds: s.ttlSeconds } : null,
+      state,
+      fresh: freshStates.length > 0,
+      companions,
+      lastSignal: latest ? { state: latest.state, observedAt: latest.observedAt, expiresAt: latest.observedAt + latest.ttlSeconds * 1000, ttlSeconds: latest.ttlSeconds } : null,
       recentTransitions: log.filter((e) => e.at >= this.now - 6 * 3600_000).slice(-20),
     };
   }
 
-  /** For the phone: the raw signed signal plus companion keys so it can verify independently of the relay. */
+  /** For the phone: the raw signed signals plus companion keys so it can verify independently of the relay. */
   async activityForPhone() {
-    const s = await this.store.get<ActivitySignal>('signal', 'latest');
+    const all = (await this.allSignals()).sort((a, b) => b.observedAt - a.observedAt);
     const companions = (await this.store.list<Device>('device')).map((x) => x.value).filter((d) => d.role === 'companion' && !d.revokedAt)
       .map((d) => ({ id: d.id, label: d.label, publicKey: d.publicKey }));
-    return { signal: s ?? null, companions, serverTime: this.now };
+    const live = new Set(companions.map((c) => c.id));
+    const slots = all.filter((s) => live.has(s.companionId));
+    return {
+      signals: slots.map((s) => ({ companionId: s.companionId, state: s.state, observedAt: s.observedAt, ttlSeconds: s.ttlSeconds, signature: s.sig, receivedAt: s.receivedAt })),
+      companions,
+      signal: slots[0] ?? null,
+      serverTime: this.now,
+    };
   }
 
   async maintenance() {

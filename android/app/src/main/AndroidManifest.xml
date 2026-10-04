@@ -15,12 +15,28 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Context producers (integrations/location, integrations/calendar). All runtime permissions,
+         requested progressively in context by the UI (fine -> background as separate steps). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" android:maxSdkVersion="28" />
+    <!-- Read only: DayCue never writes to the calendar (docs/adr/0004-calendar-provider.md). -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <!-- Speech: TextToSpeech engines are found via this intent on API 30+ (package visibility). -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        <!-- Spotify alarm source: detect whether the Spotify app is installed (integrations/spotify). -->
+        <package android:name="com.spotify.music" />
     </queries>
+
+    <!-- Relay (remote access): network only; no permission beyond INTERNET is needed. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".DayCueApplication"
@@ -99,6 +115,33 @@
             android:name=".delivery.RoutinePlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Relay: inexact "frequent check" tick and the notification "Decline" button. -->
+        <receiver
+            android:name=".integrations.relay.FrequentCheckReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".integrations.relay.RemoteActionReceiver"
+            android:exported="false" />
+
+        <!-- Places: geofence + activity-transition PendingIntent targets (Play services), and the
+             re-registration triggers (boot, app update, location switch). -->
+        <receiver
+            android:name=".integrations.location.GeofenceBroadcastReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".integrations.location.MotionTransitionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".integrations.location.LocationSystemReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.location.PROVIDERS_CHANGED" />
+                <action android:name="android.location.MODE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Debug-only engine driver: disabled here, enabled at runtime only in debuggable builds,
              and only callable by holders of DUMP (adb shell). See devtools/DevToolsReceiver.kt. -->

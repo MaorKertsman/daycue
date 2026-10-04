@@ -26,6 +26,17 @@ val releaseStoreFile = signingValue("storeFile", "DAYCUE_KEYSTORE_FILE")
 val releaseStorePassword = signingValue("storePassword", "DAYCUE_KEYSTORE_PASSWORD")
 val releaseKeyAlias = signingValue("keyAlias", "DAYCUE_KEY_ALIAS")
 val releaseKeyPassword = signingValue("keyPassword", "DAYCUE_KEY_PASSWORD")
+// ---- Spotify (optional): client ID placeholder + conditional App Remote AAR ----------------------------------
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.isFile) f.inputStream().use { load(it) }
+}
+val spotifyClientId: String = (providers.gradleProperty("daycue.spotify.clientId").orNull
+    ?: localProperties.getProperty("daycue.spotify.clientId"))?.takeIf { it.isNotBlank() }?.replace("\"", "")
+    ?: "YOUR_SPOTIFY_CLIENT_ID"
+val spotifyAar: File? = file("libs").listFiles { f -> f.name.startsWith("spotify-app-remote") && f.extension == "aar" }?.firstOrNull()
+val hasSpotifySdk: Boolean = spotifyAar != null
+
 val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
     .all { it != null } && rootProject.file(releaseStoreFile!!).isFile
 
@@ -40,6 +51,12 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Spotify alarm source (integrations/spotify, docs/setup/SPOTIFY.md). The client ID comes from the
+        // git-ignored android/local.properties (daycue.spotify.clientId=...) or -Pdaycue.spotify.clientId; the
+        // committed default is a placeholder. The App Remote AAR is NOT in the repo: drop it into app/libs/ (git-ignored).
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"$spotifyClientId\"")
+        buildConfigField("boolean", "SPOTIFY_SDK", hasSpotifySdk.toString())
     }
 
     signingConfigs {
@@ -77,6 +94,12 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    if (hasSpotifySdk) {
+        // The real App Remote adapter is only compiled when the AAR is present.
+        sourceSets.getByName("main").kotlin.directories.add("src/spotifysdk/kotlin")
     }
 }
 
@@ -109,10 +132,16 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.play.services.location) // geofencing, fused location, activity transitions (integrations/location)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+
+    if (hasSpotifySdk) {
+        implementation(files(spotifyAar!!))
+        implementation("com.google.code.gson:gson:2.6.1") // required by the App Remote AAR (per Spotify's quick start)
+    }
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

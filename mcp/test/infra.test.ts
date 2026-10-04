@@ -31,7 +31,7 @@ describe('FileStore durability (Render persistent disk path)', () => {
       await phone.publish();
       const { token } = await h1.relay.auth.createStaticToken('c', ['config:write']);
       const g = await h1.relay.auth.verifyAccess(token);
-      const { command } = await h1.relay.enqueue(g, { type: 'config.apply', payload: { ops: [{ type: 'SetHabitInterval', habitId: 'sunscreen', intervalMinutes: 60 }] }, baseVersion: 1, idempotencyKey: 'durable-key-1' });
+      const { command } = await h1.relay.enqueue(g, { type: 'config.apply', payload: { ops: [{ type: 'setHabitInterval', id: 'sunscreen', minutes: 60 }] }, baseVersion: 1, idempotencyKey: 'durable-key-1' });
       // "restart"
       const h2 = mk();
       expect((await h2.relay.auth.verifyAccess(token)).clientLabel).toBe('c'); // grant survived

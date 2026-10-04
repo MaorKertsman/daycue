@@ -154,7 +154,7 @@ export class FakePhone {
     const bad = ops.filter((o) => o.type === 'Bogus');
     if (bad.length) return ['rejected', { errors: [{ path: 'ops[0]', code: 'unknown_op', message: 'Unknown op "Bogus"' }] }];
     if (c.baseVersion !== null && c.baseVersion !== this.version) return ['rejected', { conflict: { currentVersion: this.version } }];
-    const sensitive = ops.some((o) => o.type === 'DeleteMedication');
+    const sensitive = ops.some((o) => o.type === 'deleteMedication');
     if (c.type === 'config.preview') {
       return ['applied', { preview: { diff: ops.map((o) => `would apply ${o.type}`), sensitivity: sensitive ? 'sensitive' : 'ordinary' } }];
     }
@@ -178,9 +178,9 @@ export class FakePhone {
   private applyOps(ops: any[]): [string, any] {
     this.history.push({ version: this.version, habits: structuredClone(this.habits) });
     for (const o of ops) {
-      if (o.type === 'SetHabitInterval') {
-        const hb = this.habits.find((x) => x.id === o.habitId);
-        if (hb) hb.intervalMinutes = o.intervalMinutes;
+      if (o.type === 'setHabitInterval') {
+        const hb = this.habits.find((x) => x.id === o.id);
+        if (hb) hb.intervalMinutes = o.minutes;
       }
     }
     this.version++;

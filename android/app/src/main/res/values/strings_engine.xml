@@ -184,4 +184,50 @@
     <string name="dc_routine_playback_body">Step {index} of {count}: {step}</string>
     <string name="dc_routine_playback_body_alt">Starting…</string>
     <string name="dc_routine_playback_paused">Paused at: {step}</string>
+
+    <!-- Remote access (relay): confirmation prompts. Plain %s formatting (integrations/relay). -->
+    <string name="dc_remote_confirm_title">Confirm a remote change</string>
+    <string name="dc_remote_confirm_title_routine">Start a routine?</string>
+    <string name="dc_remote_confirm_body">%s asked DayCue to change something. Nothing happens until you decide.</string>
+    <string name="dc_remote_decline">Decline</string>
+    <string name="dc_remote_applied_title">DayCue applied a change from %s</string>
+    <!-- Spotify alarm: why the local tone is playing instead (integrations/spotify). -->
+    <string name="dc_spotify_fail_not_installed">Spotify is not installed, so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_not_authorized">Spotify is not signed in or not authorized for DayCue, so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_no_network">No network connection, so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_no_device">Could not reach Spotify on this phone, so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_account">Spotify refused playback for this account (Premium may be required), so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_timeout">Spotify did not start playing in time, so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_sdk_missing">This build has no Spotify support, so the alarm tone is playing.</string>
+    <string name="dc_spotify_fail_unknown">Spotify playback failed, so the alarm tone is playing.</string>
+    <string name="dc_spotify_stopped">Spotify stopped playing, so the alarm tone resumed.</string>
+
+    <!-- Calendar: variants for the domain's fallback kind "event" (unmatched rule kind), so Hebrew isn't left with an English word. -->
+    <string name="dc_cue_calendar_title_event">Event in {minutes} min</string>
+    <string name="dc_cue_calendar_generic_title_event">Event in {minutes} min</string>
+    <string name="dc_speech_calendar_generic_event">You have an event in {minutes} minutes</string>
+
+    <!-- Calendar preview "why matched" (CAL-1), one per CalendarDecision.reason; {rule} = rule name, {matched} = condition. -->
+    <string name="dc_calmatch_canceled">Canceled, so no cue</string>
+    <string name="dc_calmatch_declined">You declined, so no cue</string>
+    <string name="dc_calmatch_tentative_excluded">Tentative events are excluded</string>
+    <string name="dc_calmatch_all_day">All-day events get no cue</string>
+    <string name="dc_calmatch_override_always_instance">Always for this event</string>
+    <string name="dc_calmatch_override_always_series">Always for this series</string>
+    <string name="dc_calmatch_override_never_instance">Never for this event</string>
+    <string name="dc_calmatch_override_never_series">Never for this series</string>
+    <string name="dc_calmatch_calendar_always">Every event in this calendar gets a cue</string>
+    <string name="dc_calmatch_calendar_never">Never for this calendar</string>
+    <string name="dc_calmatch_has_own_reminders">Has its own reminder, so no extra cue</string>
+    <string name="dc_calmatch_rule_match">Matched “{rule}” ({matched})</string>
+    <string name="dc_calmatch_rule_match_alt">Matched a rule</string>
+    <string name="dc_calmatch_rule_no_cue">“{rule}” says no cue</string>
+    <string name="dc_calmatch_rule_no_cue_alt">A rule says no cue</string>
+    <string name="dc_calmatch_default">No rule matched, so no cue</string>
+    <string name="dc_calmatch_default_cue">No rule matched; default cue</string>
+    <string name="dc_calmatch_cond_attendees">other attendees</string>
+    <string name="dc_calmatch_cond_conferencing">video call link</string>
+    <string name="dc_calmatch_cond_keyword">keyword</string>
+    <string name="dc_calmatch_cond_color">color</string>
+    <string name="dc_calmatch_cond_availability">availability</string>
 </resources>

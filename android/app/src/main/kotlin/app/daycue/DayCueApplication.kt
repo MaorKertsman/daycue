@@ -34,5 +34,7 @@ class DayCueApplication : Application() {
             container.scope.launch { container.host.dispatch(Event.AlarmControl(alarmId, AlarmAction.SpotifyFellBack)) }
         }
         container.scope.launch { container.host.dispatch(Event.BootCompleted) }
+        container.relay.start() // relay triggers (no-op until paired)
+        container.spotify.install() // Spotify alarm source (the local tone always rings first)
     }
 }

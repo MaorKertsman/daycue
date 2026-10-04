@@ -103,6 +103,14 @@ interface CommandLogDao {
 
     @Query("SELECT * FROM command_log WHERE command_id = :id")
     suspend fun get(id: String): CommandLogEntity?
+
+    /** Relay integration: commands whose latest ack the relay has not accepted yet. */
+    @Query("SELECT * FROM command_log WHERE acked_at_ms IS NULL AND state != 'received'")
+    suspend fun unacked(): List<CommandLogEntity>
+
+    /** Relay integration: commands waiting for the owner's on-phone decision. */
+    @Query("SELECT * FROM command_log WHERE state = 'awaiting_confirmation'")
+    suspend fun awaiting(): List<CommandLogEntity>
 }
 
 @Dao
