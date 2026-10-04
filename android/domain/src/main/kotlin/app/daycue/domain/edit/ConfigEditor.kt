@@ -63,44 +63,70 @@ object ConfigEditor {
     }
 
     /**
-     * Human-readable diff plus sensitivity (ARCHITECTURE §3.2, MED-9): deletions are `destructive`;
-     * any medication change is `sensitive`. With [redactMedicationLabels] labels are replaced by "***"
-     * (for remote callers without the `medication` scope).
+     * Human-readable diff plus sensitivity (ARCHITECTURE §3.2, MED-9, [ConfigSensitivity]) for the **on-phone**
+     * review. The lines contain raw values (including place coordinates): never send them off the phone —
+     * use [previewForRemote] for anything that leaves the device. [redactMedicationLabels] is kept for
+     * source compatibility (labels -> "***"); it does not redact coordinates.
      */
     fun preview(config: DayCueConfig, ops: List<ConfigOp>, redactMedicationLabels: Boolean = false): Preview {
-        val next = try {
-            ops.fold(config) { c, op -> applyOne(c, op) }
-        } catch (e: OpError) {
-            return Preview(emptyList(), sensitivityOf(ops, emptyList()), listOf(e.error))
-        }
-        val before = DayCueJson.encodeToJsonElement(DayCueConfig.serializer(), config)
-        val after = DayCueJson.encodeToJsonElement(DayCueConfig.serializer(), next)
+        val (next, sens, error) = fold(config, ops)
+        if (error != null) return Preview(emptyList(), sens, listOf(error))
         val lines = mutableListOf<DiffLine>()
-        diff("", before, after, lines)
+        diff("", encode(config), encode(next), lines)
         val shown = lines.filter { it.path != "version" }.map { l ->
             if (redactMedicationLabels && l.path.startsWith("medications")) {
                 l.copy(before = l.before?.let { redact(l.path, it) }, after = l.after?.let { redact(l.path, it) })
             } else l
         }
-        return Preview(shown, sensitivityOf(ops, shown), ConfigValidator.validate(next))
+        return Preview(shown, escalate(sens, shown), ConfigValidator.validate(next))
+    }
+
+    /**
+     * The preview for anything that leaves the phone (relay preview results, awaiting-confirmation and
+     * applied summaries, undo summaries, audit rows). Redaction works on **values**, not only paths (security
+     * review H-1): place coordinates never appear (places are described by name plus a location marker),
+     * and medication content (labels, schedules, medication cue profiles) is withheld unless
+     * [RemoteRedaction.allowMedication]. Sensitivity is computed from the unredacted change.
+     */
+    fun previewForRemote(config: DayCueConfig, ops: List<ConfigOp>, redaction: RemoteRedaction): RemotePreview {
+        val (next, sens, error) = fold(config, ops)
+        if (error != null) return RemotePreview(emptyList(), sens, RemoteRedactor.errors(listOf(error), redaction))
+        val full = mutableListOf<DiffLine>()
+        diff("", encode(config), encode(next), full)
+        val sensitivity = escalate(sens, full.filter { it.path != "version" })
+        return RemotePreview(RemoteRedactor.lines(config, next, redaction), sensitivity, RemoteRedactor.errors(ConfigValidator.validate(next), redaction))
+    }
+
+    /** Per-op sensitivity of [ops] applied in order (each op classified against the document it edits). */
+    fun sensitivity(config: DayCueConfig, ops: List<ConfigOp>): Sensitivity = fold(config, ops).second
+
+    private fun encode(c: DayCueConfig): JsonElement = DayCueJson.encodeToJsonElement(DayCueConfig.serializer(), c)
+
+    /** Applies ops in order, classifying each; stops at the first op error. */
+    private fun fold(config: DayCueConfig, ops: List<ConfigOp>): Triple<DayCueConfig, Sensitivity, ValidationError?> {
+        var c = config
+        var s = Sensitivity.ordinary
+        for ((i, op) in ops.withIndex()) {
+            s = ConfigSensitivity.max(s, ConfigSensitivity.of(c, op))
+            c = try { applyOne(c, op) } catch (e: OpError) {
+                // Classify the rest too, so an invalid list never reports a lower class than it would have.
+                ops.drop(i + 1).forEach { s = ConfigSensitivity.max(s, ConfigSensitivity.of(c, it)) }
+                return Triple(c, s, e.error)
+            }
+        }
+        return Triple(c, s, null)
     }
 
     private fun redact(path: String, v: String): String = if (path.endsWith(".label") || !path.contains('.')  || path.endsWith("]")) "***" else v
 
-    private fun sensitivityOf(ops: List<ConfigOp>, lines: List<DiffLine>): Sensitivity {
-        val destructive = ops.any {
-            it is ConfigOp.DeleteHabit || it is ConfigOp.DeleteMedication || it is ConfigOp.DeleteRoutine || it is ConfigOp.DeleteAlarm ||
-                it is ConfigOp.DeletePlace || it is ConfigOp.DeleteCueProfile || it is ConfigOp.DeleteCalendarRule || it is ConfigOp.DeleteRoutineStep ||
-                it is ConfigOp.RemoveCalendarPreference
-        } || lines.any { it.after == null && it.path.endsWith("]") }
-        if (destructive) return Sensitivity.destructive
-        val sensitive = ops.any {
-            it is ConfigOp.UpsertMedication || it is ConfigOp.SetMedicationTimes || it is ConfigOp.SetMedicationTravelPolicy || it is ConfigOp.SetMedicationEndDate
-        } || lines.any { it.path.startsWith("medications") }
-        return if (sensitive) Sensitivity.sensitive else Sensitivity.ordinary
+    /** Safety net over the per-op table: removing any id-keyed element is destructive, touching medication sensitive. */
+    private fun escalate(s: Sensitivity, lines: List<DiffLine>): Sensitivity = when {
+        lines.any { it.after == null && it.path.endsWith("]") } -> Sensitivity.destructive
+        lines.any { it.path.startsWith("medications") } -> ConfigSensitivity.max(s, Sensitivity.sensitive)
+        else -> s
     }
 
-    private fun diff(path: String, a: JsonElement?, b: JsonElement?, out: MutableList<DiffLine>) {
+    internal fun diff(path: String, a: JsonElement?, b: JsonElement?, out: MutableList<DiffLine>) {
         if (a == b) return
         when {
             a is JsonObject && b is JsonObject -> {

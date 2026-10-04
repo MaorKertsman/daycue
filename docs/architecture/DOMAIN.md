@@ -10,9 +10,10 @@ Behaviour contract: `docs/PRODUCT.md` (rule IDs cited in code and test names). V
 |---|---|
 | Time | `Clock` (`now`, `zone`, `elapsedRealtime`), `FixedClock`. `time.TimeMath` (DST-explicit `resolveLocal`, windows, day boundary). |
 | Config | `config.DayCueConfig` (+ all item types), `config.Defaults.config(language)` (PRODUCT §12 first-run doc, medication list empty), `config.ConfigCodec.encode/decode`, `config.DayCueJson` (the one `Json` instance for config, state, ops). |
-| Edits | `edit.ConfigOp` (sealed, serializable), `edit.ConfigEditor.applyOps(config, ops, baseVersion): ApplyResult` (`Applied(config, previous)` / `Invalid(errors: path+code+message)` / `Conflict`), `ConfigEditor.preview(config, ops, redactMedicationLabels)` → `Preview(lines, sensitivity, errors)`, `edit.ConfigValidator.validate`, `edit.ConfigHistory` (bounded undo; undo yields a *new* version). |
+| Edits | `edit.ConfigOp` (sealed, serializable), `edit.ConfigEditor.applyOps(config, ops, baseVersion): ApplyResult` (`Applied(config, previous)` / `Invalid(errors: path+code+message)` / `Conflict`), `ConfigEditor.preview(config, ops, redactMedicationLabels)` → `Preview(lines, sensitivity, errors)` (**on-phone only**, raw values), `edit.ConfigValidator.validate`, `edit.ConfigHistory` (bounded undo; undo yields a *new* version). |
+| Remote | `ConfigEditor.previewForRemote(config, ops, RemoteRedaction(allowMedication))` → `RemotePreview(lines, sensitivity, errors)` + `summary(maxChars, prefix)` — the only diff/summary that may leave the phone (§6). `ConfigEditor.sensitivity(config, ops)`, `edit.ConfigSensitivity.of(config, op)` (§5). `edit.ConfigOpCodec.decodeList(json)` → `Decoded(ops, errors)` for op lists from outside the process (§4). |
 | Engine | `engine.Engine.reduce(config, state, event, clock): Reduction(state, effects)`; `engine.EngineState` (`encode`/`decode`), `Event`, `Effect`, `Cue`. |
-| Signals | `signal.GeofenceTransition`, `GeofenceSnapshot` (result of (re)registration: inside set; empty = Elsewhere), `LocationAvailability`, `MotionActivity`, `MotionAvailability`, `CompanionActivity`. Each has `observedAt`/`expiresAt`; stale-on-arrival signals are dropped. |
+| Signals | `signal.GeofenceTransition`, `GeofenceSnapshot` (result of (re)registration or a location-fix check: inside set; empty = Elsewhere), `LocationAvailability`, `MotionActivity(kind, observedAt, expiresAt, transition = Sample\|Enter\|Exit)`, `MotionAvailability`, `CompanionActivity`, `CompanionGone` (explicit retraction). Each has `observedAt`/`expiresAt`; stale-on-arrival signals are dropped. |
 | Queries | `query.Queries.todayView(config, state, clock)` → context (value/confidence/source/since per dimension), active items, next cues with `at` or `WaitingReason`, today's doses with status words; `Queries.calendarPreview` (CAL-1: decision + deciding step/rule per event); `engine.CalendarRules.decide` ("why matched"). |
 
 ### Events (all processed at `clock.now()`)
@@ -68,13 +69,80 @@ Key families: `cue.<type>.title`, `cue.habit.body`, `cue.medication.{title,body,
 | RTN-9 / §10.1 | Android 17: routine audio must start from a user action (ANDROID.md). Scheduled routines therefore always prompt ("Start / Skip today"), even with `AutoStart`. `followOnRoutine` starts on alarm **Stop** (a user action) unless the routine's `startMode` is explicitly `AskToStart`. |
 | ALM-6 | Reboot with an alarm passed by ≤ 30 min: a P1 notification ("alarm time passed while the phone was off") instead of ringing, since the ringing FGS can't start from `BOOT_COMPLETED`. A late wake without reboot (≤ 30 min) rings normally. |
 | BTL-4 | Cooldown applies to automatic triggers only; `Leaving now` is subject to dedup (BTL-3) only. Scheduled departures more than 30 min late are skipped. |
+| BTL-2 snapshot | A departure is also detected when a `GeofenceSnapshot` no longer lists a place we were raw-inside (OS exit missed). It takes the same pending path as a raw exit (trigger `GeofenceExit`, rule BTL-2, BTL-3/4/5 apply). A place whose departure was already seen (raw exit recorded, not re-entered) never yields a second pending departure, so exit + snapshot in either order cue once. Stale-on-arrival signals are ignored here too. After boot `rawInside` is empty, so the first snapshot is never a departure. |
+| CTX-6 continuous walk | `MotionActivity.transition`: `Enter` (activity-transition ENTER) makes an on-foot walk *ongoing*: it needs no further readings and lasts until a contrary signal (`Still`/`Other`, an on-foot `Exit`, `InVehicle`) or until `contextRules.onFootOngoingMaxMin` (default 180, range 30–720, never below `onFootHoldMin`) after the last supporting on-foot signal, whichever is first; then the usual exit dwell → Unknown ("stale becomes unknown"). A `Sample` refreshes an ongoing walk. `Still`/`Other`/`Exit` end it at that instant and the 45-min `onFootHoldMin` hold counts from there; `InVehicle` ends Outdoor at once. Plain samples without a transition keep the PRODUCT 45-min hold. |
+| WRK-5 gone | `CompanionGone(observedAt)` retracts any companion report observed at or before it: Activity = Unknown immediately and an automatic Active session is `Suspended` at `observedAt` (not after `companionStaleToSuspendMin`). Older-than-last reports are ignored; a newer `CompanionActivity` starts a new track. Manual sessions are unaffected. |
+| CAL text | A calendar cue whose deciding rule has no kind text (default policy, override, or blank kind) carries no `kind` argument. It uses the key variants `cue.calendar.title.event`, `cue.calendar.generic.title.event`, `speech.calendar.generic.event` and the argument `kindKey = "calendar.kind.event"` (`CalendarRules.UNMATCHED_KIND_KEY`) for templates that reference `{kind}` (the user's phrase template in the body). |
 | WRK-2 | Answering "Start" to a suggestion creates an automatic (not manual) session. |
 | CAL-4 | Meeting = in progress, busy, not excluded at step 0, and any enabled `isMeeting` rule matches (not only the deciding rule), or a step-1 `Always(asMeeting)`. `maxCacheAge` gates both calendar cues and Activity = Meeting. `tentative = Exclude` is a step-0 exclusion. |
 
 ## 4. Not done / open
 
-- Forward tolerance covers unknown keys and unknown enum values; an unknown **sealed subtype** (e.g. a future `ConfigOp`) still fails to decode (kotlinx limitation). Callers should reject such commands as "unsupported".
+- Forward tolerance covers unknown keys and unknown enum values. For op lists use `ConfigOpCodec.decodeList`: each op is decoded separately and an unknown op type becomes `ValidationError("ops[i]", "unsupported_op")`, an unknown nested polymorphic subtype (habit, pause, trigger, …) `unsupported_type`, anything else malformed `bad_op`; list-level `bad_ops`/`too_many`. It never throws. Callers must reject the whole list when `errors` is non-empty. Not covered: a whole **config document** (`ConfigCodec.decode`) or `EngineState`/`Event` JSON containing an unknown sealed subtype still throws (kotlinx closed polymorphism); this only happens on downgrade or a newer export, and import callers should catch it.
 - History retention (`historyRetentionDays`), audit of history edits (MED-5) and the speech queue (SPK-1) are app/Room concerns; the domain only emits `RecordHistory` and `SpeechRequest.dropAfter`.
 - `respectSystemDnd`, during-phone-call silence, headphones-only output and Spotify fallback are executed by the app from the fields provided.
 - Calendar "Edit rule" / "Never for this calendar" corrections exist as ops (`UpsertCalendarRule`, `SetCalendarPreference`); there is no single "correction" helper.
 - Not covered by tests: `AlarmAction.Test` (ALM-5) and `SpotifyFellBack` beyond compilation; `AssumeOutdoor` away policy; `KeepHomeTimezone` for routines.
+
+## 5. Sensitivity of config ops (security review M-5, MED-9)
+
+`sensitive` and `destructive` changes need on-phone confirmation when they come from a remote caller (the app's `ConfigPolicy`
+may additionally confirm everything). `ConfigSensitivity.of(config, op)` classifies **every** `ConfigOp` variant explicitly (an
+exhaustive `when` with no `else`: a new variant does not compile until classified). A list takes the maximum, each op classified
+against the document it is applied to; an invalid list still reports the class of all its ops. `preview` / `previewForRemote`
+additionally escalate: any removed id-keyed element → `destructive`, any medication line → at least `sensitive`.
+Tested exhaustively in `SensitivityTableTest` (a sample per variant, coverage checked against the serializer's variant list).
+
+| Op | Class | Why |
+|---|---|---|
+| `upsertHabit`, `setHabitEnabled` (true or false), `setHabitInterval`, `setHabitActiveHours` | ordinary | interval / hours / a single non-medication habit |
+| `deleteHabit` | destructive | deletion |
+| `setPause` target `habit` or `posture` (any spec, or resume) | ordinary | pausing a single non-medication item |
+| `setPause` target `all` with a pause | sensitive | pauses all reminders |
+| `setPause` target `all`, `pause = null` (resume) | ordinary | only restores alerting |
+| `setPostureCycle`, `setPostureModes`, `setPostureEnabled` | ordinary | posture durations (removing a mode escalates to destructive) |
+| `upsertMedication`, `setMedicationTimes`, `setMedicationTravelPolicy`, `setMedicationEndDate` | sensitive | medication schedule (MED-9) |
+| `deleteMedication` | destructive | deletion |
+| `upsertRoutine`, `duplicateRoutine`, `upsertRoutineStep`, `reorderRoutineSteps` | ordinary | routine / step edits (dropping steps escalates) |
+| `deleteRoutine`, `deleteRoutineStep` | destructive | deletion |
+| `upsertAlarm` of an **existing** alarm | sensitive | can disable, move or skip it |
+| `upsertAlarm` of a new id | ordinary | only adds alerting |
+| `setAlarmEnabled(false)` / `(true)` | sensitive / ordinary | disabling an alarm |
+| `skipNextAlarm(date)` / `(null)` | sensitive / ordinary | skipping an alarm |
+| `deleteAlarm` | destructive | deletion |
+| `upsertPlace` of an existing place with a different `center` or `radiusM` | sensitive | relocates geofences |
+| `upsertPlace` otherwise (new place, rename, flags) | ordinary | |
+| `setPlaceLocation` | sensitive | relocates / clears a place |
+| `deletePlace` | destructive | deletion |
+| `upsertCueProfile` of type Medication or Alarm (before or after) | sensitive | medication-adjacent / alarm delivery |
+| `upsertCueProfile` that turns off sound, vibration or speech, or changes sound, vibration or type | sensitive | can silence cues |
+| `upsertCueProfile` otherwise (phrase, new non-critical profile) | ordinary | |
+| `deleteCueProfile` | destructive | deletion |
+| `setCalendarConfig` | sensitive | whole calendar policy incl. default policy, lock-screen and spoken titles |
+| `upsertCalendarRule`, `reorderCalendarRules`, `setCalendarPreference`, `setEventOverride` | ordinary | calendar lead times / one-tap corrections |
+| `deleteCalendarRule`, `removeCalendarPreference` | destructive | deletion |
+| `setContextRules`, `setSessionRules` | sensitive | context-detection settings |
+| `setQuietHours`, `setSpeechSettings`, `setCollisionSettings`, `setGlobalSettings` | sensitive | can silence or delay cues (global settings include quiet hours and pause-all) |
+| `setLanguage` | ordinary | |
+
+Remote-access settings (relay pairing, `ConfigPolicy`, `allowMedication`) are app settings, not `ConfigOp`s; the app must keep
+them changeable on the phone only.
+
+## 6. Remote redaction (security review H-1, M-8)
+
+`ConfigEditor.previewForRemote(config, ops, RemoteRedaction(allowMedication))` is the only diff that may leave the phone
+(relay `config.preview` results, `awaiting_confirmation` / applied summaries, undo summaries, audit rows). It redacts **values**:
+
+- Place coordinates never appear, whatever the policy. Places are diffed with `center` replaced by `location: set|none`; a moved
+  place adds `places[<id>].location: set -> moved`; a whole added/removed place is `"<name> (location set|removed)"` or
+  `"<name> (no location)"`. Any JSON value is additionally stripped of `center`/`lat`/`lng`/`latitude`/`longitude` keys.
+- Without `allowMedication` (the grant's `medication` scope **and** the owner's phone setting), medications and medication cue
+  profiles are removed from both documents and replaced by one line `medications: details withheld -> changed (details withheld)`;
+  validation errors under `medications` are generic.
+- Sensitivity is computed from the unredacted change (equal to the on-phone `preview`).
+- `RemotePreview.summary(maxChars, prefix)` builds confirmation / undo text from the already-redacted lines, so truncation cannot
+  expose anything. For an undo, pass the restoring ops (e.g. the app's `ConfigDiff.ops(current, previous)`).
+
+`RemotePreview` is a separate type from `Preview` so raw on-phone lines cannot be passed where redacted ones are expected.
+Tested in `RemoteRedactionTest`: for every op variant (and the undo direction, and 400 random op sequences) no coordinate digit
+fragment and — under `Strict` — no medication label, time, date or phrase appears in any line, error, text, summary or JSON.

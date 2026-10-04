@@ -52,6 +52,8 @@ data class CompanionTrack(
     val stateSince: Instant? = null,
     val lastObservedAt: Instant? = null,
     val expiresAt: Instant? = null,
+    /** The companion said it is gone ([app.daycue.domain.signal.CompanionGone]) at [lastObservedAt]. */
+    val gone: Boolean = false,
 ) {
     fun fresh(now: Instant): Boolean = expiresAt != null && now.isBefore(expiresAt)
 }
@@ -91,6 +93,8 @@ data class ContextState(
     val motionAvailable: Boolean = true,
     val onFootSince: Instant? = null,
     val lastOnFootAt: Instant? = null,
+    /** An on-foot ENTER transition has not been contradicted yet (CTX-6 continuous walk). */
+    val onFootOngoing: Boolean = false,
     val env: EnvTrack = EnvTrack(),
     val companion: CompanionTrack = CompanionTrack(),
     val session: Session? = null,

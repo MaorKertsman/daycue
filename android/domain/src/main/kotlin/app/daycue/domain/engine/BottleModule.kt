@@ -4,6 +4,7 @@ import app.daycue.domain.config.BottleTrigger
 import app.daycue.domain.config.CueType
 import app.daycue.domain.config.TransitionHabit
 import app.daycue.domain.context.PlaceKind
+import app.daycue.domain.signal.GeofenceSnapshot
 import app.daycue.domain.signal.GeofenceTransition
 import app.daycue.domain.signal.GeofenceTransitionKind
 import app.daycue.domain.signal.Signal
@@ -31,18 +32,36 @@ internal object BottleModule {
         }
     }
 
-    /** BTL-2 / BTL-5: raw OS exit, evaluated before it is folded into context (no exit dwell). */
+    /**
+     * BTL-2 / BTL-5: a departure, evaluated before the signal is folded into context (no exit dwell). Either a
+     * raw OS exit, or a [GeofenceSnapshot] that no longer lists a place we were raw-inside (the OS exit was
+     * missed, e.g. after re-registration or a location-fix check). Both go through the same pending path, so
+     * BTL-3 dedup and BTL-4 cooldown apply equally; a place whose departure was already seen (raw exit
+     * recorded, not re-entered) never produces a second pending departure.
+     */
     fun onSignalBeforeApply(run: Run, sig: Signal) {
-        if (sig !is GeofenceTransition || sig.kind != GeofenceTransitionKind.Exit) return
+        if (sig.expiresAt?.let { !run.now.isBefore(it) } == true) return // stale on arrival: ignored like in context
         val cs = run.st.context
+        when (sig) {
+            is GeofenceTransition -> if (sig.kind == GeofenceTransitionKind.Exit) {
+                val alreadyDeparted = sig.placeId !in cs.rawInside && sig.placeId in cs.rawExitAt
+                if (!alreadyDeparted) departure(run, sig.placeId, otherInside = (cs.rawInside.keys - sig.placeId), source = "exit")
+            }
+            is GeofenceSnapshot -> for (placeId in cs.rawInside.keys - sig.insidePlaceIds) {
+                departure(run, placeId, otherInside = sig.insidePlaceIds - placeId, source = "snapshot")
+            }
+            else -> {}
+        }
+    }
+
+    private fun departure(run: Run, placeId: String, otherInside: Set<String>, source: String) {
         for (h in run.config.transitionHabits) {
-            if (!h.enabled || BottleTrigger.GeofenceExit !in h.triggers || sig.placeId !in enabledPlaces(run, h)) continue
-            val otherInside = (cs.rawInside.keys - sig.placeId).any { run.config.place(it) != null }
-            if (otherInside) {
-                run.history(key(h), HistoryKind.SkippedLate, "BTL-5", detail = mapOf("place" to sig.placeId))
+            if (!h.enabled || BottleTrigger.GeofenceExit !in h.triggers || placeId !in enabledPlaces(run, h)) continue
+            if (otherInside.any { run.config.place(it) != null }) {
+                run.history(key(h), HistoryKind.SkippedLate, "BTL-5", detail = mapOf("place" to placeId, "source" to source))
                 continue
             }
-            run.put(h.id, run.get(h.id).copy(pending = PendingDeparture(sig.placeId, "GeofenceExit", run.now, loud = false)))
+            run.put(h.id, run.get(h.id).copy(pending = PendingDeparture(placeId, "GeofenceExit", run.now, loud = false)))
         }
     }
 

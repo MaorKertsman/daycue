@@ -11,6 +11,8 @@ import app.daycue.domain.config.SessionStart
 import app.daycue.domain.config.TypicalEnvironment
 import app.daycue.domain.engine.OverrideDuration
 import app.daycue.domain.signal.CompanionActivity
+import app.daycue.domain.signal.CompanionGone
+import app.daycue.domain.signal.MotionTransition
 import app.daycue.domain.signal.CompanionState
 import app.daycue.domain.signal.GeofenceSnapshot
 import app.daycue.domain.signal.GeofenceTransition
@@ -64,25 +66,56 @@ object ContextEngine {
                     rawExitAt = cs.rawExitAt - sig.placeId)
                 GeofenceTransitionKind.Exit -> cs.copy(geofenceKnown = true, rawInside = cs.rawInside - sig.placeId, rawExitAt = cs.rawExitAt + (sig.placeId to sig.observedAt))
             }
-            is MotionAvailability -> if (sig.available) cs.copy(motionAvailable = true) else cs.copy(motionAvailable = false, onFootSince = null, lastOnFootAt = null)
+            is MotionAvailability -> if (sig.available) cs.copy(motionAvailable = true) else cs.copy(motionAvailable = false, onFootSince = null, lastOnFootAt = null, onFootOngoing = false)
             is MotionActivity -> when (sig.kind) {
                 MotionKind.OnFoot -> {
-                    val alive = cs.lastOnFootAt != null && sig.observedAt.isBefore(cs.lastOnFootAt.plusMin(r.onFootHoldMin))
-                    if (cs.lastOnFootAt != null && sig.observedAt.isBefore(cs.lastOnFootAt)) cs
-                    else cs.copy(onFootSince = if (alive) cs.onFootSince else sig.observedAt, lastOnFootAt = sig.observedAt)
+                    if (cs.lastOnFootAt != null && sig.observedAt.isBefore(cs.lastOnFootAt)) cs // out of order
+                    else {
+                        val alive = onFootHoldEnd(cs, r)?.let { sig.observedAt.isBefore(it) } == true
+                        val ongoing = when (sig.transition) {
+                            MotionTransition.Enter -> true
+                            MotionTransition.Exit -> false
+                            MotionTransition.Sample -> alive && cs.onFootOngoing // a sample refreshes an ongoing walk
+                        }
+                        cs.copy(onFootSince = if (alive) cs.onFootSince else sig.observedAt, lastOnFootAt = sig.observedAt, onFootOngoing = ongoing)
+                    }
                 }
                 // CTX-6: in-vehicle is never Outdoor; ends the on-foot run.
-                MotionKind.InVehicle -> cs.copy(onFootSince = null, lastOnFootAt = null)
-                else -> cs // Still / Other: the on-foot hold continues.
+                MotionKind.InVehicle -> cs.copy(onFootSince = null, lastOnFootAt = null, onFootOngoing = false)
+                // Still / Other: contradict an ongoing walk (which lasted until now, capped at its stale bound);
+                // the on-foot hold then continues from there.
+                else -> {
+                    val last = cs.lastOnFootAt
+                    if (!cs.onFootOngoing || last == null || sig.observedAt.isBefore(last)) cs
+                    else cs.copy(onFootOngoing = false, lastOnFootAt = minOf(sig.observedAt, ongoingEnd(last, r)))
+                }
             }
             is CompanionActivity -> {
                 val c = cs.companion
                 if (c.lastObservedAt != null && sig.observedAt.isBefore(c.lastObservedAt)) return cs // out of order
                 val exp = sig.expiresAt ?: sig.observedAt.plusMin(r.companionExpiryMin)
-                val continues = c.state == sig.state && c.expiresAt != null && !sig.observedAt.isAfter(c.expiresAt)
+                val continues = !c.gone && c.state == sig.state && c.expiresAt != null && !sig.observedAt.isAfter(c.expiresAt)
                 cs.copy(companion = CompanionTrack(sig.state, if (continues) c.stateSince else sig.observedAt, sig.observedAt, exp))
             }
+            // Explicit retraction: no state, not fresh, remembered as "gone" for immediate suspension (WRK-5).
+            is CompanionGone -> {
+                val c = cs.companion
+                if (c.lastObservedAt != null && sig.observedAt.isBefore(c.lastObservedAt)) cs
+                else cs.copy(companion = CompanionTrack(state = null, stateSince = null, lastObservedAt = sig.observedAt, expiresAt = sig.observedAt, gone = true))
+            }
         }
+    }
+
+    private fun ongoingEnd(last: Instant, r: app.daycue.domain.config.ContextRules): Instant = last.plusMin(maxOf(r.onFootOngoingMaxMin, r.onFootHoldMin))
+
+    /**
+     * CTX-6: end of on-foot evidence. While a walk is ongoing (ENTER, no contrary transition) it lasts until
+     * `onFootOngoingMaxMin` after the last supporting on-foot signal; otherwise `onFootHoldMin` after the last
+     * on-foot instant. Null when there is no on-foot evidence.
+     */
+    internal fun onFootHoldEnd(cs: ContextState, r: app.daycue.domain.config.ContextRules): Instant? {
+        val last = cs.lastOnFootAt ?: return null
+        return if (cs.onFootOngoing) ongoingEnd(last, r) else last.plusMin(r.onFootHoldMin)
     }
 
     fun overrideExpiry(d: OverrideDuration, now: Instant, capMin: Int, zone: ZoneId, config: DayCueConfig): Instant = when (d) {
@@ -163,10 +196,11 @@ object ContextEngine {
                 else Raw(Environment.Unknown, Confidence.Low, unknownSince, ContextSource.None, 0)
             AwayEnvironmentPolicy.OutdoorWhenOnFoot -> {
                 val since = cs.onFootSince; val last = cs.lastOnFootAt
-                if (!cs.motionAvailable || since == null || last == null) Raw(Environment.Unknown, Confidence.Low, last?.plusMin(r.onFootHoldMin) ?: unknownSince, ContextSource.None, 0)
+                if (!cs.motionAvailable || since == null || last == null) Raw(Environment.Unknown, Confidence.Low, onFootHoldEnd(cs, r) ?: unknownSince, ContextSource.None, 0)
                 else {
-                    val holdEnd = last.plusMin(r.onFootHoldMin)
-                    val sustained = !last.plusMin(r.activityRecognitionExpiryMin).isBefore(since.plusMin(r.onFootSustainMin))
+                    val holdEnd = onFootHoldEnd(cs, r)!!
+                    // An ongoing walk is sustained by definition (the enter dwell below still applies).
+                    val sustained = cs.onFootOngoing || !last.plusMin(r.activityRecognitionExpiryMin).isBefore(since.plusMin(r.onFootSustainMin))
                     // The away policy only applies since Place left a saved place.
                     val effSince = p.since?.let { maxOf(it, since) } ?: since
                     if (now.isBefore(holdEnd) && sustained) Raw(Environment.Outdoor, Confidence.Medium, effSince, ContextSource.Motion,
@@ -228,8 +262,12 @@ object ContextEngine {
                     }
                     if (s.status == SessionStatus.Active && !s.manual && !fresh) {
                         val last = comp.lastObservedAt ?: s.startedAt
-                        val staleAt = last.plusMin(r.companionStaleToSuspendMin)
-                        if (!now.isBefore(staleAt)) { s = s.copy(status = SessionStatus.Suspended, statusSince = staleAt); notes += SessionNote.Paused(staleAt, "WRK-5 companion stale") }
+                        // An explicit "gone" suspends at once; silence only after companionStaleToSuspend.
+                        val staleAt = if (comp.gone) maxOf(last, s.startedAt) else last.plusMin(r.companionStaleToSuspendMin)
+                        if (!now.isBefore(staleAt)) {
+                            s = s.copy(status = SessionStatus.Suspended, statusSince = staleAt)
+                            notes += SessionNote.Paused(staleAt, if (comp.gone) "WRK-5 companion gone" else "WRK-5 companion stale")
+                        }
                     }
                 }
                 SessionStatus.Paused, SessionStatus.Suspended -> {
@@ -327,7 +365,7 @@ object ContextEngine {
         }
         cs.env.outdoorConfirmAt?.let { out += it to true }
         cs.env.leaveCandidateSince?.let { out += it.plusMin(r.outdoorExitDwellMin) to true }
-        cs.lastOnFootAt?.let { out += it.plusMin(r.onFootHoldMin) to false }
+        onFootHoldEnd(cs, r)?.let { out += it to false }
         cs.onFootSince?.let { out += it.plusMin(maxOf(r.outdoorEnterDwellMin, r.onFootSustainMin)) to true }
         cs.envOverride?.let { out += it.expiresAt to false }
         cs.detectionPause?.until?.let { out += it to false }

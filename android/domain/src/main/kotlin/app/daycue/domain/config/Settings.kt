@@ -39,6 +39,12 @@ data class ContextRules(
     val awayEnvironment: AwayEnvironmentPolicy = AwayEnvironmentPolicy.OutdoorWhenOnFoot,
     val onFootSustainMin: Int = 5,
     val onFootHoldMin: Int = 45,
+    /**
+     * CTX-6 continuous walk: after an on-foot ENTER transition the walk counts as ongoing without new
+     * readings for at most this long after the last supporting on-foot signal; then it is stale and
+     * Environment falls back to Unknown (after the exit dwell). Effective value is never below [onFootHoldMin].
+     */
+    val onFootOngoingMaxMin: Int = 180,
     val activityRecognitionExpiryMin: Int = 10,
     val companionExpiryMin: Int = 3,
     val environmentOverrideCapMin: Int = 480,

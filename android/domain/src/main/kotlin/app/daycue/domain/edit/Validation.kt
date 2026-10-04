@@ -178,6 +178,7 @@ object ConfigValidator {
             a.range("$p.outdoorExitDwellMin", r.outdoorExitDwellMin, 0, 60, "CTX-5")
             a.range("$p.onFootSustainMin", r.onFootSustainMin, 0, 30, "CTX-6")
             a.range("$p.onFootHoldMin", r.onFootHoldMin, 5, 180, "CTX-6")
+            a.range("$p.onFootOngoingMaxMin", r.onFootOngoingMaxMin, 30, 720, "CTX-6")
             val s = r.sessions
             a.range("$p.sessions.sustainedActiveToStartMin", s.sustainedActiveToStartMin, 1, 30, "§1.5")
             a.range("$p.sessions.idleToPauseMin", s.idleToPauseMin, 2, 60, "§1.5")

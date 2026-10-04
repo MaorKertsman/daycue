@@ -34,6 +34,14 @@ data class CalendarDecision(
 /** Calendar rule evaluation (PRODUCT §9.1). Titles are only substring-matched and displayed (CAL-5). */
 object CalendarRules {
 
+    /**
+     * Text key for the generic kind word ("event") of a calendar cue whose deciding rule has no kind text.
+     * Cues then use the `.event` key variants (`cue.calendar.title.event`, `cue.calendar.generic.title.event`,
+     * `speech.calendar.generic.event`) and carry `kindKey = UNMATCHED_KIND_KEY` instead of a `kind` argument;
+     * the app resolves it to the localized word where a template (e.g. the user's phrase template) needs `{kind}`.
+     */
+    const val UNMATCHED_KIND_KEY = "calendar.kind.event"
+
     fun decide(cal: CalendarConfig, ev: CalendarEvent): CalendarDecision {
         val k = ev.key
         val override = cal.overrides.firstOrNull { it.scope == OverrideScope.Instance && it.key == k }
@@ -189,20 +197,25 @@ internal object CalendarModule {
     private fun propose(run: Run, ev: CalendarEvent, d: CalendarDecision, rec: CalendarCueRecord, lead: Int, consumed: Set<Int>, rule: String) {
         val cal = run.config.calendarRules
         val lang = run.config.settings.language
-        val kindText = d.ruleId?.let { id -> cal.rules.firstOrNull { it.id == id }?.kind?.get(lang) }?.ifBlank { null } ?: d.kind ?: "event"
+        // User kind text from the deciding rule, if any. Otherwise no English fallback word: the cue uses the
+        // `.event` key variants and carries `kindKey` (a localizable text key) for templates that need {kind}.
+        val userKind = d.ruleId?.let { id -> cal.rules.firstOrNull { it.id == id }?.kind?.get(lang) }?.ifBlank { null } ?: d.kind?.ifBlank { null }
+        val sfx = if (userKind == null) ".event" else ""
+        val kindArgs = if (userKind != null) mapOf("kind" to userKind) else mapOf("kindKey" to CalendarRules.UNMATCHED_KIND_KEY)
         val minutes = Duration.between(run.now, ev.start).toMinutes().coerceAtLeast(0).toString()
         // The title travels as data for display (CAL-5); lock-screen exposure is governed by `lockScreen`/`publicTitle`.
-        val args = mapOf("kind" to kindText, "minutes" to minutes, "start" to ev.start.toString(), "title" to ev.title)
+        val args = kindArgs + mapOf("minutes" to minutes, "start" to ev.start.toString(), "title" to ev.title)
         val now = run.now
         run.propose(Proposal(
             itemKey = key(ev), notificationKey = key(ev), type = CueType.Calendar, dueAt = now, cueId = null,
-            title = Text("cue.calendar.title", args), body = Text("cue.calendar.body", mapOf("template" to cal.phraseTemplate.get(lang)) + args),
+            title = Text("cue.calendar.title$sfx", args), body = Text("cue.calendar.body", mapOf("template" to cal.phraseTemplate.get(lang)) + args),
             actions = listOf(CueAction(ActionKind.GotIt, Text("action.got_it")), CueAction(ActionKind.Snooze, Text("action.snooze", mapOf("minutes" to cal.snoozeMin.toString())), cal.snoozeMin)),
             why = WhyNow(rule, "why.calendar", mapOf("step" to d.step.toString(), "rule" to (d.ruleId ?: ""), "reason" to d.reason, "matched" to (d.matched ?: ""), "leadMin" to lead.toString())),
             lockScreen = if (cal.showTitlesOnLockScreen) LockScreenVisibility.Public else LockScreenVisibility.Private,
-            publicTitle = Text("cue.calendar.generic.title", mapOf("kind" to kindText, "minutes" to minutes)),
+            publicTitle = Text("cue.calendar.generic.title$sfx", kindArgs + mapOf("minutes" to minutes)),
             // SPK-4: title only if speakTitles.
-            speech = Text(if (cal.speakTitles) "speech.calendar.title" else "speech.calendar.generic", mapOf("kind" to kindText, "minutes" to minutes) + if (cal.speakTitles) mapOf("title" to ev.title) else emptyMap()),
+            speech = if (cal.speakTitles) Text("speech.calendar.title", kindArgs + mapOf("minutes" to minutes, "title" to ev.title))
+                else Text("speech.calendar.generic$sfx", kindArgs + mapOf("minutes" to minutes)),
             shortName = Text("short.calendar"),
             silent = run.quietUntil() != null, // QH-2
             profileId = cal.cueProfileId,
