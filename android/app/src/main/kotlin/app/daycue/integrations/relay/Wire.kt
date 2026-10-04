@@ -25,11 +25,31 @@ data class WireCommand(
 
 @Serializable data class Wants(val medication: Boolean = false)
 
-@Serializable data class PullResponse(val commands: List<WireCommand> = emptyList(), val wants: Wants = Wants(), val serverTime: Long = 0)
+/** One grant as the relay lists it for the phone (RELAY.md 4.6). Labels are client-supplied: unverified. */
+@Serializable
+data class WireGrantItem(
+    val id: String,
+    val label: String = "",
+    val kind: String = "",
+    val scopes: List<String> = emptyList(),
+    val activeScopes: List<String> = emptyList(),
+    /** `pending` | `approved` | `not_required`. */
+    val approval: String = "approved",
+    val createdAt: Long = 0,
+    val lastUsedAt: Long? = null,
+)
+
+@Serializable data class GrantsList(val version: Long = 0, val items: List<WireGrantItem> = emptyList())
+
+@Serializable data class GrantsResponse(val grants: GrantsList = GrantsList(), val serverTime: Long = 0)
+
+@Serializable data class GrantDecisionResponse(val ok: Boolean = true, val approval: String? = null, val revoked: Boolean? = null, val grants: GrantsList? = null, val serverTime: Long = 0)
+
+@Serializable data class PullResponse(val commands: List<WireCommand> = emptyList(), val wants: Wants = Wants(), val grants: GrantsList? = null, val serverTime: Long = 0)
 
 @Serializable data class PairResponse(val deviceId: String, val token: String, val serverTime: Long = 0)
 
-@Serializable data class SnapshotResponse(val ok: Boolean = true, val wants: Wants = Wants(), val pendingCommands: Int = 0, val serverTime: Long = 0)
+@Serializable data class SnapshotResponse(val ok: Boolean = true, val wants: Wants = Wants(), val grantsVersion: Long? = null, val pendingCommands: Int = 0, val serverTime: Long = 0)
 
 @Serializable data class WireCompanion(val id: String, val label: String = "", val publicKey: String)
 
@@ -75,4 +95,10 @@ interface RelayApi {
     suspend fun putPush(fcmToken: String?, wakeOnActivity: Boolean?)
     suspend fun activity(): ActivityResponse
     suspend fun companionCode(): CompanionCode
+    /** `GET /v1/phone/grants` (RELAY.md 4.6). */
+    suspend fun grants(): GrantsResponse
+    /** `POST /v1/phone/grants/:id/decision` with a body signed by the phone key. */
+    suspend fun decideGrant(grantId: String, body: JsonObject): GrantDecisionResponse
+    /** `DELETE /v1/phone/self`: unpair, revoking this phone's credential on the relay. */
+    suspend fun unpairSelf()
 }

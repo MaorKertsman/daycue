@@ -19,6 +19,7 @@ import app.daycue.domain.config.RepeatPolicy
 import app.daycue.domain.config.SpeechOutput
 import app.daycue.domain.config.SpeechOverMediaPolicy
 import app.daycue.domain.edit.ConfigOp
+import app.daycue.domain.edit.ConfigOpCodec
 import app.daycue.domain.engine.EngineState
 import app.daycue.domain.engine.Event
 import app.daycue.domain.engine.RoutineTestMode
@@ -28,7 +29,6 @@ import app.daycue.engine.ApplyOutcome
 import app.daycue.facade.ConfigTransfer
 import app.daycue.system.runAsync
 import kotlinx.coroutines.delay
-import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -89,8 +89,10 @@ class DevToolsReceiver : BroadcastReceiver() {
                 "ack" -> host.dispatch(Event.HabitAck(intent.getStringExtra("habit") ?: "demo"))
                 "event" -> host.dispatch(DayCueJson.decodeFromString(Event.serializer(), intent.getStringExtra("json") ?: return@runAsync))
                 "ops" -> {
-                    val ops = DayCueJson.decodeFromString(ListSerializer(ConfigOp.serializer()), intent.getStringExtra("json") ?: return@runAsync)
-                    report(host.applyOps(ops, host.ensureLoaded().config.version, "debug"))
+                    // Same forward-compatible decoder as remote commands: an unknown op is a typed error, never an exception.
+                    val dec = ConfigOpCodec.decodeList(intent.getStringExtra("json") ?: return@runAsync)
+                    if (!dec.ok) Log.w(TAG, "ops rejected: ${dec.errors.joinToString { "${it.path} ${it.code}" }}")
+                    else report(host.applyOps(dec.ops, host.ensureLoaded().config.version, "debug"))
                 }
                 "undo" -> report(host.undo())
                 // Needs an Activity of ours on screen (FGS start + while-in-use), e.g. after `am start -n app.daycue/.MainActivity`.

@@ -59,8 +59,10 @@ class TextResolver(private val context: Context) {
             Log.w("DayCue", "missing string for text key '$key'")
             return args["phrase"] ?: args["text"] ?: args["name"] ?: key
         }
-        if (Templates.needsAlt(template, args)) raw("${base}_alt", lang)?.let { template = it }
-        return Templates.fill(template!!, args, zone, rtl = lang == Language.he)
+        // `kindKey` -> localized `kind` (after variant selection, which uses only a real `kind`).
+        val filled = Templates.withResolvedKind(args) { raw(it, lang) }
+        if (Templates.needsAlt(template, filled)) raw("${base}_alt", lang)?.let { template = it }
+        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he)
     }
 
     @SuppressLint("DiscouragedApi") // keys are data from the domain; names are kept from shrinking by res/raw/keep_engine.xml

@@ -224,4 +224,27 @@
     <string name="dc_calmatch_cond_keyword">מילת מפתח</string>
     <string name="dc_calmatch_cond_color">צבע</string>
     <string name="dc_calmatch_cond_availability">זמינות</string>
+
+    <!-- סוג אירוע ברירת מחדל (נפתר מהארגומנט kindKey) -->
+    <string name="dc_calendar_kind_event">אירוע</string>
+
+    <!-- גישה מרחוק: אישורים בטלפון -->
+    <string name="dc_remote_screen_title">נדרש אישור שלכם</string>
+    <string name="dc_remote_screen_empty">שום דבר לא ממתין לכם.</string>
+    <string name="dc_remote_screen_close">סגירה</string>
+    <string name="dc_remote_from">מאת %s (השם לא אומת)</string>
+    <string name="dc_remote_hold_to_approve">לחיצה ארוכה לאישור</string>
+    <string name="dc_remote_hold_hint">לוחצים ומחזיקים את הכפתור כדי לאשר. לחיצה קצרה לא עושה כלום.</string>
+    <string name="dc_remote_failed_hint">לא ניתן היה להשלים. פתחו את DayCue ונסו שוב.</string>
+    <string name="dc_remote_grant_title">חיבור חדש</string>
+    <string name="dc_remote_grant_body">%1$s מבקש/ת: %2$s. שום דבר לא פעיל עד שתאשרו.</string>
+    <string name="dc_remote_grant_notif_title">חיבור ממתין לאישורכם</string>
+    <string name="dc_remote_grant_notif_body">%s ביקש/ה גישה ל-DayCue. החיבור כבוי עד שתאשרו אותו באפליקציה.</string>
+    <string name="dc_remote_revoked_title">הטלפון הזה נותק מהממסר</string>
+    <string name="dc_remote_revoked_body">הגישה מרחוק כבויה עד שתצמידו שוב. התזכורות שלכם לא מושפעות.</string>
+    <string name="dc_remote_scope_config_read">קריאת ההגדרות שלכם</string>
+    <string name="dc_remote_scope_config_write">שינוי ההגדרות שלכם</string>
+    <string name="dc_remote_scope_sessions_control">התחלה ועצירה של סשנים</string>
+    <string name="dc_remote_scope_activity_read">קריאת סיכום פעילות המחשב</string>
+    <string name="dc_remote_scope_medication">פרטי תרופות ושינויים בהן</string>
 </resources>

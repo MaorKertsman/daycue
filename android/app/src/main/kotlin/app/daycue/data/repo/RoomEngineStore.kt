@@ -14,6 +14,7 @@ import app.daycue.domain.engine.EngineState
 import app.daycue.domain.engine.HistoryEntry
 import app.daycue.domain.engine.WakePrecision
 import app.daycue.domain.signal.CompanionActivity
+import app.daycue.domain.signal.CompanionGone
 import app.daycue.domain.signal.GeofenceSnapshot
 import app.daycue.domain.signal.GeofenceTransition
 import app.daycue.domain.signal.LocationAvailability
@@ -119,8 +120,7 @@ class RoomEngineStore(private val db: DayCueDatabase) : EngineStore {
         fun signalSource(s: Signal): String = when (s) {
             is GeofenceTransition, is GeofenceSnapshot, is LocationAvailability -> "geofence"
             is MotionActivity, is MotionAvailability -> "motion"
-            is CompanionActivity -> "companion"
-            else -> "other"
+            is CompanionActivity, is CompanionGone -> "companion"
         }
     }
 }

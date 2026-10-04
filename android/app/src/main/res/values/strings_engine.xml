@@ -230,4 +230,27 @@
     <string name="dc_calmatch_cond_keyword">keyword</string>
     <string name="dc_calmatch_cond_color">color</string>
     <string name="dc_calmatch_cond_availability">availability</string>
+
+    <!-- Calendar kind fallback: resolved from the domain argument kindKey = "calendar.kind.event" (TextResolver) -->
+    <string name="dc_calendar_kind_event">event</string>
+
+    <!-- Remote access: approvals on the phone (integrations/relay, RemoteConfirmActivity). Plain %s formatting. -->
+    <string name="dc_remote_screen_title">Needs your approval</string>
+    <string name="dc_remote_screen_empty">Nothing is waiting for you.</string>
+    <string name="dc_remote_screen_close">Close</string>
+    <string name="dc_remote_from">From %s (name not verified)</string>
+    <string name="dc_remote_hold_to_approve">Hold to approve</string>
+    <string name="dc_remote_hold_hint">Press and hold the button to approve. A tap does nothing.</string>
+    <string name="dc_remote_failed_hint">That could not be completed. Open DayCue and try again.</string>
+    <string name="dc_remote_grant_title">New connection</string>
+    <string name="dc_remote_grant_body">%1$s asks for: %2$s. Nothing is active until you approve.</string>
+    <string name="dc_remote_grant_notif_title">A connection awaits your approval</string>
+    <string name="dc_remote_grant_notif_body">%s asked for access to DayCue. It stays off until you approve it in the app.</string>
+    <string name="dc_remote_revoked_title">This phone was unpaired from the relay</string>
+    <string name="dc_remote_revoked_body">Remote access is off until you pair again. Your reminders are not affected.</string>
+    <string name="dc_remote_scope_config_read">Read your setup</string>
+    <string name="dc_remote_scope_config_write">Change your setup</string>
+    <string name="dc_remote_scope_sessions_control">Start and stop sessions</string>
+    <string name="dc_remote_scope_activity_read">Read computer activity summary</string>
+    <string name="dc_remote_scope_medication">Medication details and changes</string>
 </resources>

@@ -37,7 +37,11 @@ data class BackupFile(
 
 sealed interface ImportParse {
     data class Ok(val config: DayCueConfig, val hadHistory: Boolean) : ImportParse
-    /** UX §3.16 "This file isn't a DayCue setup". */
+    /**
+     * UX §3.16 "This file isn't a DayCue setup". [reason] is a code: `not_json_object`, `missing_config`, `unknown_format`,
+     * `missing_schema_version`, `unsupported_content` (written by a newer version: a type this build does not know),
+     * `invalid_document`.
+     */
     data class NotDayCue(val reason: String) : ImportParse
     data class UnsupportedSchema(val schemaVersion: Int) : ImportParse
 }
@@ -82,7 +86,16 @@ object ConfigTransfer {
         }
         val schema = doc["schemaVersion"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: return ImportParse.NotDayCue("missing_schema_version")
         if (schema > DayCueConfig.CURRENT_SCHEMA_VERSION) return ImportParse.UnsupportedSchema(schema)
-        val config = runCatching { ConfigCodec.decode(doc.toString()) }.getOrElse { return ImportParse.NotDayCue("invalid_document: ${it.message?.take(200)}") }
+        // A whole-document decode can still throw (an unknown sealed subtype from a newer app version, or a malformed
+        // value): kotlinx closed polymorphism, DOMAIN.md section 4. Report it cleanly; never echo file content.
+        val config = try {
+            ConfigCodec.decode(doc.toString())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val m = e.message.orEmpty()
+            return ImportParse.NotDayCue(if ("polymorphic" in m || "subclass" in m || "discriminator" in m) "unsupported_content" else "invalid_document")
+        }
         return ImportParse.Ok(config, hadHistory)
     }
 

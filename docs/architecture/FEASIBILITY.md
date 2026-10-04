@@ -136,7 +136,12 @@ https://developer.android.com/develop/sensors-and-location/location/permissions/
   location and activity changes drive the geofencer; latency there must be measured (§5.6).
 - Consequence for the water bottle: a geofence exit (BTL-2) usually arrives after you are out of the door. It is a fallback.
   **Emu:** exit -> bottle cue delivered in the same reduce (`habit:water-bottle`, channel `bottle`). A departure detected
-  only through a snapshot (no OS EXIT) does not cue the bottle (the domain listens to raw exits only).
+  only through a snapshot (no OS EXIT) **now cues the bottle too** (domain BTL-2 "snapshot departure": a
+  `GeofenceSnapshot` that no longer lists a place the engine was raw-inside of takes the same path as a raw exit, with the
+  same dedup, cooldown and BTL-5 rules; exit + snapshot in either order cue once). The app takes a one-shot fix at
+  (re)registration, on app open, on a stale queued transition **and when a walk or a drive starts** (activity-transition
+  ENTER of on-foot or in-vehicle, throttled to one fix per minute), so a missed EXIT is repaired shortly after leaving
+  (unit: fix outside -> snapshot -> bottle cue; not measured on a device).
 
 ### 5.4 Earlier departure signals - assessment
 
@@ -151,12 +156,21 @@ https://developer.android.com/develop/sensors-and-location/location/permissions/
 ### 5.5 Activity Recognition (implemented, optional)
 
 Transition API (Doc read: https://developer.android.com/develop/sensors-and-location/location/transitions): WALKING,
-RUNNING, ON_BICYCLE enter and exit; IN_VEHICLE enter; STILL enter. Mapping (unit): on-foot enter ->
-`MotionActivity(OnFoot)`; on-foot **exit** -> `OnFoot` at the exit instant (the user was on foot until then, so the
-45-minute hold counts from the end of the walk); IN_VEHICLE -> `InVehicle`; STILL -> `Still`. `observedAt` from
-`elapsedRealtimeNanos`; `expiresAt = observedAt + activityRecognitionExpiryMin`. Registered only with the permission and
-`awayEnvironment = OutdoorWhenOnFoot`; `MotionAvailability` follows. Limits: the API reports changes only, so one walk
-longer than `onFootHoldMin` (45 min) without any transition loses Outdoor; detection latency "varies by device" (doc).
+RUNNING, ON_BICYCLE enter and exit; IN_VEHICLE enter; STILL enter. Mapping (unit, `MotionSignals.map`): on-foot enter ->
+`MotionActivity(OnFoot, transition = Enter)`; on-foot **exit** -> `OnFoot` with `transition = Exit` at the exit instant
+(the walk ended then, so the 45-minute `onFootHoldMin` hold counts from the end of the walk); IN_VEHICLE enter ->
+`InVehicle` and STILL enter -> `Still`, both `transition = Enter`. `observedAt` from `elapsedRealtimeNanos`;
+`expiresAt = observedAt + activityRecognitionExpiryMin`. Registered only with the permission and
+`awayEnvironment = OutdoorWhenOnFoot`; `MotionAvailability` follows.
+
+**Long walks (CTX-6 continuous walk, DOMAIN.md section 3).** The API still reports changes only, never "still walking",
+but the domain now treats an on-foot `Enter` as an *ongoing* walk: it needs no further readings and lasts until a contrary
+signal (`Still`, `Other`, an on-foot `Exit`, `InVehicle`) or until `contextRules.onFootOngoingMaxMin` (default 180 min,
+range 30-720) after the last supporting on-foot signal, whichever comes first, then the usual exit dwell. So a walk
+longer than 45 min **keeps Outdoor up to that bounded maximum** (it used to lose Outdoor after `onFootHoldMin` without a
+transition). A walk longer than the maximum with no further transition still falls back to Unknown (stale becomes
+unknown). Unit-tested in the domain (`ContextEngine`) and in `MotionAndGoneSignalsTest` (the mapping); detection latency
+"varies by device" (doc); not measured on a device. Starting a walk or a drive also triggers one location fix (§5.3).
 Emu: registration succeeded and a STILL enter arrived right after registering; walking can't be simulated on the emulator.
 
 ### 5.6 Physical-device test steps (owner's phone) - not done

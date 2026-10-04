@@ -73,24 +73,66 @@ class CompanionAndPolicyTest {
         assertEquals(CompanionFeed.Reason.UnknownState, CompanionFeed.check(good.copy(state = "dancing"), listOf(co.wire), now).reason)
     }
 
-    @Test fun shortTtlIsThePausedMarkerAndNeverOutranksRealSignals() {
+    private fun CompanionState?.orFail(s: app.daycue.domain.signal.Signal?) = (s as app.daycue.domain.signal.CompanionActivity).state
+
+    @Test fun shortTtlIsThePausedMarkerBecomesCompanionGoneAndNeverOutranksRealSignals() {
         val a = Co("co_1"); val b = Co("co_2")
         val paused = CompanionFeed.check(a.signal("active", nowMs - 1000, 10), listOf(a.wire, b.wire), now)
         assertEquals(CompanionFeed.Reason.PausedMarker, paused.reason)
-        assertEquals(Instant.ofEpochMilli(nowMs + 9000), paused.activity!!.expiresAt)
+        assertNull("a marker is not a state report", paused.activity)
+        assertEquals(Instant.ofEpochMilli(nowMs - 1000), paused.gone!!.observedAt)
         val idle = CompanionFeed.check(b.signal("idle", nowMs - 2000, 180), listOf(a.wire, b.wire), now)
-        assertEquals(CompanionState.Idle, CompanionFeed.combine(listOf(paused, idle))!!.state)
-        // an expired paused marker feeds nothing (the domain cannot retract)
-        assertNull(CompanionFeed.check(a.signal("active", nowMs - 20_000, 10), listOf(a.wire), now).activity)
+        assertEquals(CompanionState.Idle, null.orFail(CompanionFeed.combine(listOf(paused, idle))))
+        // alone, the marker retracts
+        assertEquals(paused.gone, CompanionFeed.combine(listOf(paused)))
+    }
+
+    @Test fun anAlreadyExpiredMarkerStillRetracts_butAncientOnesAreIgnored() {
+        val a = Co("co_1")
+        val expired = CompanionFeed.check(a.signal("active", nowMs - 20_000, 10), listOf(a.wire), now) // ttl passed 10 s ago
+        assertEquals(CompanionFeed.Reason.PausedMarker, expired.reason)
+        assertEquals(Instant.ofEpochMilli(nowMs - 20_000), (CompanionFeed.combine(listOf(expired)) as app.daycue.domain.signal.CompanionGone).observedAt)
+        val ancient = CompanionFeed.check(a.signal("active", nowMs - 3 * 3_600_000L, 10), listOf(a.wire), now)
+        assertEquals(CompanionFeed.Reason.Stale, ancient.reason)
+        assertNull(CompanionFeed.combine(listOf(ancient)))
+        // a forged marker does not retract
+        val forged = Co("co_2").signal("active", nowMs - 1000, 10).copy(companionId = "co_1")
+        assertEquals(CompanionFeed.Reason.BadSignature, CompanionFeed.check(forged, listOf(a.wire), now).reason)
     }
 
     @Test fun severalCompanionsCombineLikeTheRelay() {
         val a = Co("co_1"); val b = Co("co_2"); val cs = listOf(a.wire, b.wire)
-        fun comb(sa: String, sb: String) = CompanionFeed.combine(listOf(
-            CompanionFeed.check(a.signal(sa, nowMs - 5000, 180), cs, now), CompanionFeed.check(b.signal(sb, nowMs - 1000, 180), cs, now)))!!.state
+        fun comb(sa: String, sb: String) = null.orFail(CompanionFeed.combine(listOf(
+            CompanionFeed.check(a.signal(sa, nowMs - 5000, 180), cs, now), CompanionFeed.check(b.signal(sb, nowMs - 1000, 180), cs, now))))
         assertEquals(CompanionState.Active, comb("active", "locked"))
         assertEquals(CompanionState.Idle, comb("asleep", "idle"))
         assertEquals(CompanionState.Locked, comb("locked", "asleep"))
+    }
+
+    /** End to end: an active report, then the companion pauses; the phone sees only the (already expired) marker. */
+    @Test fun pausedMarkerSuspendsAnAutomaticSessionImmediately() = runBlocking {
+        val h = Harness(settings = RelaySettings(useCompanionActivity = true))
+        val co = Co("co_1")
+        val cfg0 = h.host.ensureLoaded().config
+        h.host.applyOps(listOf(app.daycue.domain.edit.ConfigOp.UpsertPlace(Place("office", "Office", center = app.daycue.domain.config.GeoPoint(1.0, 1.0),
+            allowedActivities = setOf(SessionKind.Working), sessionStart = SessionStart.AutoStart))), cfg0.version, "ui")
+        h.host.dispatch(Event.SignalObserved(app.daycue.domain.signal.GeofenceSnapshot(setOf("office"), h.clock.now().minusSeconds(3600))))
+        h.clock.advance(Duration.ofMinutes(1))
+        repeat(7) {
+            h.relay.activity = ActivityResponse(signals = listOf(co.signal("active", h.clock.now().toEpochMilli(), 180)), companions = listOf(co.wire))
+            h.client.sync("hb$it"); h.clock.advance(Duration.ofMinutes(1))
+        }
+        h.host.dispatch(Event.Tick)
+        assertNotNull(h.host.ensureLoaded().state.context.session)
+        // The companion is paused by its owner: it sends a 10 s marker. Two minutes later the phone fetches it.
+        val markerAt = h.clock.now().toEpochMilli()
+        h.clock.advance(Duration.ofSeconds(120))
+        h.relay.activity = ActivityResponse(signals = listOf(co.signal("active", markerAt, 10)), companions = listOf(co.wire))
+        h.client.sync("marker")
+        assertTrue(h.client.status.value.companion!!.contains("paused"))
+        val s = h.host.ensureLoaded().state.context
+        assertEquals("session suspended at the marker, not 'companionStaleToSuspendMin' later", app.daycue.domain.context.SessionStatus.Suspended, s.session!!.status)
+        assertTrue(s.companion.gone)
     }
 
     // ---- integration with the engine (acceptance scenarios 8 and 9 at the relay level) -------------------

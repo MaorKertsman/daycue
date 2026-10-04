@@ -29,6 +29,14 @@ object SigningStrings {
     fun ack(commandId: String, payloadHash: String, outcome: String, newVersion: Long?, ackedAt: Long): String =
         "daycue.ack.v1\n$commandId\n$payloadHash\n$outcome\n${newVersion?.toString() ?: ""}\n$ackedAt"
 
+    /** Ack v2: additionally covers `sha256(canonicalJson(result))` (lowercase hex). */
+    fun ackV2(commandId: String, payloadHash: String, outcome: String, newVersion: Long?, ackedAt: Long, resultHashHex: String): String =
+        "daycue.ack.v2\n$commandId\n$payloadHash\n$outcome\n${newVersion?.toString() ?: ""}\n$ackedAt\n$resultHashHex"
+
+    /** Phone decision on a grant (RELAY.md 4.6); [approvedScopes] sorted and joined by one space (empty = none). */
+    fun grant(grantId: String, decision: String, approvedScopes: Collection<String>, decidedAt: Long): String =
+        "daycue.grant.v1\n$grantId\n$decision\n${approvedScopes.sorted().joinToString(" ")}\n$decidedAt"
+
     fun signal(companionId: String, state: String, observedAt: Long, ttlSeconds: Int): String =
         "daycue.signal.v1\n$companionId\n$state\n$observedAt\n$ttlSeconds"
 }

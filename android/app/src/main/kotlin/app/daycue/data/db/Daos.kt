@@ -111,6 +111,10 @@ interface CommandLogDao {
     /** Relay integration: commands waiting for the owner's on-phone decision. */
     @Query("SELECT * FROM command_log WHERE state = 'awaiting_confirmation'")
     suspend fun awaiting(): List<CommandLogEntity>
+
+    /** Retention (security review L-10): finished and acknowledged commands (their ops text) are dropped after a while. */
+    @Query("DELETE FROM command_log WHERE state IN ('applied', 'rejected', 'failed', 'expired') AND acked_at_ms IS NOT NULL AND received_at_ms < :beforeMs")
+    suspend fun deleteFinishedOlder(beforeMs: Long): Int
 }
 
 @Dao
@@ -123,4 +127,7 @@ interface AuditDao {
 
     @Query("SELECT * FROM audit_log ORDER BY at_ms DESC, id DESC LIMIT :limit")
     suspend fun recent(limit: Int): List<AuditLogEntity>
+
+    @Query("DELETE FROM audit_log WHERE at_ms < :beforeMs")
+    suspend fun deleteOlder(beforeMs: Long): Int
 }

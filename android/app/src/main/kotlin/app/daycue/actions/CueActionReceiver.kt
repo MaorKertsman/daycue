@@ -24,6 +24,7 @@ class CueActionReceiver : BroadcastReceiver() {
         val tap = if (kindName == KIND_DISMISSED) ActionMapper.Tap.Dismissed
         else ActionMapper.Tap.Action(runCatching { ActionKind.valueOf(kindName) }.getOrNull() ?: return, minutes)
         val event = ActionMapper.map(itemKey, tap, cueId)
+        // Item keys can include medication ids: logged in debug builds only (R8 strips Log.i in release, see proguard-rules.pro).
         Log.i("DayCue", "notification ${if (tap is ActionMapper.Tap.Dismissed) "dismissed" else kindName} on $itemKey -> ${event?.let { it::class.simpleName }}")
         if (event == null) return
         runAsync(context, "action $kindName") { app ->
@@ -40,11 +41,18 @@ class CueActionReceiver : BroadcastReceiver() {
         const val EXTRA_MINUTES = "app.daycue.extra.MINUTES"
         const val KIND_DISMISSED = "dismissed"
 
-        private fun data(itemKey: String, kind: String, minutes: Int?): Uri =
-            Uri.Builder().scheme("daycue-action").authority(kind).appendPath((minutes ?: -1).toString()).appendPath(itemKey).build()
+        /**
+         * Data URI = the PendingIntent identity (`Intent.filterEquals` ignores extras). It includes the cue id, so two live
+         * notifications for the same item and action never share a PendingIntent and an older one cannot be
+         * overwritten with the newer cue's extras (security review L-14).
+         */
+        internal fun identitySegments(itemKey: String, minutes: Int?, cueId: String?): List<String> = listOf((minutes ?: -1).toString(), itemKey, cueId ?: "-")
+
+        private fun data(itemKey: String, kind: String, minutes: Int?, cueId: String?): Uri =
+            Uri.Builder().scheme("daycue-action").authority(kind).apply { identitySegments(itemKey, minutes, cueId).forEach { appendPath(it) } }.build()
 
         fun intent(context: Context, itemKey: String, cueId: String?, kind: String, minutes: Int?): Intent =
-            Intent(context, CueActionReceiver::class.java).setAction(ACTION_CUE).setData(data(itemKey, kind, minutes))
+            Intent(context, CueActionReceiver::class.java).setAction(ACTION_CUE).setData(data(itemKey, kind, minutes, cueId))
                 .putExtra(EXTRA_ITEM_KEY, itemKey).putExtra(EXTRA_CUE_ID, cueId).putExtra(EXTRA_KIND, kind)
                 .putExtra(EXTRA_MINUTES, minutes ?: -1)
 
@@ -52,7 +60,7 @@ class CueActionReceiver : BroadcastReceiver() {
         fun pending(context: Context, itemKey: String, cueId: String?, kind: ActionKind, minutes: Int?): PendingIntent {
             val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             return if (ActionMapper.startsRoutinePlayback(itemKey, kind)) {
-                val svc = RoutinePlaybackService.cueIntent(context, itemKey, cueId, kind.name, minutes).setData(data(itemKey, kind.name, minutes))
+                val svc = RoutinePlaybackService.cueIntent(context, itemKey, cueId, kind.name, minutes).setData(data(itemKey, kind.name, minutes, cueId))
                 PendingIntent.getForegroundService(context, 0, svc, flags)
             } else PendingIntent.getBroadcast(context, 0, intent(context, itemKey, cueId, kind.name, minutes), flags)
         }

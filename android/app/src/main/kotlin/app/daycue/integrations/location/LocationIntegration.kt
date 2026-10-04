@@ -239,6 +239,9 @@ class LocationIntegration(
         val signals = MotionSignals.map(events, Instant.now(), SystemClock.elapsedRealtimeNanos(), cfg.contextRules.activityRecognitionExpiryMin)
         Log.i(TAG, "activity transitions: ${events.size} -> ${signals.map { it.kind }}")
         signals.forEach { dispatch(it) }
+        // Leaving a saved place: when the OS geofence EXIT is late or missed, one fix after the user starts moving
+        // lets the engine see the departure from a [GeofenceSnapshot] (BTL-2 snapshot departure). One-shot, throttled.
+        if (signals.any { MotionSignals.suggestsDeparture(it) }) refreshSnapshot(reason = "motion")
     }
 
     /** After boot / OS-side loss: registrations are gone. */

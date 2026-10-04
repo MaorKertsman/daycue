@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (targetSdk 31+): nothing leaves this phone through cloud backup or device-to-device transfer
+  (security review L-8). `allowBackup="false"` alone disables cloud backup but NOT device transfer.
+
+  Decision: DayCue's database (medication history, config with place coordinates, command log, audit log),
+  relay credentials (Keystore-encrypted, useless on another device anyway), remote-access settings, grants and
+  the locked-boot snapshot are all excluded. The supported way to move or back up a setup is the in-app
+  export/import (`*.daycue-backup.json`, owner-controlled, optional history). A new phone is paired again.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

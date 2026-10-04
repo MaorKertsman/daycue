@@ -12,7 +12,9 @@ import app.daycue.MainActivity
  * `onNewIntent`). Targets: `item` (habit detail, Why now expanded), `dose` (medication slot),
  * `medication` (merged cue -> Today medication section), `routine` (playback), `posture` (live control),
  * `calendar` (preview at that event), `context` (Today + context sheet), `alarm` (ringing screen),
- * `readiness`, `today`.
+ * `readiness`, `today`. Remote approvals are NOT routed here: notifications open the non-exported
+ * `integrations.relay.RemoteConfirmActivity` through an explicit PendingIntent (security review L-13); nothing
+ * reachable from a `daycue://` URI may approve a remote change or a connection.
  */
 object DeepLinks {
     const val SCHEME = "daycue"

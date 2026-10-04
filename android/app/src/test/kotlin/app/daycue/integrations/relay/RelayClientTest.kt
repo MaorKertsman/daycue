@@ -324,11 +324,9 @@ class RelayClientTest {
         assertNull(h.relay.snapshots.last().jsonObject["medication"])
     }
 
-    @Test fun ackSummariesNeverCarryCoordinatesOrMedicationLines() {
-        val s = Redaction.summary(listOf("places[office].center: none -> {\"lat\":32.0}", "medications[m1].label: a -> b", "habits[demo].intervalMin: 30 -> 45"))
-        assertTrue(s.contains("intervalMin"))
-        assertFalse(s.contains("32.0")); assertFalse(s.contains("medications"))
-        assertEquals("(sensitive change, details on the phone)", Redaction.auditSummary("sensitive", "medications[m1]: x"))
+    @Test fun recentChangesTextIsGenericForSensitiveRowsAndMedicationIsTagged() {
+        assertEquals("(sensitive change, details on the phone)" to true, AuditText.forRecentChanges("sensitive", "medications: details withheld -> changed (details withheld)"))
+        assertEquals("habits[demo].intervalMin: 30 -> 45" to false, AuditText.forRecentChanges("ordinary", "habits[demo].intervalMin: 30 -> 45"))
     }
 
     @Test fun publishesSnapshotAfterAppliedChange() = runBlocking {

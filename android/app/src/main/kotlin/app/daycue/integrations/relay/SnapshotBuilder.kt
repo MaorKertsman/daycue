@@ -12,13 +12,19 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
-/** One entry of `status.recentChanges` (already free of sensitive content). */
-data class RecentChange(val version: Long?, val atMs: Long, val source: String, val summary: String)
+/**
+ * One entry of `status.recentChanges`. [summary] must come from `RemoteRedaction.Strict`
+ * (`ConfigEditor.previewForRemote`): the entry is readable by every grant, including ones without the
+ * medication scope. [medication] tags entries that mention medication so the relay can withhold them
+ * (RELAY.md 3.1 "Per-client isolation").
+ */
+data class RecentChange(val version: Long?, val atMs: Long, val source: String, val summary: String, val medication: Boolean = false)
 
 /**
  * Builds the redacted snapshot of RELAY.md 4.1. Redaction happens here, on the phone:
  * no coordinates (places keep names, radius and `hasLocation`), no calendar event contents (the event cache is
- * never read), no tokens, no history, no medication unless [includeMedication].
+ * never read) and no calendar event ids (override keys are hashed), no tokens, no history, no medication
+ * unless [includeMedication].
  */
 object SnapshotBuilder {
     const val MAX_BYTES = 256 * 1024
@@ -35,7 +41,13 @@ object SnapshotBuilder {
         val cfg = buildJsonObject {
             for (k in SECTIONS) {
                 val v = full[k] ?: continue
-                put(k, if (k == "places") redactPlaces(v) else v)
+                put(k, when (k) {
+                    "places" -> redactPlaces(v)
+                    "calendarRules" -> hashOverrideKeys(v)
+                    // Medication cue profiles are medication content: out of the shared config unless allowed.
+                    "cueProfiles" -> if (includeMedication) v else dropMedicationProfiles(v)
+                    else -> v
+                })
             }
         }
         return buildJsonObject {
@@ -44,7 +56,7 @@ object SnapshotBuilder {
             put("publishedAt", nowMs)
             put("config", cfg)
             if (includeMedication) put("medication", buildJsonObject { put("medications", full["medications"] ?: JsonArray(emptyList())) })
-            put("status", status(config, state, recent))
+            put("status", status(config, state, recent, includeMedication))
         }
     }
 
@@ -57,9 +69,32 @@ object SnapshotBuilder {
         }
     })
 
+    private fun dropMedicationProfiles(profiles: JsonElement): JsonElement =
+        JsonArray((profiles as? JsonArray ?: JsonArray(emptyList())).filter { (it as? JsonObject)?.get("type")?.let { t -> (t as? JsonPrimitive)?.content } != "Medication" })
+
+    /** Event / series ids from the calendar provider can embed account domains (review I-7): publish a short hash. */
+    internal fun hashOverrideKeys(calendar: JsonElement): JsonElement {
+        val o = calendar as? JsonObject ?: return calendar
+        val overrides = o["overrides"] as? JsonArray ?: return calendar
+        val hashed = JsonArray(overrides.map { ov ->
+            val oo = ov as? JsonObject ?: return@map ov
+            val key = (oo["key"] as? JsonPrimitive)?.content ?: return@map ov
+            JsonObject(oo + ("key" to JsonPrimitive("h:" + CanonicalJson.sha256Hex(key).take(12))))
+        })
+        return JsonObject(o + ("overrides" to hashed))
+    }
+
     private val COARSE_KINDS = setOf("habit", "alarm", "routine", "posture", "calendar", "bottle", "session", "hydration", "sunscreen")
 
-    private fun status(config: DayCueConfig, state: EngineState, recent: List<RecentChange>): JsonObject = buildJsonObject {
+    /** Coarse kind of the next wake, plus whether it concerns medication (tagged `"medication": true`). */
+    internal fun coarseKind(reason: String?): Pair<String, Boolean> {
+        val r = reason?.lowercase() ?: return "other" to false
+        if (r.startsWith("medication") || r.contains("med:")) return "medication" to true
+        val first = r.substringBefore(':').substringBefore(' ')
+        return (if (first in COARSE_KINDS) first else "other") to false
+    }
+
+    private fun status(config: DayCueConfig, state: EngineState, recent: List<RecentChange>, includeMedication: Boolean): JsonObject = buildJsonObject {
         put("activeSessions", buildJsonArray {
             state.context.session?.let { s ->
                 add(buildJsonObject {
@@ -74,39 +109,40 @@ object SnapshotBuilder {
         put("nextCues", buildJsonArray {
             val at = state.nextWakeAt
             if (at != null) add(buildJsonObject {
-                put("at", at.toEpochMilli())
-                val kind = state.nextWakeReason?.substringBefore(':')?.lowercase()
-                put("kind", if (kind != null && kind in COARSE_KINDS) kind else "other")
+                val (kind, med) = coarseKind(state.nextWakeReason)
+                if (med) {
+                    put("medication", true)
+                    // Without the owner's allowance not even the time of a dose is published.
+                    if (includeMedication) { put("at", at.toEpochMilli()); put("kind", kind) }
+                } else { put("at", at.toEpochMilli()); put("kind", kind) }
             })
         })
         put("recentChanges", buildJsonArray {
             for (r in recent.take(10)) add(buildJsonObject {
-                if (r.version != null) put("version", r.version)
-                put("at", r.atMs)
-                put("source", r.source)
-                put("summary", r.summary)
+                if (r.medication) {
+                    put("medication", true)
+                    put("at", r.atMs)
+                    put("source", r.source)
+                    if (includeMedication) { if (r.version != null) put("version", r.version); put("summary", r.summary) }
+                } else {
+                    if (r.version != null) put("version", r.version)
+                    put("at", r.atMs)
+                    put("source", r.source)
+                    put("summary", r.summary)
+                }
             })
         })
     }
 }
 
-/** Removes content that must not leave the phone from diff text (coordinates, medication content). */
-object Redaction {
-    private val COORD = Regex("""(^|[.\[])(center|lat|lng)\b""")
+/** Audit rows that other grants can read are built from `RemoteRedaction.Strict` text (never raw preview text). */
+object AuditText {
+    private const val GENERIC = "(sensitive change, details on the phone)"
 
-    /** [diffLines] are `DiffLine.text` strings (`path: before -> after`). */
-    fun summary(diffLines: List<String>, maxChars: Int = 300): String {
-        val kept = diffLines.filter { l ->
-            val path = l.substringBefore(':')
-            !COORD.containsMatchIn(path) && !path.startsWith("medications")
-        }
-        val dropped = diffLines.size - kept.size
-        val text = kept.joinToString("; ").ifBlank { if (dropped > 0) "(details withheld)" else "" }
-        val t = if (dropped > 0 && kept.isNotEmpty()) "$text; (+$dropped withheld)" else text
-        return if (t.length > maxChars) t.take(maxChars - 1) + "…" else t
+    /** [sensitivity] is the stored `Sensitivity.name`; [strictSummary] was produced by `previewForRemote(.., Strict)`. */
+    fun forRecentChanges(sensitivity: String, strictSummary: String): Pair<String, Boolean> {
+        val med = strictSummary.contains("medications")
+        val text = if (sensitivity != "ordinary") GENERIC else strictSummary.take(200)
+        return text to med
     }
-
-    /** Audit rows are summaries of `Preview.text`; sensitive rows are published generically. */
-    fun auditSummary(sensitivity: String, text: String): String =
-        if (sensitivity != "ordinary") "(sensitive change, details on the phone)" else summary(text.split('\n'), 200)
 }

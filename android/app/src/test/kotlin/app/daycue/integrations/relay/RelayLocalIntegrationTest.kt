@@ -35,7 +35,8 @@ import java.util.concurrent.TimeUnit
 class RelayLocalIntegrationTest {
     private var proc: Process? = null
     private lateinit var base: String
-    private val secret = "test-owner-secret-" + "x".repeat(20)
+    /** The relay refuses secrets below ~128 bits of entropy: generate a real one (never a committed value). */
+    private val secret = Base64Url.encode(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })
     private val http = UrlConnectionTransport()
     private var dataFile: File? = null
 
@@ -94,14 +95,28 @@ class RelayLocalIntegrationTest {
         val flaky = object : RelayApi by api {
             override suspend fun pull(): PullResponse { if (!online) throw RelayException.Network(java.io.IOException("offline")); return api.pull() }
         }
-        val client = RelayClient({ flaky }, { h.signer }, HostEngineGateway(h.host, h.store), h.log, h.audit, h.settings, h.notifier, { System.currentTimeMillis() })
+        val client = RelayClient({ flaky }, { h.signer }, HostEngineGateway(h.host, h.store), h.log, h.audit, h.settings, h.notifier, { System.currentTimeMillis() },
+            grantStore = h.grantStore, onRevokedByRelay = { h.revokedCallbacks++ })
 
-        val token = owner("POST", "/v1/owner/client-tokens", buildJsonObject {
+        val minted = owner("POST", "/v1/owner/client-tokens", buildJsonObject {
             put("label", "it-client"); put("scopes", buildJsonArray { listOf("config:read", "config:write", "sessions:control").forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
-        })["token"]!!.jsonPrimitive.content
+        })
+        val token = minted["token"]!!.jsonPrimitive.content
+        val grantId = minted["grantId"]!!.jsonPrimitive.content
 
-        // ---- first sync publishes the redacted snapshot (version 1: the seeded habit)
+        // ---- first sync publishes the redacted snapshot (version 1: the seeded habit) and learns about the new grant
         assertEquals(SyncStatus.Ok, client.sync("first").status)
+        // M-7: a write grant created with the owner secret alone is NOT active; the phone is told and must approve
+        assertEquals(listOf(grantId), h.notifier.grantNotices.map { it.id })
+        assertTrue(client.grants.value.single().awaitsApproval)
+        val denied = runCatching { clientCall(token, "submit", buildJsonObject {
+            put("type", "config.apply"); put("payload", buildJsonObject { put("ops", ops(ConfigOp.SetHabitInterval("demo", 45))) })
+            put("baseVersion", 1); put("idempotencyKey", "it-key-denied"); put("waitSeconds", 0)
+        }) }.exceptionOrNull()
+        assertTrue("write is refused until the phone approves: $denied", denied != null && denied.message!!.contains("403"))
+        // the owner approves on the phone: decision signed with the Keystore-equivalent key, verified by the real relay
+        assertEquals(GrantDecisionResult.Done, client.decideGrant(grantId, GrantDecision.Approve))
+        assertEquals(GrantApproval.Approved, client.grants.value.single().approval)
         val cfg = clientCall(token, "getConfig", buildJsonObject { put("section", "habits") })
         assertEquals("1", cfg["snapshot"]!!.jsonObject["configVersion"]!!.jsonPrimitive.content)
 
@@ -154,6 +169,41 @@ class RelayLocalIntegrationTest {
         val u = clientCall(token, "getCommand", buildJsonObject { put("id", undo) })["state"]!!.jsonPrimitive.content
         assertTrue("undo ended as $u", u == "applied" || u == "awaiting_confirmation")
 
+        // ---- M-5: an alarm change needs the owner now (it used to apply silently); declining leaves the alarm alone
+        h.host.applyOps(listOf(ConfigOp.UpsertAlarm(app.daycue.domain.config.MorningAlarm("it-alarm", "Alarm", enabled = true, time = java.time.LocalTime.of(7, 0), days = null))), h.host.ensureLoaded().config.version, "ui")
+        client.sync("republish")
+        val off = clientCall(token, "submit", buildJsonObject {
+            put("type", "config.apply"); put("payload", buildJsonObject { put("ops", ops(ConfigOp.SetAlarmEnabled("it-alarm", false))) })
+            put("baseVersion", h.host.ensureLoaded().config.version); put("idempotencyKey", "it-key-alarm"); put("waitSeconds", 0)
+        })["commandId"]!!.jsonPrimitive.content
+        client.sync("alarm")
+        assertEquals("awaiting_confirmation", clientCall(token, "getCommand", buildJsonObject { put("id", off) })["state"]!!.jsonPrimitive.content)
+        client.decide(off, accept = false)
+        assertEquals("rejected", clientCall(token, "getCommand", buildJsonObject { put("id", off) })["state"]!!.jsonPrimitive.content)
+        assertEquals(true, h.host.ensureLoaded().config.alarms.first { it.id == "it-alarm" }.enabled)
+
+        // ---- the recomputed payload hash and the ack v2 signature hold up against the relay's own canonical JSON,
+        // including quotes, backslashes, non-ASCII and an emoji in user text
+        val odd = "Say \"hi\" \\ שלום 😀 é"
+        val oddId = clientCall(token, "submit", buildJsonObject {
+            put("type", "config.apply")
+            put("payload", buildJsonObject { put("ops", ops(ConfigOp.UpsertRoutine(app.daycue.domain.config.Routine("odd", odd, steps = listOf(app.daycue.domain.config.RoutineStep("s1", odd)))))) })
+            put("baseVersion", h.host.ensureLoaded().config.version); put("idempotencyKey", "it-key-odd"); put("waitSeconds", 0)
+        })["commandId"]!!.jsonPrimitive.content
+        client.sync("odd")
+        val oddState = clientCall(token, "getCommand", buildJsonObject { put("id", oddId) })
+        assertEquals(oddState.toString(), "applied", oddState["state"]!!.jsonPrimitive.content)
+        assertEquals(odd, h.host.ensureLoaded().config.routine("odd")!!.name)
+        // an unknown op type is a typed rejection end to end
+        val unk = clientCall(token, "submit", buildJsonObject {
+            put("type", "config.apply"); put("payload", buildJsonObject { put("ops", buildJsonArray { add(buildJsonObject { put("type", "teleport"); put("id", "x") }) }) })
+            put("baseVersion", h.host.ensureLoaded().config.version); put("idempotencyKey", "it-key-unk"); put("waitSeconds", 0)
+        })["commandId"]!!.jsonPrimitive.content
+        client.sync("unknown op")
+        val unkState = clientCall(token, "getCommand", buildJsonObject { put("id", unk) })
+        assertEquals("rejected", unkState["state"]!!.jsonPrimitive.content)
+        assertTrue(unkState.toString(), unkState.toString().contains("unsupported_op"))
+
         // ---- companion: pair with its own key, post a signed signal, phone verifies it itself
         val ccode = api.companionCode().code
         val co = SoftwareSigner()
@@ -170,5 +220,34 @@ class RelayLocalIntegrationTest {
         assertEquals(sr.body, 200, sr.status)
         client.sync("activity")
         assertTrue("companion status: ${client.status.value.companion}", client.status.value.companion!!.contains("active (fresh)"))
+    }
+
+    /** Owner revokes the phone on the relay: the phone learns it (401), says so once and stops. */
+    @Test fun ownerRevokingThePhoneIsDetectedAndUnpairRevokesTheCredential() = runBlocking {
+        val h = Harness()
+        h.host.ensureLoaded()
+        val code = owner("POST", "/v1/owner/pair-codes")["code"]!!.jsonPrimitive.content
+        val paired = HttpRelayApi.pair(base, code, h.signer.publicKeySpki(), "test phone")
+        val api = HttpRelayApi(base, paired.token)
+        val client = RelayClient({ api }, { h.signer }, HostEngineGateway(h.host, h.store), h.log, h.audit, h.settings, h.notifier, { System.currentTimeMillis() },
+            grantStore = h.grantStore, onRevokedByRelay = { h.revokedCallbacks++ })
+        assertEquals(SyncStatus.Ok, client.sync("1").status)
+
+        owner("DELETE", "/v1/owner/devices/${paired.deviceId}")
+        assertEquals(SyncStatus.Unauthorized, client.sync("2").status)
+        assertTrue(client.status.value.unpairedByRelay)
+        assertEquals(1, h.notifier.revokedNotices)
+
+        // Pair again, then unpair from the phone: DELETE /v1/phone/self revokes the credential at once.
+        val code2 = owner("POST", "/v1/owner/pair-codes")["code"]!!.jsonPrimitive.content
+        val paired2 = HttpRelayApi.pair(base, code2, h.signer.publicKeySpki(), "test phone")
+        val api2 = HttpRelayApi(base, paired2.token)
+        val client2 = RelayClient({ api2 }, { h.signer }, HostEngineGateway(h.host, h.store), h.log, h.audit, h.settings, h.notifier, { System.currentTimeMillis() })
+        assertEquals(SyncStatus.Ok, client2.sync("3").status)
+        assertTrue("relay confirmed the self-revoke", client2.unpairRemote())
+        val after = runCatching { api2.pull() }.exceptionOrNull()
+        assertTrue("old credential must now be refused: $after", after is RelayException.Http && after.isUnauthorized)
+        // the relay no longer has a paired phone: a second self-revoke is a clean failure, not a crash
+        assertTrue(!client2.unpairRemote())
     }
 }

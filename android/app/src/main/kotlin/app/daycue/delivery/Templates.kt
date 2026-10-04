@@ -32,6 +32,20 @@ object Templates {
         return substitute(template, formatted + expanded).trim()
     }
 
+    private val kindKeyShape = Regex("[a-z0-9_.]+")
+
+    /**
+     * The domain passes `kindKey` (e.g. `calendar.kind.event`) instead of a `kind` when a calendar cue has no
+     * user-defined kind (CalendarRules.UNMATCHED_KIND_KEY). Resolves it to the localized word via [lookup] (resource
+     * name -> text) and supplies it as `kind`, so templates that reference `{kind}` (the user's own phrase) read
+     * "event" / "אירוע" instead of an empty word. An explicit non-blank `kind` always wins.
+     */
+    fun withResolvedKind(args: Map<String, String>, lookup: (String) -> String?): Map<String, String> {
+        val key = args["kindKey"]?.takeIf { args["kind"].isNullOrBlank() && kindKeyShape.matches(it) } ?: return args
+        val text = lookup(resourceName(key))?.takeIf { it.isNotBlank() } ?: return args
+        return args + ("kind" to text)
+    }
+
     private fun substitute(t: String, args: Map<String, String>): String =
         placeholder.replace(t) { m -> args[m.groupValues[1]] ?: "" }
 

@@ -121,6 +121,10 @@ class AppContainer(val app: Application) {
         val m = h.deleteOlder("medication", now.minus(Duration.ofDays(medDays.toLong())).toEpochMilli())
         val o = h.deleteOlderExceptMedication(now.minus(Duration.ofDays(400)).toEpochMilli())
         if (m + o > 0) Log.i(TAG, "housekeeping: removed $m medication and $o other history rows")
+        // Remote command texts (ops) and audit rows: 30 and 400 days (security review L-10; the relay keeps commands 14 days).
+        val c = db.commandLogDao().deleteFinishedOlder(now.minus(Duration.ofDays(30)).toEpochMilli())
+        val a = db.auditDao().deleteOlder(now.minus(Duration.ofDays(400)).toEpochMilli())
+        if (c + a > 0) Log.i(TAG, "housekeeping: removed $c command log and $a audit rows")
     }
 
     companion object { const val TAG = "DayCue" }

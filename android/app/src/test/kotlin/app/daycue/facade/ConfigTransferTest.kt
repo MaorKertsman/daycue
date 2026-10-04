@@ -52,6 +52,23 @@ class ConfigTransferTest {
     }
 
     /** Import goes through ConfigOp validation: an out-of-range value is reported and nothing applies. */
+    /** A document from a newer app version (unknown habit type) must be reported cleanly, never crash the import. */
+    @Test
+    fun wholeDocumentDecodeFailuresAreReportedCleanly() {
+        val encoded = ConfigCodec.encode(base)
+        val unknownType = Regex("""("habits"\s*:\s*\[\s*\{\s*"type"\s*:\s*")[^"]+""").replace(encoded) { it.groupValues[1] + "teleportHabit" }
+        assertTrue("test document was altered", unknownType != encoded)
+        val r = ConfigTransfer.parse(unknownType)
+        assertTrue(r.toString(), r is ImportParse.NotDayCue)
+        assertEquals("unsupported_content", (r as ImportParse.NotDayCue).reason)
+        // the same through a backup wrapper, and a malformed value
+        val wrapped = """{"format":"daycue-backup","formatVersion":1,"exportedAt":"2026-10-05T07:00:00Z","config":$unknownType}"""
+        assertEquals("unsupported_content", (ConfigTransfer.parse(wrapped) as ImportParse.NotDayCue).reason)
+        val malformed = encoded.replace("\"version\":7", "\"version\":\"seven\"")
+        assertTrue(ConfigTransfer.parse(malformed) is ImportParse.NotDayCue)
+        assertFalse("never echoes file content", (ConfigTransfer.parse(malformed) as ImportParse.NotDayCue).reason.contains("seven"))
+    }
+
     @Test
     fun invalidImportIsReportedNotApplied() {
         val bad = base.copy(habits = base.habits.map { if (it is IntervalHabit && it.id == "hydration") it.copy(intervalMin = 1) else it })

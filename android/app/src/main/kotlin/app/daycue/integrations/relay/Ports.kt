@@ -110,10 +110,66 @@ interface RemoteNotifier {
     fun confirmationNeeded(p: PendingRemote)
     fun cancel(commandId: String)
     fun appliedNotice(clientLabel: String, summary: String)
+    /** A new connection waits for the owner's approval on the phone (M-7). */
+    fun grantAwaitingApproval(g: RemoteGrant) = Unit
+    fun cancelGrant(grantId: String) = Unit
+    /** The relay answered 401: this phone was unpaired / revoked on the relay side. */
+    fun phoneRevoked() = Unit
 }
 
 object NoopNotifier : RemoteNotifier {
     override fun confirmationNeeded(p: PendingRemote) = Unit
     override fun cancel(commandId: String) = Unit
     override fun appliedNotice(clientLabel: String, summary: String) = Unit
+}
+
+// ---- grants (RELAY.md 4.6, security review M-7) ---------------------------------------------------------------
+
+enum class GrantApproval { Pending, Approved, NotRequired }
+
+/**
+ * A client connection (grant) known to the relay, as shown on the phone. [label] is supplied by the client
+ * and **unverified**: show it as such. Until a grant is [GrantApproval.Pending]-approved its gated scopes are
+ * not in [activeScopes].
+ */
+data class RemoteGrant(
+    val id: String,
+    val label: String,
+    /** `oauth` (Claude.ai, ChatGPT ...) or `token` (Claude Code / stdio). */
+    val kind: String,
+    val scopes: List<String>,
+    val activeScopes: List<String>,
+    val approval: GrantApproval,
+    val createdAtMs: Long,
+    val lastUsedAtMs: Long?,
+) {
+    val awaitsApproval: Boolean get() = approval == GrantApproval.Pending
+    val holdsMedication: Boolean get() = "medication" in scopes
+    val canWrite: Boolean get() = "config:write" in scopes
+    /** Scopes that need the owner's explicit approval (RELAY.md 3.1): the UI should ask for a deliberate gesture. */
+    val gatedScopes: List<String> get() = scopes.filter { it == "config:write" || it == "sessions:control" || it == "medication" }
+}
+
+enum class GrantDecision(val wire: String) { Approve("approve"), Decline("decline"), Revoke("revoke") }
+
+enum class GrantDecisionResult { Done, NotPaired, NotFound, Rejected, Offline, Unauthorized, Failed }
+
+/** What the phone remembers about grants between runs (labels are not secrets; excluded from backup). */
+data class GrantsState(
+    val version: Long = -1,
+    val items: List<WireGrantItem> = emptyList(),
+    /** Pending grant ids the owner was already notified about (no repeat notifications). */
+    val notified: Set<String> = emptySet(),
+    /** The relay answered 401 and the owner was told "this phone was unpaired from the relay". */
+    val revokedNotified: Boolean = false,
+)
+
+interface GrantStore {
+    fun load(): GrantsState
+    fun save(s: GrantsState)
+}
+
+class MemoryGrantStore(var state: GrantsState = GrantsState()) : GrantStore {
+    override fun load() = state
+    override fun save(s: GrantsState) { state = s }
 }

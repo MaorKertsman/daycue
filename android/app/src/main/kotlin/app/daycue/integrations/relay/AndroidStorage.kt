@@ -66,7 +66,8 @@ class KeystoreSigner(private val alias: String) : DeviceSigner {
 
 /**
  * Relay URL + device credential, AES-GCM encrypted with a Keystore key (not exportable) and stored in
- * app-private preferences (excluded from backup: `allowBackup=false`).
+ * app-private preferences (excluded from cloud backup and device transfer: `allowBackup=false` plus
+ * res/xml/data_extraction_rules.xml; the ciphertext would be useless on another device anyway).
  */
 class KeystoreCredentialStore(context: Context) : CredentialStore {
     private val prefs: SharedPreferences = context.getSharedPreferences("daycue_relay_secure", Context.MODE_PRIVATE)
@@ -148,8 +149,31 @@ class RoomRemoteAudit(private val dao: AuditDao, private val nowMs: () -> Long) 
         dao.insert(AuditLogEntity(atMs = nowMs(), actor = actor, action = action, sensitivity = sensitivity.name, summary = summary, versionBefore = versionBefore, versionAfter = versionAfter, commandId = commandId))
     }
 
-    /** `status.recentChanges` source: config changes only, sensitive ones withheld. */
+    /** `status.recentChanges` source: config changes only. Audit summaries are `RemoteRedaction.Strict` text; sensitive rows are generic. */
     suspend fun recentChanges(limit: Int = 10): List<RecentChange> =
-        dao.recent(60).filter { it.action.startsWith("config.") }.take(limit)
-            .map { RecentChange(it.versionAfter, it.atMs, it.actor.substringBefore(':'), Redaction.auditSummary(it.sensitivity, it.summary)) }
+        dao.recent(60).filter { it.action.startsWith("config.") }.take(limit).map {
+            val (text, med) = AuditText.forRecentChanges(it.sensitivity, it.summary)
+            RecentChange(it.versionAfter, it.atMs, it.actor.substringBefore(':'), text, med)
+        }
+}
+
+@kotlinx.serialization.Serializable
+private data class StoredGrants(val version: Long = -1, val items: List<WireGrantItem> = emptyList(), val notified: List<String> = emptyList(), val revokedNotified: Boolean = false)
+
+/**
+ * The relay's grant list (labels, scopes) and which pending ones the owner was told about. Not secret, but
+ * app-private and excluded from backup and device transfer (res/xml/data_extraction_rules.xml).
+ */
+class PrefsGrantStore(context: Context) : GrantStore {
+    private val prefs = context.getSharedPreferences("daycue_relay_grants", Context.MODE_PRIVATE)
+
+    override fun load(): GrantsState = runCatching {
+        val s = WireJson.decodeFromString(StoredGrants.serializer(), prefs.getString("state", null)!!)
+        GrantsState(s.version, s.items, s.notified.toSet(), s.revokedNotified)
+    }.getOrDefault(GrantsState())
+
+    @Synchronized
+    override fun save(s: GrantsState) {
+        prefs.edit().putString("state", WireJson.encodeToString(StoredGrants.serializer(), StoredGrants(s.version, s.items, s.notified.toList(), s.revokedNotified))).apply()
+    }
 }

@@ -36,3 +36,12 @@
     *** Companion;
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Security review L-9: no verbose/debug/info logging in release. Those calls carry item keys (`med:<id>`), place
+# notes, relay sync reasons and config-derived text; logcat ends up in bug reports. R8 removes the calls together with
+# their argument construction. Warnings and errors (`Log.w` / `Log.e`) stay: they carry exception types, not config.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

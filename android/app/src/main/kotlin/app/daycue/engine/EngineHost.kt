@@ -8,6 +8,7 @@ import app.daycue.domain.edit.ApplyResult
 import app.daycue.domain.edit.ConfigEditor
 import app.daycue.domain.edit.ConfigOp
 import app.daycue.domain.edit.Preview
+import app.daycue.domain.edit.RemoteRedaction
 import app.daycue.domain.edit.ValidationError
 import app.daycue.domain.engine.Effect
 import app.daycue.domain.engine.Engine
@@ -157,7 +158,9 @@ class EngineHost(
                 val actor = when (source) { "ui", "import", "undo" -> "user"; "mcp" -> "mcp"; else -> "system" }
                 store.commitConfig(
                     ConfigCommit(r.config, r.previous, source, commandId, pushPrevious, consumed,
-                        AuditRecord(actor, action, preview.sensitivity, preview.text.take(4000))),
+                        // Audit rows feed `status.recentChanges`, which other grants can read: store the Strict remote text
+                        // (no coordinates, no medication content), never the raw on-phone preview (security review H-1/M-8).
+                        AuditRecord(actor, action, preview.sensitivity, ConfigEditor.previewForRemote(cur, ops, RemoteRedaction.Strict).summary(4000))),
                     clock.now(),
                 )
                 config = r.config

@@ -1,9 +1,14 @@
 package app.daycue.facade
 
 import android.content.Context
+import android.content.Intent
 import app.daycue.AppContainer
 import app.daycue.delivery.RoutinePlaybackService
 import app.daycue.integrations.relay.ConfigPolicy
+import app.daycue.integrations.relay.GrantDecision
+import app.daycue.integrations.relay.GrantDecisionResult
+import app.daycue.integrations.relay.RemoteConfirmActivity
+import app.daycue.integrations.relay.RemoteGrant
 import app.daycue.integrations.relay.PairResult
 import app.daycue.integrations.relay.PairingLink
 import app.daycue.integrations.relay.PendingRemote
@@ -12,7 +17,9 @@ import app.daycue.integrations.relay.RelaySettings
 import app.daycue.integrations.relay.RelayStatus
 import app.daycue.integrations.relay.SessionPolicy
 import app.daycue.integrations.relay.HttpRelayApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * Remote access (MCP relay) for the UI: pairing, kill switch, local scope settings, the on-phone
@@ -34,6 +41,52 @@ class RelayFacade(private val c: AppContainer) {
     /** Host name of the paired relay (never the credential), or null. */
     fun relayHost(): String? = relay.relayHost()
 
+    // ---- connections (grants), RELAY.md 4.6 -------------------------------------------------------------
+
+    /**
+     * Every client connection the relay knows (Claude.ai, ChatGPT, Claude Code ...), as of the last sync. Labels are
+     * client-supplied and **unverified**: show them as such. A connection with [RemoteGrant.awaitsApproval] has
+     * its write / session / medication scopes switched off until the owner approves it here.
+     */
+    val grants: StateFlow<List<RemoteGrant>> get() = relay.client.grants
+
+    /** Connections that wait for the owner. Also announced by a notification that opens [confirmationIntent]. */
+    val pendingGrants: Flow<List<RemoteGrant>> get() = relay.client.grants.map { list -> list.filter { it.awaitsApproval } }
+
+    /** Re-read the list from the relay (pull to refresh). */
+    suspend fun refreshGrants(): GrantDecisionResult = relay.client.refreshGrants()
+
+    /**
+     * Approve a connection, signed with the phone key. [approvedScopes] narrows what is approved (never widens);
+     * null approves everything it asked for. Call only from in-app UI after a deliberate gesture
+     * (the confirmation Activity uses press-and-hold; a biometric prompt for connections that hold the
+     * `medication` scope is recommended, see [RemoteGrant.holdsMedication]).
+     */
+    suspend fun approveGrant(grantId: String, approvedScopes: Set<String>? = null): GrantDecisionResult =
+        relay.client.decideGrant(grantId, GrantDecision.Approve, approvedScopes)
+
+    /** Decline a pending connection (it is revoked on the relay). */
+    suspend fun declineGrant(grantId: String): GrantDecisionResult = relay.client.decideGrant(grantId, GrantDecision.Decline)
+
+    /** Revoke any connection (also an active one). */
+    suspend fun revokeGrant(grantId: String): GrantDecisionResult = relay.client.decideGrant(grantId, GrantDecision.Revoke)
+
+    /**
+     * The relay answered 401: this phone was unpaired on the relay (owner revoked it, or re-paired another phone).
+     * Show "This phone was unpaired from the relay" with a Pair again action; a notification was posted once.
+     */
+    val unpairedByRelay: Flow<Boolean> get() = relay.client.status.map { it.unpairedByRelay }
+
+    /**
+     * Intent for the non-exported confirmation screen that lists pending changes and connections. The only
+     * surface that can approve anything; [commandId] / [grantId] merely choose what to show first.
+     */
+    fun confirmationIntent(context: Context, commandId: String? = null, grantId: String? = null): Intent = when {
+        commandId != null -> RemoteConfirmActivity.intent(context, RemoteConfirmActivity.EXTRA_COMMAND, commandId)
+        grantId != null -> RemoteConfirmActivity.intent(context, RemoteConfirmActivity.EXTRA_GRANT, grantId)
+        else -> RemoteConfirmActivity.intent(context)
+    }
+
     // ---- pairing -------------------------------------------------------------------------------------
 
     /** Splits pasted text (URL, `daycue://pair?relay=..&code=..`, or a bare code) into relay URL and code. */
@@ -41,8 +94,12 @@ class RelayFacade(private val c: AppContainer) {
 
     suspend fun pair(relayUrl: String, code: String, deviceLabel: String = "DayCue phone"): PairResult = relay.pair(relayUrl, code, deviceLabel)
 
-    /** Deletes the Keystore key and the credential. The owner should also revoke the device on the relay. */
-    suspend fun unpair() = relay.unpair()
+    /**
+     * Revokes this phone on the relay (best effort, `DELETE /v1/phone/self`), then always deletes the Keystore key and the
+     * credential. Returns true when the relay confirmed; false (offline, already revoked) means the owner should also
+     * revoke the device on the relay.
+     */
+    suspend fun unpair(): Boolean = relay.unpair()
 
     /** Kill switch ("Disable remote access"): off = nothing is pulled, applied, published or polled. */
     fun setEnabled(enabled: Boolean) = relay.setEnabled(enabled)
@@ -78,7 +135,8 @@ class RelayFacade(private val c: AppContainer) {
     // ---- confirmation ---------------------------------------------------------------------------------
 
     /**
-     * The owner approved. Call from a visible Activity: a routine start begins playback through
+     * The owner approved. **Only call this from in-app UI after a deliberate gesture** (the non-exported
+     * `RemoteConfirmActivity` does; never from an intent, deep link or notification action). Call from a visible Activity: a routine start begins playback through
      * [RoutinePlaybackService] (Android 17 requires a user action for audio). Returns whether it was done.
      */
     suspend fun confirm(activityContext: Context, commandId: String): RelayClient.DecisionResult =

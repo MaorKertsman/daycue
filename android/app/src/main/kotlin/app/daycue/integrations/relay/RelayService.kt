@@ -99,6 +99,9 @@ class RelayService(private val c: AppContainer) {
             nowMs = { c.clock.now().toEpochMilli() },
             recentChanges = { audit.recentChanges() },
             info = { Log.i(AppContainer.TAG, it) },
+            grantStore = PrefsGrantStore(app),
+            // The relay said 401: this phone is unpaired there. Stop background polling; the UI shows "pair again".
+            onRevokedByRelay = { cancelTriggers() },
         )
     }
 
@@ -152,7 +155,7 @@ class RelayService(private val c: AppContainer) {
             prev?.let { KeystoreSigner.delete(it.keyAlias) } // re-pairing: the old key is useless now
             pairedFlow.value = true
             settings.update { it.copy(enabled = true) }
-            client.invalidatePublished()
+            client.onPaired()
             schedulePeriodic()
             requestSync("paired")
             applyPushSettings()
@@ -167,16 +170,19 @@ class RelayService(private val c: AppContainer) {
     }
 
     /**
-     * Unpair: stop all triggers, delete the Keystore key and the stored credential. The relay keeps the device
-     * record until the owner revokes it (`DELETE /v1/owner/devices/<id>`); the deleted key cannot sign anything.
+     * Unpair: revoke this phone on the relay (best effort, `DELETE /v1/phone/self`, so the credential stops working
+     * at once), stop all triggers, delete the Keystore key and the stored credential. If the relay cannot be reached the
+     * credential stays valid there until the owner revokes the device (`DELETE /v1/owner/devices/<id>`); the deleted
+     * key can no longer sign acks or grant decisions either way.
      */
-    suspend fun unpair() {
-        runCatching { creds.load()?.let { HttpRelayApi(it.relayUrl, it.token).putPush(null, false) } }
+    suspend fun unpair(): Boolean {
+        val revoked = runCatching { kotlinx.coroutines.withTimeoutOrNull(10_000) { client.unpairRemote() } }.getOrNull() == true
         cancelTriggers()
         creds.load()?.let { KeystoreSigner.delete(it.keyAlias) }
         creds.clear()
         pairedFlow.value = false
         client.invalidatePublished()
+        return revoked
     }
 
     /** Kill switch. Off: nothing is pulled, applied, published or checked; pending relay commands will expire. */

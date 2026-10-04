@@ -34,6 +34,9 @@
         <package android:name="com.spotify.music" />
     </queries>
 
+    <!-- The confirmation screen asks the system to hide overlay windows while it is shown (API 31+, normal permission). -->
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+
     <!-- Relay (remote access): network only; no permission beyond INTERNET is needed. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -41,6 +44,10 @@
     <application
         android:name=".DayCueApplication"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
@@ -115,6 +122,16 @@
             android:name=".delivery.RoutinePlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- The only screen that can approve a remote change or a new connection. NOT exported (security review
+             L-13): reached from notifications through explicit, immutable PendingIntents and from in-app UI. Intent
+             extras only choose what to show; they can never approve. -->
+        <activity
+            android:name=".integrations.relay.RemoteConfirmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.DayCue" />
 
         <!-- Relay: inexact "frequent check" tick and the notification "Decline" button. -->
         <receiver

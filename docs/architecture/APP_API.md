@@ -1,4 +1,7 @@
-# `:app` engine host — API for the UI
+| `status: StateFlow<RelayStatus>` | `paired`, `lastSyncAtMs`, `lastResult` (`Ok / Disabled / NotPaired / Offline / Unauthorized / Failed`), `lastError`, `lastPublishedVersion`, `companion` (e.g. `active (fresh)`, `unknown (stale)`, `paused (companion went away)`, `ignored: bad signature`), `unpairedByRelay`. `Unauthorized` / `unpairedByRelay` = the relay revoked this phone: a notification was posted once (`dc_remote_revoked_*`) and background polling stopped; show "This phone was unpaired from the relay" with a Pair again action. `unpairedByRelay: Flow<Boolean>` is the same flag. |
+| `grants: StateFlow<List<RemoteGrant>>`, `pendingGrants: Flow<List<RemoteGrant>>`, `refreshGrants()` | The client connections the relay knows (RELAY.md 4.6; Claude.ai, ChatGPT, Claude Code), persisted across runs. `RemoteGrant`: `id`, `label` (client-supplied, **unverified**: show it as such), `kind` (`oauth` / `token`), `scopes`, `activeScopes`, `approval` (`Pending`, `Approved`, `NotRequired`), `createdAtMs`, `lastUsedAtMs`; helpers `awaitsApproval`, `holdsMedication`, `canWrite`, `gatedScopes`. A connection that holds `config:write`, `sessions:control` or `medication` is `Pending` (those scopes inactive) until approved here. A notification (`dc_remote_grant_notif_*`) is posted once per new pending connection. |
+| `approveGrant(id, approvedScopes? = null)`, `declineGrant(id)`, `revokeGrant(id)` -> `GrantDecisionResult` | Signed with the Keystore device key (`daycue.grant.v1`), so a stolen device token alone cannot approve. `approvedScopes` narrows (never widens). Results: `Done`, `NotPaired`, `NotFound`, `Rejected`, `Offline`, `Unauthorized`, `Failed`. Call **only after a deliberate gesture** (the confirmation Activity uses press-and-hold); a biometric prompt for connections with `holdsMedication` is recommended (no BiometricPrompt dependency is added in `:app`; the UI engineer owns that). Offer Revoke for every active connection. |
+| `confirmationIntent(context, commandId?, grantId?)` | Explicit intent for `RemoteConfirmActivity`, the **non-exported** screen that lists pending changes and connections (see below). || `unpair(): Boolean` | Calls `DELETE /v1/phone/self` best effort (10 s limit, so the credential stops working at once), then always stops all triggers, deletes the key and credential and forgets grants. `true` = the relay confirmed; `false` (offline) = the credential stays valid on the relay until the owner revokes the device, so tell the owner to do that. |# `:app` engine host — API for the UI
 
 Owner: scheduling engineer. Code: `android/app/src/main/kotlin/app/daycue/` (everything except `ui/**`).
 Status labels: **unit** (JVM test), **instr** (instrumented test on the emulator), **emu** (observed on the
@@ -65,6 +68,8 @@ per UX §1.4). Targets (`DeepLinks.targetFor`):
 | `context` | `session:<placeId>` | Today + context sheet |
 | `alarm` | `alarm:<id>` | Ringing screen |
 | `today`, `readiness` | — | |
+
+Remote approvals (`remote` target) are not routed through `MainActivity`: see section 10 (`RemoteConfirmActivity`, non-exported).
 
 Notification **buttons** never open the UI; they go to `CueActionReceiver` → `ActionMapper` → engine
 (at most 3 per notification; dismissal = `CueDismissed`, never an ack). The notification "Pause" button pauses
@@ -182,19 +187,29 @@ val remote: RelayFacade = facade.remote
 | `createCompanionCode()` | 10-minute code for pairing the Windows companion. |
 | `facade.audit(limit)` | Every remote command has `remote.<type>.<outcome>` rows with actor `mcp:<client label>` (plus the engine's own `config.apply` row for applied changes). |
 
-**UI needs (UI engineer):** (1) a Remote access settings screen over the members above; (2) a confirmation screen showing
-`pending` (diff lines, who asked, sensitivity, expiry) with Approve / Decline; notification taps open
-`daycue://open/remote?item=<commandId>` (target `remote`, not yet routed in `DeepLinks.targetFor`; the UI should handle the
-target in `MainActivity`); (3) strings: `dc_remote_*` exist in `strings_engine.xml` (en + iw) for the notifications only.
+**Approvals (security review L-13, M-7).** Approving a remote change or a connection happens in exactly one place:
+`integrations/relay/RemoteConfirmActivity`, declared `android:exported="false"`. Notifications open it through explicit,
+immutable PendingIntents (the `remote` target is **not** routed to `MainActivity`, and no `daycue://` URI can approve
+anything); intent extras only choose which item is shown first. The notification action can only **decline**. The Activity
+lists `pending` and the pending connections, shows the owner's on-phone (unredacted) lines, and approves only after a
+**press-and-hold** (a tap just explains; the long press is also exposed as a TalkBack action), with
+`filterTouchesWhenObscured` and `setHideOverlayWindows(true)` (`HIDE_OVERLAY_WINDOWS` permission). It is a plain Material3
+screen so the feature works now; **UI needs (UI engineer):** (1) restyle or replace its content in the app design system
+(keep the manifest entry, `RemoteConfirmActivity.intent(...)`, the hold gesture and the window flags); (2) a Remote access
+settings screen over the members above, including the connections list (label shown as unverified, scopes in plain words,
+last used, Revoke), Pair again when `unpairedByRelay`, and entry points that start `facade.remote.confirmationIntent(...)`;
+(3) a biometric/device-credential step for `holdsMedication` connections before `approveGrant`; (4) strings: `dc_remote_*`
+exist in `strings_engine.xml` (en + iw) for the notifications and this Activity.
 
 Behavior facts (all **unit** unless noted): command ids are applied at most once (`command_log` row written before any
 effect, redelivery is ignored, an interrupted command is acked `failed`); expired commands (phone clock) are rejected, never
-applied; `baseVersion` mismatch is `rejected` with `conflict.currentVersion`; sensitivity comes from the domain `preview`
-(`destructive`/`sensitive` always wait for the owner; medication edits additionally need the grant's `medication` scope and
-the local `allowMedication`); undo is only valid while `targetVersion` is the current version and the previous document is the
-one before it; acks are signed exactly as RELAY.md section 4.3 and an unsent ack is retried at the next sync; the snapshot is
-republished after every applied change (local or remote) and on app start; coordinates, medication (unless the relay wants it
-**and** the owner allows it) and sensitive audit summaries are redacted on the phone. Session control: `work_session` `start`/`stop`
+applied; `baseVersion` mismatch is `rejected` with `conflict.currentVersion`; sensitivity comes from the domain `ConfigSensitivity`
+(DOMAIN.md section 5: `destructive`/`sensitive` always wait for the owner, which now includes changing or disabling or skipping an
+existing alarm, pause-all, quiet hours, speech/collision/global settings, context and session rules, relocating a place,
+silencing cue profiles and the whole calendar policy; adding things and re-enabling stay ordinary; `ConfigPolicy.Auto` is still
+the default); medication edits additionally need the grant's `medication` scope and the local `allowMedication`; undo is only valid while `targetVersion` is the current version and the previous document is the
+one before it; acks are signed with **ack v2** (`signatureVersion: 2`, the signature also covers `sha256(canonicalJson(result))`, RELAY.md 4.6) and an unsent ack is retried at the next sync; the command `payloadHash` is recomputed on the phone and a mismatch is rejected (`payload_hash_mismatch`) instead of applied; op lists are decoded with `ConfigOpCodec.decodeList` (an unknown op or nested type rejects the whole list with `unsupported_op` / `unsupported_type` / `bad_op` / `bad_ops` / `too_many`, never a partial apply); the snapshot is
+republished after every applied change (local or remote) and on app start; **everything that leaves the phone is built with `ConfigEditor.previewForRemote`** (DOMAIN.md section 6; the on-phone `preview` is used only for the owner's confirmation screen and the needs-confirmation decision): preview diffs, apply and undo summaries (`"Undo of version N: "` prefix), rejection errors use `RemoteRedaction(allowMedication = grant has medication && owner allows)`; audit rows (the engine's `config.*` rows too), the "applied" notice, `status.recentChanges` and `nextCues` use `RemoteRedaction.Strict`, medication-related entries carry `"medication": true` (and no time or text without the owner's allowance), and coordinates never appear anywhere (test: no digit of a synthetic place in any outbound payload across preview/apply/confirm/undo). Calendar override keys are published as short hashes and medication cue profiles only with the medication allowance. Retention: finished, acknowledged `command_log` rows are deleted after 30 days and `audit_log` rows after 400 days (`AppContainer.housekeeping`). Session control: `work_session` `start`/`stop`
 map to `StartSession`/`EndSession`; `pause`/`resume` are **rejected** (sessions pause from companion activity only); routine
 `pause`/`resume`/`stop` map to `RoutineControl`; routine `start` is always `awaiting_confirmation` (needs a visible tap).
 Signature/format interop with the real relay: **emu** (Keystore DER signatures verified by the relay) and **unit** (real relay
@@ -203,6 +218,25 @@ child process with a software key). Real FCM, real Windows companion signals, re
 Triggers: app open, after every config change (debounced 1.5 s), WorkManager periodic (15 min minimum, best effort), opt-in
 frequent check (inexact alarm chain every 3-30 min only at a work/study place inside permitted hours and days; Doze can
 stretch it to 9+ minutes), FCM wake via `PushProvider` (no-op by default; `fcm-template/`).
+
+### 10.1 Platform hardening (security review, Android side)
+
+- **Backup and device transfer.** `allowBackup="false"` plus `res/xml/data_extraction_rules.xml` (cloud backup **and**
+  device-to-device transfer, API 31+) and `res/xml/backup_rules.xml` (`fullBackupContent`, API 26-30) exclude every domain:
+  the Room database (medication history, config with place coordinates, command and audit logs), relay credentials,
+  remote-access settings, grants and the locked-boot snapshot. **Decision:** the supported way to back up or move a setup is
+  the in-app export/import (`*.daycue-backup.json`, owner-controlled, history optional); a new phone is paired again.
+  Not verified on a device (no device-to-device transfer was run).
+- **Logging.** `proguard-rules.pro` strips `Log.v/d/i` in release (R8 `-assumenosideeffects`); `Log.w/e` stay and carry
+  exception types, not config. Item keys, relay sync reasons and geofence notes therefore appear in debug builds only.
+- **PendingIntents.** All are `FLAG_IMMUTABLE` and explicit (component set) except the two Play services targets
+  (`GeofenceBroadcastReceiver`, `MotionTransitionReceiver`): Play services must add event extras, so they are
+  `FLAG_MUTABLE` and explicit, and both receivers are `exported="false"`. Notification action identity includes the cue
+  id (`CueActionReceiver.identitySegments`), so two live notifications for one item never share a PendingIntent.
+- **Launcher icon.** `android:icon` / `android:roundIcon` (`@mipmap/ic_launcher`, `ic_launcher_round`) are on the main
+  manifest `<application>`.
+- **Companion keys (review L-4)** are still taken from the relay's list without pinning (needs UI + a fingerprint check
+  on both devices, RELAY.md 4.4.1). A paused/gone companion marker (`ttlSeconds <= 30`) is fed as `CompanionGone`.
 
 ## 11. Alarm music (Spotify) — `facade.alarmMusic`
 

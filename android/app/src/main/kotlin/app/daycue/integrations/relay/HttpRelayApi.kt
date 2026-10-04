@@ -88,6 +88,11 @@ class HttpRelayApi(
     override suspend fun activity(): ActivityResponse = WireJson.decodeFromString(ActivityResponse.serializer(), call("GET", "/v1/phone/activity"))
     override suspend fun companionCode(): CompanionCode = WireJson.decodeFromString(CompanionCode.serializer(), call("POST", "/v1/phone/companion-codes", JsonObject(emptyMap())))
 
+    override suspend fun grants(): GrantsResponse = WireJson.decodeFromString(GrantsResponse.serializer(), call("GET", "/v1/phone/grants"))
+    override suspend fun decideGrant(grantId: String, body: JsonObject): GrantDecisionResponse =
+        WireJson.decodeFromString(GrantDecisionResponse.serializer(), call("POST", "/v1/phone/grants/${java.net.URLEncoder.encode(grantId, "UTF-8")}/decision", body))
+    override suspend fun unpairSelf() { call("DELETE", "/v1/phone/self") }
+
     companion object {
         /** Unauthenticated pairing call. [publicKeySpki] is `PublicKey.getEncoded()`. */
         suspend fun pair(
