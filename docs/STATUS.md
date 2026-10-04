@@ -26,12 +26,34 @@ _Last updated: 2026-10-04 (session 1)_
 - minSdk 26; owner's phone model unknown — everything device-specific stays configurable.
 - Work/study detection defaults follow the brief (5 min sustained activity at an enabled place) until the owner describes their patterns.
 
-## In progress
+## Done (evidence in agent reports; see git log)
 
-- A3 product spec, A4 visual direction, A5 Android scaffold (three agents running).
+- Specs: PRODUCT.md, design/VISUAL.md (Cut Paper Day), design/UX.md, ACCEPTANCE.md, design/REVIEW-1.md.
+- :domain engine — 107 JVM tests green (lead re-ran). Scenarios 1-5, 7-12, 17 at engine level.
+- mcp/ relay + MCP server — 47 tests green (lead re-ran). Local only, not deployed.
+- companion/ — 40 tests green, incl. 3 against the real local relay. Tray UI not hand-tested.
+- Android platform layer — emulator-verified (API 37): on-time cue after process kill, ack reschedules, Doze, airplane mode, timezone change, reboot re-arm, medication via setAlarmClock, ringing alarm. Background speech: focus refused on Android 17 but track not muted; audibility unverified. Locked-boot fallback unverified.
+- Design system + debug gallery; CI green on GitHub (3 jobs).
+
+## Decisions since baseline
+
+- Calendar = Android Calendar Provider (READ_CALENDAR), not the REST API (ADR-0004).
+- Posture notification actions: Switched / Snooze / +5 min; Skip in-app only.
+- Scheduled routines ask before starting (Android 17 audio rule). Alarm missed <= 30 min while off -> notification.
+- Global pause does not pause calendar cues (owner told; may change).
+- Relay hosting question open with owner: (A) Render free + Supabase free Postgres, $0, cold starts; (B) Render Starter + disk ~$7/mo. Lead recommends A. Do not deploy before the owner chooses.
+- One early commit (8141492) contains the local path with the Windows username in docs/setup/MCP.md; fixed forward; owner told, history not rewritten.
+
+## In progress (session 1)
+
+- UI engineer: applying REVIEW-1, recapturing screenshots to ../daycue-review/design-system-2 (emulator-5556).
+- Scheduling engineer: places/geofencing/activity recognition/calendar provider (emulator-5554).
+- Integrations engineer: phone relay client, companion signal intake, Spotify alarm player, relay follow-ups.
 
 ## Next steps
 
-1. Review A3/A4/A5 outputs; commit; create the public GitHub repo (after a staged-content check).
-2. Launch: scheduling-engineer (B1–B5 domain), ux-designer (A6), release-engineer (A8 CI).
-3. Then UI engineer on design system + screens; integrations research prototype for relay/MCP.
+1. Commit each agent's work after a build + personal-data scan.
+2. UI engineer: real screens wired to the facade (docs/architecture/APP_API.md): Today, Cues (habits, medication, posture, routines, alarms), Setup (places, calendar, cues, integrations, readiness, settings, export/import), onboarding, alarm screen.
+3. Designers review real screens; QA runs ACCEPTANCE.md and writes VALIDATION.md; security review.
+4. Signed release APK (needs owner keystore, see docs/setup/BUILD.md), GitHub release, Hebrew quick start, final docs.
+5. Bundle for owner: hosting choice, Spotify client ID, Firebase (optional), phone model + USB debugging for physical tests.
