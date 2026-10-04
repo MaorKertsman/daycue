@@ -44,16 +44,28 @@ _Last updated: 2026-10-04 (session 1)_
 - Relay hosting question open with owner: (A) Render free + Supabase free Postgres, $0, cold starts; (B) Render Starter + disk ~$7/mo. Lead recommends A. Do not deploy before the owner chooses.
 - One early commit (8141492) contains the local path with the Windows username in docs/setup/MCP.md; fixed forward; owner told, history not rewritten.
 
-## In progress (session 1)
+## Session 1 ended (owner went offline, 2026-10-04)
 
-- UI engineer: applying REVIEW-1, recapturing screenshots to ../daycue-review/design-system-2 (emulator-5556).
-- Scheduling engineer: places/geofencing/activity recognition/calendar provider (emulator-5554).
-- Integrations engineer: phone relay client, companion signal intake, Spotify alarm player, relay follow-ups.
+Committed and pushed through 93602b4: phone relay client, companion signal intake, Spotify alarm path (off by default), relay follow-ups (60 relay tests).
+
+Two agents were still running when the session stopped; their work is UNCOMMITTED in the working tree and may be half-finished:
+- UI engineer applying docs/design/REVIEW-1.md in android/app ui/** and src/debug/**; screenshots go to ../daycue-review/design-system-2 (emulator-5556, AVD daycue_ui).
+- Scheduling engineer adding integrations/location/** and integrations/calendar/** (+ facade, manifest, ADR-0004, FEASIBILITY updates) (emulator-5554, AVD daycue_test).
+
+To resume:
+1. `git status`; run `.gradlew.bat :domain:test :app:testDebugUnitTest :app:assembleDebug`. If green, review and commit; if not, hand the failing area back to the owning role with the error.
+2. Check for leftover headless emulators (`adb devices`) and stop them with `adb -s <id> emu kill` if not needed.
+3. Re-run whichever of the two tasks did not finish (task briefs are summarized above; specs are in docs/).
+
+Open decisions with the owner (none blocks other work):
+- Relay hosting: (A) Render free + Supabase free Postgres, $0, cold starts, PgStore untested; (B) Render Starter + disk, ~$7/mo unconfirmed. Lead recommends A.
+- Spotify alarms: Spotify Developer Policy forbids alarm functionality without written approval; shipped off. Owner chooses: keep off / enable for self / ask Spotify.
+- Global pause currently does not pause calendar cues.
 
 ## Next steps
 
-1. Commit each agent's work after a build + personal-data scan.
-2. UI engineer: real screens wired to the facade (docs/architecture/APP_API.md): Today, Cues (habits, medication, posture, routines, alarms), Setup (places, calendar, cues, integrations, readiness, settings, export/import), onboarding, alarm screen.
-3. Designers review real screens; QA runs ACCEPTANCE.md and writes VALIDATION.md; security review.
-4. Signed release APK (needs owner keystore, see docs/setup/BUILD.md), GitHub release, Hebrew quick start, final docs.
-5. Bundle for owner: hosting choice, Spotify client ID, Firebase (optional), phone model + USB debugging for physical tests.
+1. Finish and commit the two in-flight tasks above.
+2. UI engineer: real screens wired to the facade (docs/architecture/APP_API.md): Today, Cues (habits, medication, posture, routines, alarms), Setup (places, calendar, cues, integrations incl. remote-access confirmation screen and daycue://open/remote deep link, readiness, settings, export/import), onboarding (ask full-screen-intent access when the first alarm is created), styled alarm screen reading facade.alarmMusic. Add android:icon/roundIcon to the main manifest.
+3. Designers review real screens (second review); QA runs docs/ACCEPTANCE.md and writes docs/VALIDATION.md; security reviewer audits repo, relay, pairing, permissions.
+4. Signed release APK (owner keystore, docs/setup/BUILD.md), GitHub release, Hebrew quick start, final docs, limitations list.
+5. Owner bundle: hosting choice, Spotify choice, Firebase (optional push wake), phone model + USB debugging for physical-device tests (speech audibility, geofence latency, lock-screen alarm, companion end to end).
