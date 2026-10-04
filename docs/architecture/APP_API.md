@@ -155,8 +155,7 @@ JSON uses the domain discriminator `type`, e.g. `{"type":"habitAck","habitId":"d
 - Spotify: implemented behind `AlarmMusicPlayer` (section 11) but **unverified on a live account**, and Spotify's
   Developer Policy prohibits alarm functionality without written approval (docs/setup/SPOTIFY.md). Off unless the
   App Remote AAR is added locally; the local tone always rings first. Relay and companion producers: section 10.
-- Calendar, geofence, companion and relay producers are not implemented (tables `signal`, `calendar_event_cache`,
-  `command_log` exist; `SignalObserved` rows are stored).
+- Geofence, activity-recognition and calendar producers: sections 12 and 13 (FEASIBILITY.md §5-§6 for what is verified).
 
 ## 10. Remote access (relay) — `facade.remote`
 
@@ -225,3 +224,53 @@ Verification: failure reasons, confirmation rule, watcher and fallback callbacks
 compiles (**build**); live playback, locked/sleeping phone, auth expiry, Premium rules: **unverified** (needs the owner's
 account and a physical phone; list in docs/setup/SPOTIFY.md). Service-side tone handling (silence on confirm, resume on loss)
 is code-reviewed only; not exercised on an emulator because it needs a Spotify app.
+
+## 12. Places and location — `facade.places`
+
+Code: `integrations/location/**`. Geofences and activity transitions follow the config and permissions automatically
+(`AppContainer.startIntegrations()` at process start; boot / package / location-switch receivers; app open). The UI never
+registers anything itself. Behaviour and limits: FEASIBILITY.md §5.
+
+| Member | Notes |
+|---|---|
+| `places: Flow<List<Place>>` | From config. |
+| `upsertPlace(place, baseVersion?)`, `setPlaceLocation(id, center, radiusM?)`, `deletePlace(id)` | `ConfigOp.UpsertPlace` / `SetPlaceLocation` / `DeletePlace` through `apply` (same validation, undo, audit). `center = null` = inactive (no geofence). |
+| `currentLocation(): CurrentLocationResult` | "Use current location": `Ok(fix(lat, lng, accuracyM, at), precise)` / `NoPermission` / `PlayServicesMissing` / `LocationOff` / `Unavailable` / `Failed(reason)`. One fix, no updates. Show accuracy; with `precise = false` say the fix is too coarse for a place. Coordinates are personal data: keep them out of logs/screenshots. |
+| `access: StateFlow<LocationAccessState>` | `foreground` (`None/Approximate/Precise`), `background`, `locationEnabled`, `playServices`, `activityRecognition`; derived `mode` (`Automatic/Paused/Off`), `nextStep`, `degradations` (`NoPlayServices`, `NoLocationPermission`, `ApproximateOnly`, `ForegroundOnly`, `LocationServicesOff`, `NoActivityRecognition` — exact consequences in the KDoc and FEASIBILITY §5.2). |
+| `nextPermissionStep(): LocationPermissionStep` | `Foreground` -> `Precise` -> `Background` -> `Done`; `.permissions` is the array for `RequestMultiplePermissions`. Never request background together with foreground (Android rejects it). |
+| `backgroundOptionLabel()` | Localized "Allow all the time" (API 30+) for the explanation before the background step. |
+| `activityRecognitionPermissions()` | `ACTIVITY_RECOGNITION` on API 29+ (optional, CTX-6 on-foot Outdoor). |
+| `onPermissionsChanged()` | Call after every location / activity-recognition permission result (forces re-registration). `refreshAccess()` from `onResume`. |
+| `geofenceStatus: StateFlow<GeofenceStatus?>` | `mode`, `registered`, `detail` (`ok`, `unchanged`, `no_places`, `no_permission`, `approximate_only`, `no_background`, `location_off`, `no_play_services`, `gms_error:<code>`), `skippedPlaceIds` (> 100 places). |
+| `fixIntent(LocationFix)` | `AppSettings`, `LocationSettings`, `PlayServices`. |
+
+Leaving now: `facade.leavingNow()` (BTL-1, unchanged) is the dependable departure path; the geofence exit is a fallback.
+
+## 13. Calendar — `facade.calendar`
+
+Code: `integrations/calendar/**`. Read-only Calendar Provider (ADR-0004); `READ_CALENDAR` only; never writes.
+
+| Member | Notes |
+|---|---|
+| `permission`, `hasPermission()`, `onPermissionChanged()` | Request `READ_CALENDAR` in context (when the user opens Calendar setup), then call `onPermissionChanged()`. |
+| `listCalendars(): List<CalendarChoice>` | Every provider calendar (`calendar: DeviceCalendar(id, displayName, accountName, accountType, ownerAccount, color, visible, syncEvents, accessLevel, isPrimary)`) + `selected`, `mode`, `leadsMin` from config. Empty without permission. Calendars whose sync is off on the phone are not listed (they don't exist on the device). |
+| `selectCalendar(id, mode = Rules, leadsMin = [10])`, `deselectCalendar(id)`, `neverForCalendar(calendarId)` | `SetCalendarPreference` / `RemoveCalendarPreference`. A sync follows automatically. |
+| `preview(): Flow<List<CalendarPreviewRow>>` | CAL-1: `event` (domain `CalendarEvent`; `title` is untrusted text: display only, respect `showTitlesOnLockScreen`), `decision` (`CalendarRules.decide`: step 0-5, `ruleId`, `reason`, `matched`, `leadsMin`), `nextCueAt`, `calendarName` (after `listCalendars()`), `why` (localized "why matched", `dc_calmatch_*`), current `instanceOverride` / `seriesOverride`. |
+| `always(row, scope = Instance, leadsMin?)`, `never(row, scope)`, `clearOverride(row, scope)` | One-tap corrections via `SetEventOverride`; `Series` uses `event.seriesId` (falls back to the instance when the event isn't recurring). |
+| `refresh(): CalendarSyncResult`, `lastSync: StateFlow<CalendarSyncResult?>` | `status` (`Ok`, `NoPermission`, `NothingSelected`, `Failed`), `events`, `added/changed/removed`, `duplicatesDropped`, `error`. |
+| `whyText(config, decision, lang)` | Same wording as `why`, for other screens. |
+
+Sync triggers (no UI action needed): WorkManager periodic 30 min, content-URI trigger 5-60 s after a provider change,
+`ContentObserver` while the process lives, app open (throttled 60 s), selection/horizon change.
+
+## 14. Context readiness — `facade.contextReadiness`
+
+`refreshContextReadiness(): ContextReadinessReport` (call from the readiness screen's `onResume` next to
+`refreshReadiness()`). Rows (`ContextReadinessId`): `PlaceDetection` (detail `mode=..;registered=..;detail=..`),
+`PlayServices`, `PreciseLocation`, `BackgroundLocation`, `LocationServices`, `ActivityRecognition`, `CalendarAccess`,
+`CalendarSync` (Limited when the last sync is older than `maxCacheAgeHours` — the engine then gives no calendar cues).
+Status reuses `ReadinessStatus` (`NotNeeded` when there are no active places / no selected calendars). `fix`
+(`ContextFix`) says what the button does: `Request*` = the UI runs the runtime-permission request (`nextPermissionStep()`
+for location), `LocationSettings` / `PlayServices` / `AppSettings` = `places.fixIntent(...)`, `SyncNow` =
+`calendar.refresh()`. These rows are separate from `ReadinessReport` (optional integrations never count as problems for
+core reminders).

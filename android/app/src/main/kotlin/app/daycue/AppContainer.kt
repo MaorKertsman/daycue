@@ -101,7 +101,7 @@ class AppContainer(val app: Application) {
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             private var startedCount = 0
             override fun onActivityStarted(a: Activity) {
-                if (startedCount++ == 0) { calendar.onAppOpened(); location.syncAsync(force = false, reason = "app open") }
+                if (startedCount++ == 0) { calendar.onAppOpened(); location.onAppOpened() }
             }
             override fun onActivityStopped(a: Activity) { startedCount = (startedCount - 1).coerceAtLeast(0) }
             override fun onActivityCreated(a: Activity, b: Bundle?) {}

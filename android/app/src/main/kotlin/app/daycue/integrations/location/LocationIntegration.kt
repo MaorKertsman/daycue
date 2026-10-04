@@ -86,13 +86,32 @@ class LocationIntegration(
 
     fun syncAsync(force: Boolean, reason: String) { scope.launch { sync(force, reason) } }
 
+    @Volatile private var lastOpenSnapshotMs = 0L
+    @Volatile private var lastSnapshotMs = 0L
+
+    /**
+     * App came to the foreground: repair registrations, and (at most every [APP_OPEN_SNAPSHOT_MS]) take one
+     * foreground fix so Place is current while the user looks at the app. A one-shot request, never a loop.
+     */
+    fun onAppOpened() {
+        scope.launch {
+            sync(force = false, reason = "app open")
+            val now = System.currentTimeMillis()
+            if (now - lastOpenSnapshotMs >= APP_OPEN_SNAPSHOT_MS) { lastOpenSnapshotMs = now; refreshSnapshot(reason = "app open") }
+        }
+    }
+
     /** Brings OS registrations in line with config + permissions. [force] re-registers even if unchanged. */
     suspend fun sync(force: Boolean, reason: String): GeofenceStatus = mutex.withLock {
         val snap = host.ensureLoaded()
         val access = LocationAccess.read(context).also { _access.value = it }
         val plan = GeofencePlanner.plan(snap.config)
-        val st = syncGeofences(plan, access, force, reason, snap.state.context.locationAvailable)
-        syncMotion(snap.config, access, force, snap.state.context.motionAvailable)
+        // Reboot and force stop destroy our PendingIntents, and with them the OS registrations: re-register.
+        val geoLost = prefs.getString(KEY_FP, null) != null && !pendingIntentAlive(context, PI_GEOFENCE, GeofenceBroadcastReceiver::class.java)
+        val arLost = prefs.getBoolean(KEY_AR, false) && !pendingIntentAlive(context, PI_MOTION, MotionTransitionReceiver::class.java)
+        if (geoLost || arLost) Log.i(TAG, "registrations lost (geofence=$geoLost, motion=$arLost): re-registering")
+        val st = syncGeofences(plan, access, force || geoLost, reason, snap.state.context.locationAvailable)
+        syncMotion(snap.config, access, force || arLost, snap.state.context.motionAvailable)
         _status.value = st
         Log.i(TAG, "location sync ($reason, force=$force): ${st.mode} ${st.detail} registered=${st.registered}")
         st
@@ -162,6 +181,9 @@ class LocationIntegration(
     suspend fun refreshSnapshot(plan: GeofencePlan? = null, reason: String) {
         val p = plan ?: GeofencePlanner.plan(host.ensureLoaded().config)
         if (p.specs.isEmpty() || LocationAccess.read(context).mode != PlaceDetectionMode.Automatic) return
+        // Several triggers can coincide (process start + boot + app open): one fix per minute is enough.
+        val nowMs = System.currentTimeMillis()
+        synchronized(this) { if (nowMs - lastSnapshotMs < 60_000) return; lastSnapshotMs = nowMs }
         // Balanced (Wi-Fi/cell) first; GPS once only if that yields nothing (no network location, e.g. the emulator).
         val first = current.get(highAccuracy = false, maxAgeMs = 120_000, timeoutMs = 15_000)
         val res = if (first is CurrentLocationResult.Unavailable) current.get(highAccuracy = true, maxAgeMs = 120_000, timeoutMs = 20_000) else first
@@ -230,15 +252,21 @@ class LocationIntegration(
         private const val KEY_AT = "geofence_registered_at_ms"
         private const val KEY_AR = "activity_transitions_registered"
         val SNAPSHOT_MAX_AGE: Duration = Duration.ofMinutes(10)
+        const val APP_OPEN_SNAPSHOT_MS = 10 * 60_000L
+        private const val PI_GEOFENCE = 41
+        private const val PI_MOTION = 42
+
+        private fun pendingIntentAlive(context: Context, code: Int, cls: Class<*>): Boolean =
+            PendingIntent.getBroadcast(context, code, Intent(context, cls), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_MUTABLE) != null
 
         fun geofencePendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
-            context, 41, Intent(context, GeofenceBroadcastReceiver::class.java),
+            context, PI_GEOFENCE, Intent(context, GeofenceBroadcastReceiver::class.java),
             // Play services adds the event extras: must be mutable (API 31+).
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
 
         fun motionPendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
-            context, 42, Intent(context, MotionTransitionReceiver::class.java),
+            context, PI_MOTION, Intent(context, MotionTransitionReceiver::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
     }

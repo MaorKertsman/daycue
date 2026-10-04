@@ -91,3 +91,4 @@ See `docs/adr/`. Index:
 - ADR-0001 Config as a versioned JSON document + ops (this file, 3.2)
 - ADR-0002 Single next-wake exact alarm driven by a pure reducer (3.1, 3.4)
 - ADR-0003 Relay with phone acknowledgement; FCM optional wake (3.5)
+- ADR-0004 Calendar via the Android Calendar Provider, not the REST API (`docs/adr/0004-calendar-provider.md`)
