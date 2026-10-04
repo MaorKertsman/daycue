@@ -37,3 +37,10 @@ dist/
 .DS_Store
 Thumbs.db
 .claude/settings.local.json
+
+# Additional secret-bearing files
+.data/
+*.pem
+*.p12
+*service-account*.json
+*firebase-adminsdk*.json
