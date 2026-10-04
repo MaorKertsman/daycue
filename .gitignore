@@ -1,0 +1,39 @@
+# Secrets and personal data — never commit
+*.jks
+*.keystore
+keystore.properties
+local.properties
+.env
+.env.*
+!.env.example
+google-services.json
+**/secrets/
+*.daycue-backup.json
+exports/
+screenshots-private/
+
+# Android / Gradle
+.gradle/
+build/
+captures/
+*.apk
+*.aab
+*.iml
+.idea/
+.kotlin/
+
+# .NET
+bin/
+obj/
+*.user
+
+# Node
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+
+# OS / tools
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
