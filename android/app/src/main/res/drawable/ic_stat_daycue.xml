@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default notification small icon: plane and disc silhouette with the same cut, 24dp grid. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group>
+        <clip-path android:pathData="M0,0 H24 V24 H0 Z M15.5,4.4 A4.1,4.1 0 1 0 15.5,12.6 A4.1,4.1 0 1 0 15.5,4.4 Z" />
+        <group
+            android:pivotX="8.5"
+            android:pivotY="13.5"
+            android:rotation="-6">
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M4.7,10 H12.3 A0.7,0.7 0 0 1 13,10.7 V16.3 A0.7,0.7 0 0 1 12.3,17 H4.7 A0.7,0.7 0 0 1 4,16.3 V10.7 A0.7,0.7 0 0 1 4.7,10 Z" />
+        </group>
+    </group>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15.5,5 A3.5,3.5 0 1 1 15.5,12 A3.5,3.5 0 1 1 15.5,5 Z" />
+</vector>

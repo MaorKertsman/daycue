@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="daycue_paper">#191816</color>
+    <color name="icon_background">#191816</color>
+    <color name="icon_plane">#5370A3</color>
+    <color name="icon_disc">#E3A72F</color>
+    <color name="icon_rule">#EEE7DB</color>
+</resources>

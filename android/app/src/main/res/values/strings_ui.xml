@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cue types -->
+    <string name="cue_sunscreen">Sunscreen</string>
+    <string name="cue_hydration">Hydration</string>
+    <string name="cue_bottle">Water bottle</string>
+    <string name="cue_posture">Posture</string>
+    <string name="cue_medication">Medication</string>
+    <string name="cue_calendar">Calendar</string>
+    <string name="cue_routine">Routine</string>
+    <string name="cue_alarm">Alarm</string>
+
+    <!-- Cue states (always shown next to a mark) -->
+    <string name="state_due">Due now</string>
+    <string name="state_scheduled">Scheduled</string>
+    <string name="state_snoozed">Snoozed</string>
+    <string name="state_paused">Paused</string>
+    <string name="state_unknown">Not sure</string>
+    <string name="state_error">Needs attention</string>
+
+    <!-- Status words for doses and commands -->
+    <string name="status_upcoming">Upcoming</string>
+    <string name="status_taken">Taken</string>
+    <string name="status_skipped">Skipped</string>
+    <string name="status_not_confirmed">Not confirmed</string>
+    <string name="status_waiting">Waiting for phone</string>
+    <string name="status_applied">Applied</string>
+    <string name="status_rejected">Rejected</string>
+    <string name="status_expired">Expired</string>
+
+    <!-- Readiness -->
+    <string name="readiness_ready">Ready</string>
+    <string name="readiness_limited">Limited</string>
+    <string name="readiness_off">Off</string>
+    <string name="readiness_not_needed">Not needed</string>
+    <string name="readiness_checking">Checking…</string>
+
+    <!-- Shared actions and labels -->
+    <string name="action_fix">Fix</string>
+    <string name="setting_changed">Changed</string>
+    <string name="state_expanded">Expanded</string>
+    <string name="state_collapsed">Collapsed</string>
+    <string name="why_now">Why now?</string>
+    <string name="advanced_more">More options</string>
+    <string name="advanced_reset">Reset all to defaults</string>
+    <string name="context_line_description">Context: %1$s. Double tap to correct.</string>
+    <string name="context_line_click_label">Correct the context</string>
+
+    <!-- Accessibility -->
+    <string name="cd_decrease">Decrease</string>
+    <string name="cd_increase">Increase</string>
+    <string name="cd_move_up">Move up</string>
+    <string name="cd_move_down">Move down</string>
+    <string name="cd_drag_handle">Drag handle</string>
+    <string name="cd_more_actions">More actions</string>
+    <string name="switch_locked">On, can’t turn off: %1$s</string>
+    <string name="reorder_moved">Moved to position %1$d of %2$d</string>
+
+    <!-- Durations and time fields -->
+    <string name="duration_min">%1$d min</string>
+    <string name="duration_h">%1$d h</string>
+    <string name="duration_h_min">%1$d h %2$d min</string>
+    <string name="duration_sec">%1$d s</string>
+    <string name="duration_custom">Custom</string>
+    <string name="field_hours">Hours</string>
+    <string name="field_minutes">Minutes</string>
+    <string name="field_seconds">Seconds</string>
+    <string name="field_from">From</string>
+    <string name="field_to">To</string>
+    <string name="field_ampm">AM/PM</string>
+    <string name="time_window_overnight">%1$s, ends next day</string>
+
+    <plurals name="advanced_more_changed">
+        <item quantity="one">More options (%1$d changed)</item>
+        <item quantity="other">More options (%1$d changed)</item>
+    </plurals>
+
+    <plurals name="desc_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="desc_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="desc_seconds">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
+</resources>

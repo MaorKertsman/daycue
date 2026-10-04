@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cue types -->
+    <string name="cue_sunscreen">קרם הגנה</string>
+    <string name="cue_hydration">שתייה</string>
+    <string name="cue_bottle">בקבוק מים</string>
+    <string name="cue_posture">תנוחה</string>
+    <string name="cue_medication">תרופה</string>
+    <string name="cue_calendar">יומן</string>
+    <string name="cue_routine">שגרה</string>
+    <string name="cue_alarm">שעון מעורר</string>
+
+    <!-- Cue states -->
+    <string name="state_due">הגיע הזמן</string>
+    <string name="state_scheduled">מתוכנן</string>
+    <string name="state_snoozed">נדחה</string>
+    <string name="state_paused">מושהה</string>
+    <string name="state_unknown">לא ברור</string>
+    <string name="state_error">דורש תשומת לב</string>
+
+    <!-- Status words -->
+    <string name="status_upcoming">בקרוב</string>
+    <string name="status_taken">נלקחה</string>
+    <string name="status_skipped">דילוג</string>
+    <string name="status_not_confirmed">לא אושרה</string>
+    <string name="status_waiting">ממתין לטלפון</string>
+    <string name="status_applied">הוחל</string>
+    <string name="status_rejected">סורב</string>
+    <string name="status_expired">פג תוקף</string>
+
+    <!-- Readiness -->
+    <string name="readiness_ready">מוכן</string>
+    <string name="readiness_limited">מוגבל</string>
+    <string name="readiness_off">כבוי</string>
+    <string name="readiness_not_needed">לא נדרש</string>
+    <string name="readiness_checking">בודק…</string>
+
+    <!-- Shared actions and labels -->
+    <string name="action_fix">לתיקון</string>
+    <string name="setting_changed">שונה</string>
+    <string name="state_expanded">מורחב</string>
+    <string name="state_collapsed">מכווץ</string>
+    <string name="why_now">למה עכשיו?</string>
+    <string name="advanced_more">אפשרויות נוספות</string>
+    <string name="advanced_reset">איפוס הכול לברירת מחדל</string>
+    <string name="context_line_description">הקשר: %1$s. הקשה כפולה לתיקון.</string>
+    <string name="context_line_click_label">תיקון ההקשר</string>
+
+    <!-- Accessibility -->
+    <string name="cd_decrease">הפחתה</string>
+    <string name="cd_increase">הגדלה</string>
+    <string name="cd_move_up">הזזה למעלה</string>
+    <string name="cd_move_down">הזזה למטה</string>
+    <string name="cd_drag_handle">ידית גרירה</string>
+    <string name="cd_more_actions">פעולות נוספות</string>
+    <string name="switch_locked">פועל, אי אפשר לכבות: %1$s</string>
+    <string name="reorder_moved">הועבר למקום %1$d מתוך %2$d</string>
+
+    <!-- Durations and time fields -->
+    <string name="duration_min">%1$d דק׳</string>
+    <string name="duration_h">%1$d שע׳</string>
+    <string name="duration_h_min">%1$d שע׳ %2$d דק׳</string>
+    <string name="duration_sec">%1$d שנ׳</string>
+    <string name="duration_custom">מותאם אישית</string>
+    <string name="field_hours">שעות</string>
+    <string name="field_minutes">דקות</string>
+    <string name="field_seconds">שניות</string>
+    <string name="field_from">התחלה</string>
+    <string name="field_to">סיום</string>
+    <string name="field_ampm">לפנה״צ/אחה״צ</string>
+    <string name="time_window_overnight">%1$s, מסתיים למחרת</string>
+
+    <plurals name="advanced_more_changed">
+        <item quantity="one">אפשרויות נוספות (שינוי אחד)</item>
+        <item quantity="two">אפשרויות נוספות (שני שינויים)</item>
+        <item quantity="many">אפשרויות נוספות (%1$d שינויים)</item>
+        <item quantity="other">אפשרויות נוספות (%1$d שינויים)</item>
+    </plurals>
+
+    <plurals name="desc_hours">
+        <item quantity="one">שעה</item>
+        <item quantity="two">שעתיים</item>
+        <item quantity="many">%d שעות</item>
+        <item quantity="other">%d שעות</item>
+    </plurals>
+    <plurals name="desc_minutes">
+        <item quantity="one">דקה</item>
+        <item quantity="two">שתי דקות</item>
+        <item quantity="many">%d דקות</item>
+        <item quantity="other">%d דקות</item>
+    </plurals>
+    <plurals name="desc_seconds">
+        <item quantity="one">שנייה</item>
+        <item quantity="two">שתי שניות</item>
+        <item quantity="many">%d שניות</item>
+        <item quantity="other">%d שניות</item>
+    </plurals>
+</resources>

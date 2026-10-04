@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "cf557fffddcc56f804e5e4273f23a175",
+    "identityHash": "68ff4015c1239859b3f344365dc17369",
     "entities": [
       {
         "tableName": "config_current",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `schema_version` INTEGER NOT NULL, `version` INTEGER NOT NULL, `json` TEXT NOT NULL, `updated_at_epoch_ms` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `schema_version` INTEGER NOT NULL, `version` INTEGER NOT NULL, `json` TEXT NOT NULL, `updated_at_ms` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -33,8 +33,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "updatedAtEpochMs",
-            "columnName": "updated_at_epoch_ms",
+            "fieldPath": "updatedAtMs",
+            "columnName": "updated_at_ms",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -45,11 +45,475 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "config_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`version` INTEGER NOT NULL, `schema_version` INTEGER NOT NULL, `json` TEXT NOT NULL, `replaced_at_ms` INTEGER NOT NULL, `source` TEXT NOT NULL, `command_id` TEXT, PRIMARY KEY(`version`))",
+        "fields": [
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "schemaVersion",
+            "columnName": "schema_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "json",
+            "columnName": "json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replacedAtMs",
+            "columnName": "replaced_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commandId",
+            "columnName": "command_id",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "version"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_config_history_replaced_at_ms",
+            "unique": false,
+            "columnNames": [
+              "replaced_at_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_config_history_replaced_at_ms` ON `${TABLE_NAME}` (`replaced_at_ms`)"
+          }
+        ]
+      },
+      {
+        "tableName": "engine_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `json` TEXT NOT NULL, `config_version` INTEGER NOT NULL, `next_wake_at_ms` INTEGER, `next_wake_precision` TEXT, `updated_at_ms` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "json",
+            "columnName": "json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configVersion",
+            "columnName": "config_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextWakeAtMs",
+            "columnName": "next_wake_at_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nextWakePrecision",
+            "columnName": "next_wake_precision",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAtMs",
+            "columnName": "updated_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "history_event",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `occurred_at_ms` INTEGER NOT NULL, `zone_id` TEXT NOT NULL, `kind` TEXT NOT NULL, `subject_type` TEXT NOT NULL, `subject_id` TEXT NOT NULL, `cue_id` TEXT, `scheduled_for_ms` INTEGER, `payload_json` TEXT, `rule` TEXT NOT NULL, `is_test` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAtMs",
+            "columnName": "occurred_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "zoneId",
+            "columnName": "zone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subjectType",
+            "columnName": "subject_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subjectId",
+            "columnName": "subject_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cueId",
+            "columnName": "cue_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "scheduledForMs",
+            "columnName": "scheduled_for_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payload_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rule",
+            "columnName": "rule",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isTest",
+            "columnName": "is_test",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_history_event_subject_type_subject_id_occurred_at_ms",
+            "unique": false,
+            "columnNames": [
+              "subject_type",
+              "subject_id",
+              "occurred_at_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_history_event_subject_type_subject_id_occurred_at_ms` ON `${TABLE_NAME}` (`subject_type`, `subject_id`, `occurred_at_ms`)"
+          },
+          {
+            "name": "index_history_event_occurred_at_ms",
+            "unique": false,
+            "columnNames": [
+              "occurred_at_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_history_event_occurred_at_ms` ON `${TABLE_NAME}` (`occurred_at_ms`)"
+          },
+          {
+            "name": "index_history_event_cue_id",
+            "unique": false,
+            "columnNames": [
+              "cue_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_history_event_cue_id` ON `${TABLE_NAME}` (`cue_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "signal",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`source` TEXT NOT NULL, `value_json` TEXT NOT NULL, `observed_at_ms` INTEGER NOT NULL, `expires_at_ms` INTEGER, PRIMARY KEY(`source`))",
+        "fields": [
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueJson",
+            "columnName": "value_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedAtMs",
+            "columnName": "observed_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAtMs",
+            "columnName": "expires_at_ms",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "source"
+          ]
+        }
+      },
+      {
+        "tableName": "calendar_event_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`instance_key` TEXT NOT NULL, `calendar_id` INTEGER NOT NULL, `begin_ms` INTEGER NOT NULL, `end_ms` INTEGER NOT NULL, `all_day` INTEGER NOT NULL, `busy` INTEGER NOT NULL, `title` TEXT, `fetched_at_ms` INTEGER NOT NULL, PRIMARY KEY(`instance_key`))",
+        "fields": [
+          {
+            "fieldPath": "instanceKey",
+            "columnName": "instance_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calendarId",
+            "columnName": "calendar_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "beginMs",
+            "columnName": "begin_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMs",
+            "columnName": "end_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allDay",
+            "columnName": "all_day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "busy",
+            "columnName": "busy",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fetchedAtMs",
+            "columnName": "fetched_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "instance_key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_calendar_event_cache_begin_ms_end_ms",
+            "unique": false,
+            "columnNames": [
+              "begin_ms",
+              "end_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_calendar_event_cache_begin_ms_end_ms` ON `${TABLE_NAME}` (`begin_ms`, `end_ms`)"
+          }
+        ]
+      },
+      {
+        "tableName": "command_log",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`command_id` TEXT NOT NULL, `received_at_ms` INTEGER NOT NULL, `origin` TEXT NOT NULL, `base_version` INTEGER NOT NULL, `ops_json` TEXT NOT NULL, `state` TEXT NOT NULL, `result_json` TEXT, `applied_version` INTEGER, `acked_at_ms` INTEGER, PRIMARY KEY(`command_id`))",
+        "fields": [
+          {
+            "fieldPath": "commandId",
+            "columnName": "command_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "receivedAtMs",
+            "columnName": "received_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "baseVersion",
+            "columnName": "base_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "opsJson",
+            "columnName": "ops_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resultJson",
+            "columnName": "result_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "appliedVersion",
+            "columnName": "applied_version",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "ackedAtMs",
+            "columnName": "acked_at_ms",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "command_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_command_log_state",
+            "unique": false,
+            "columnNames": [
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_command_log_state` ON `${TABLE_NAME}` (`state`)"
+          }
+        ]
+      },
+      {
+        "tableName": "audit_log",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at_ms` INTEGER NOT NULL, `actor` TEXT NOT NULL, `action` TEXT NOT NULL, `sensitivity` TEXT NOT NULL, `summary` TEXT NOT NULL, `version_before` INTEGER, `version_after` INTEGER, `command_id` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atMs",
+            "columnName": "at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actor",
+            "columnName": "actor",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "action",
+            "columnName": "action",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sensitivity",
+            "columnName": "sensitivity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "versionBefore",
+            "columnName": "version_before",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "versionAfter",
+            "columnName": "version_after",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "commandId",
+            "columnName": "command_id",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_audit_log_at_ms",
+            "unique": false,
+            "columnNames": [
+              "at_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audit_log_at_ms` ON `${TABLE_NAME}` (`at_ms`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cf557fffddcc56f804e5e4273f23a175')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '68ff4015c1239859b3f344365dc17369')"
     ]
   }
 }

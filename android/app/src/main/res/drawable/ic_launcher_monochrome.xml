@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed icon: the plane is clipped by the complement of a disc of r15.5 at the disc center, which leaves a
+     2.5dp cut between the overlapping shapes. The clip path is a rectangle plus a counter-clockwise circle
+     (non-zero winding), so the circle interior is excluded. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group>
+        <clip-path android:pathData="M0,0 H108 V108 H0 Z M66,28.5 A15.5,15.5 0 1 0 66,59.5 A15.5,15.5 0 1 0 66,28.5 Z" />
+        <group
+            android:pivotX="49"
+            android:pivotY="59"
+            android:rotation="-6">
+            <path
+                android:fillColor="#FF000000"
+                android:pathData="M33,44 H65 A3,3 0 0 1 68,47 V71 A3,3 0 0 1 65,74 H33 A3,3 0 0 1 30,71 V47 A3,3 0 0 1 33,44 Z" />
+        </group>
+    </group>
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M66,31 A13,13 0 1 1 66,57 A13,13 0 1 1 66,31 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M34.5,75 H73.5 A1.5,1.5 0 0 1 75,76.5 A1.5,1.5 0 0 1 73.5,78 H34.5 A1.5,1.5 0 0 1 33,76.5 A1.5,1.5 0 0 1 34.5,75 Z" />
+</vector>

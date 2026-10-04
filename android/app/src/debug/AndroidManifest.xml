@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Debug-only component gallery. Launch from adb:
+         adb shell am start -n app.daycue/app.daycue.debug.GalleryActivity -e page today
+         String extras (use -e): page = today|marks|field|controls|rows|pickers|overlays|states, chrome = false hides the page
+         tabs, sheet = true / dialog = true open the live overlay, reduce_motion = true. -->
+    <application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        tools:ignore="MissingApplicationIcon">
+
+        <activity
+            android:name="app.daycue.debug.GalleryActivity"
+            android:exported="true"
+            android:label="@string/gallery_app_label"
+            android:theme="@style/Theme.DayCue">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

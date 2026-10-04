@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Engine/notification texts. Names are the domain text keys with "dc_" prefix and "." -> "_"
+  (app.daycue.delivery.Templates.resourceName). Placeholders are {name}-style and filled by
+  TextResolver; user text (names, phrases, titles) arrives as arguments.
+  "_alt" = used when a referenced argument is blank. "_<kind>" = variant chosen by a "kind" argument.
+  Owner: scheduling engineer. Keep values-iw/strings_engine.xml in sync.
+-->
+<resources>
+    <!-- Habit cues (title = item name, body = phrase) -->
+    <string name="dc_cue_sunscreen_title">{name}</string>
+    <string name="dc_cue_sunscreen_title_alt">Sunscreen</string>
+    <string name="dc_cue_hydration_title">{name}</string>
+    <string name="dc_cue_hydration_title_alt">Hydration</string>
+    <string name="dc_cue_generic_title">{name}</string>
+    <string name="dc_cue_generic_title_alt">Reminder</string>
+    <string name="dc_cue_habit_title">Reminder</string>
+    <string name="dc_cue_habit_body">{phrase}</string>
+    <string name="dc_cue_bottle_title">{name}</string>
+    <string name="dc_cue_bottle_title_alt">Water bottle</string>
+    <string name="dc_cue_waterbottle_title">Water bottle</string>
+
+    <!-- Posture -->
+    <string name="dc_cue_posture_title">Posture</string>
+    <string name="dc_cue_posture_switch_title">Switch to: {mode}</string>
+    <string name="dc_cue_posture_switch_title_alt">Time to switch</string>
+    <string name="dc_cue_posture_keep_going_title">Keep going: {mode}</string>
+    <string name="dc_cue_posture_keep_going_title_alt">Keep going or take a break</string>
+
+    <!-- Medication (labels are user text and only appear where the domain allows) -->
+    <string name="dc_cue_medication_title">{label}</string>
+    <string name="dc_cue_medication_title_alt">Medication reminder</string>
+    <string name="dc_cue_medication_body">{time} · Tap to confirm</string>
+    <string name="dc_cue_medication_body_alt">Tap to confirm</string>
+    <string name="dc_cue_medication_generic_title">Medication reminder</string>
+    <string name="dc_cue_medication_merged_title">{count} medication reminders not confirmed</string>
+    <string name="dc_cue_medication_merged_body">Open DayCue to confirm each dose</string>
+    <string name="dc_cue_medication_policy_title">Time zone changed</string>
+    <string name="dc_cue_medication_policy_body">Now in {zone}. {followLocal} follow local time, {keepHome} keep home time.</string>
+
+    <!-- Calendar (titles are untrusted data; shown only, never interpreted) -->
+    <string name="dc_cue_calendar_title">{kind} in {minutes} min</string>
+    <string name="dc_cue_calendar_title_alt">Upcoming event</string>
+    <string name="dc_cue_calendar_body">{title}</string>
+    <string name="dc_cue_calendar_body_alt">{template}</string>
+    <string name="dc_cue_calendar_generic_title">{kind} in {minutes} min</string>
+    <string name="dc_cue_calendar_generic_title_alt">Upcoming event</string>
+
+    <!-- Routines -->
+    <string name="dc_cue_routinestep_title">Routine step</string>
+    <string name="dc_cue_routine_step_title">{step} ({index}/{count})</string>
+    <string name="dc_cue_routine_step_title_alt">{step}</string>
+    <string name="dc_cue_routine_step_body">Until {endsAt}</string>
+    <string name="dc_cue_routine_step_body_alt">Tap Done when you finish</string>
+    <string name="dc_cue_routine_nudge_title">Still on: {step}?</string>
+    <string name="dc_cue_routine_recover_title">{routine} paused at: {step}</string>
+    <string name="dc_cue_routine_recover_body">Resume, restart the routine, or cancel.</string>
+    <string name="dc_cue_routine_prompt_title">{routine} · Start?</string>
+    <string name="dc_cue_routine_prompt_body">Start now or skip it today.</string>
+
+    <!-- Sessions (WRK-2) -->
+    <string name="dc_cue_session_started_title">Session started at {place}</string>
+    <string name="dc_cue_session_started_body">Tap Not working if this is wrong.</string>
+    <string name="dc_cue_session_suggest_title">Start a session at {place}?</string>
+    <string name="dc_cue_session_suggest_title_working">Start working at {place}?</string>
+    <string name="dc_cue_session_suggest_title_studying">Start studying at {place}?</string>
+    <string name="dc_cue_session_suggest_body">You seem active here.</string>
+
+    <!-- Alarms -->
+    <string name="dc_cue_alarm_title">Alarm</string>
+    <string name="dc_cue_alarm_missed_boot_title">Alarm time passed: {time}</string>
+    <string name="dc_cue_alarm_missed_boot_body">The phone was off or restarting at {time}, so the alarm didn\'t ring.</string>
+    <string name="dc_alarm_ringing_title">{time} · {name}</string>
+    <string name="dc_alarm_ringing_body">Alarm</string>
+    <string name="dc_alarm_test_title">Test · {name}</string>
+    <string name="dc_alarm_generic_title">Alarm · {time}</string>
+    <string name="dc_alarm_generic_body">Unlock the phone for details.</string>
+
+    <!-- Other -->
+    <string name="dc_cue_notice_title">Notice</string>
+    <string name="dc_cue_test_title">Test · {inner}</string>
+
+    <!-- Notification actions -->
+    <string name="dc_action_applied">Applied</string>
+    <string name="dc_action_drank">Drank</string>
+    <string name="dc_action_done">Done</string>
+    <string name="dc_action_got_it">Got it</string>
+    <string name="dc_action_not_needed">Not needed</string>
+    <string name="dc_action_taken">Taken</string>
+    <string name="dc_action_snooze">Snooze {minutes} min</string>
+    <string name="dc_action_snooze_alt">Snooze</string>
+    <string name="dc_action_pause">Pause 1 h</string>
+    <string name="dc_action_switched">Switched</string>
+    <string name="dc_action_extend">+{minutes} min</string>
+    <string name="dc_action_skip">Skip</string>
+    <string name="dc_action_start">Start</string>
+    <string name="dc_action_not_now">Not now</string>
+    <string name="dc_action_not_working">Not working</string>
+    <string name="dc_action_resume">Resume</string>
+    <string name="dc_action_restart">Restart</string>
+    <string name="dc_action_cancel">Cancel</string>
+    <string name="dc_action_stop">Stop</string>
+    <string name="dc_action_skip_today">Skip today</string>
+    <string name="dc_action_open">Open</string>
+
+    <!-- Short names for "Also: ..." (COL-1) -->
+    <string name="dc_short_sunscreen">sunscreen</string>
+    <string name="dc_short_hydration">water</string>
+    <string name="dc_short_generic">{name}</string>
+    <string name="dc_short_generic_alt">reminder</string>
+    <string name="dc_short_habit">reminder</string>
+    <string name="dc_short_bottle">water bottle</string>
+    <string name="dc_short_waterbottle">water bottle</string>
+    <string name="dc_short_calendar">calendar</string>
+    <string name="dc_short_medication">medication</string>
+    <string name="dc_short_posture">posture</string>
+    <string name="dc_short_routine">routine</string>
+    <string name="dc_short_routinestep">routine</string>
+    <string name="dc_short_alarm">alarm</string>
+    <string name="dc_short_notice">notice</string>
+
+    <!-- Speech -->
+    <string name="dc_speech_phrase">{text}</string>
+    <string name="dc_speech_calendar_title">You have {title} in {minutes} minutes</string>
+    <string name="dc_speech_calendar_generic">You have a {kind} in {minutes} minutes</string>
+    <string name="dc_speech_medication_label">Time for {label}</string>
+    <string name="dc_speech_medication_generic">Medication reminder</string>
+    <string name="dc_speech_medication_merged">{count} medication reminders are waiting</string>
+    <string name="dc_speech_routine_prompt">{routine} is ready to start</string>
+    <string name="dc_speech_also">Also: {items}.</string>
+    <string name="dc_speech_more">And {count} more.</string>
+    <string name="dc_speech_separator">", "</string>
+
+    <!-- Why now? (GEN-9) -->
+    <string name="dc_why_prefix">Why now: {reason}</string>
+    <string name="dc_why_sunscreen_due">the time since you last applied it has passed</string>
+    <string name="dc_why_sunscreen_repeat">not marked as applied yet</string>
+    <string name="dc_why_hydration_due">the time since your last drink has passed</string>
+    <string name="dc_why_hydration_repeat">not marked as drunk yet</string>
+    <string name="dc_why_generic_due">the interval has passed</string>
+    <string name="dc_why_generic_repeat">not marked as done yet</string>
+    <string name="dc_why_bottle">you are leaving a place</string>
+    <string name="dc_why_calendar">an event matched your calendar rules</string>
+    <string name="dc_why_medication">it is the scheduled dose time</string>
+    <string name="dc_why_medication_merged">several doses were not confirmed</string>
+    <string name="dc_why_medication_policy">your time zone changed</string>
+    <string name="dc_why_posture">the current posture time is up</string>
+    <string name="dc_why_preview">this is a preview</string>
+    <string name="dc_why_routine_prompt">this routine is scheduled now</string>
+    <string name="dc_why_routine_recover">the routine was interrupted</string>
+    <string name="dc_why_routine_step">it is the next step of your routine</string>
+    <string name="dc_why_session">you are active at a saved place</string>
+    <string name="dc_why_alarm_boot">the phone was off at alarm time</string>
+
+    <!-- Notification channels (names follow the cue type) -->
+    <string name="dc_channel_alarm_name">Alarms</string>
+    <string name="dc_channel_alarm_desc">Ringing morning alarms. The sound is played by DayCue.</string>
+    <string name="dc_channel_medication_name">Medication</string>
+    <string name="dc_channel_medication_desc">Medication reminders at their set times.</string>
+    <string name="dc_channel_routine_name">Routines</string>
+    <string name="dc_channel_routine_desc">Routine steps and start prompts.</string>
+    <string name="dc_channel_calendar_name">Calendar</string>
+    <string name="dc_channel_calendar_desc">Cues before calendar events.</string>
+    <string name="dc_channel_bottle_name">Water bottle</string>
+    <string name="dc_channel_bottle_desc">Reminders when you leave a place.</string>
+    <string name="dc_channel_sunscreen_name">Sunscreen</string>
+    <string name="dc_channel_sunscreen_desc">Sunscreen reminders.</string>
+    <string name="dc_channel_posture_name">Posture</string>
+    <string name="dc_channel_posture_desc">Sit, stand and walk switches.</string>
+    <string name="dc_channel_hydration_name">Hydration</string>
+    <string name="dc_channel_hydration_desc">Water reminders.</string>
+    <string name="dc_channel_habit_name">Habits</string>
+    <string name="dc_channel_habit_desc">Other habit reminders.</string>
+    <string name="dc_channel_notice_name">Notices</string>
+    <string name="dc_channel_notice_desc">Quiet informational notices, such as session changes.</string>
+    <string name="dc_channel_routine_playback_name">Routine in progress</string>
+    <string name="dc_channel_routine_playback_desc">The ongoing notification while a routine runs.</string>
+    <string name="dc_channel_system_name">DayCue status</string>
+    <string name="dc_channel_system_desc">Problems that may delay reminders.</string>
+
+    <!-- Routine playback (foreground service) -->
+    <string name="dc_routine_playback_title">{routine}</string>
+    <string name="dc_routine_playback_title_alt">Routine running</string>
+    <string name="dc_routine_playback_body">Step {index} of {count}: {step}</string>
+    <string name="dc_routine_playback_body_alt">Starting…</string>
+    <string name="dc_routine_playback_paused">Paused at: {step}</string>
+</resources>

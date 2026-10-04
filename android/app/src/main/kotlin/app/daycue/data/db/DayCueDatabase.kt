@@ -1,48 +1,48 @@
 package app.daycue.data.db
 
-import androidx.room.ColumnInfo
-import androidx.room.Dao
+import android.content.Context
 import androidx.room.Database
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-import androidx.room.Query
+import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.Upsert
 
 /**
- * Scaffold-level Room database: only `config_current` exists so the Room + KSP pipeline
- * is exercised by the build. The remaining tables from docs/architecture/ANDROID.md
- * are added by the owning engineers. Schema version stays 1 until the first install
- * that holds real data; after that every change needs a Migration + exported schema.
+ * `daycue.db` (docs/architecture/ANDROID.md §4). Schema version stays 1 until the first install that
+ * holds real data; after that every change ships a Migration + the exported schema in `app/schemas/`,
+ * and destructive fallback is never enabled.
  */
 @Database(
-    entities = [ConfigCurrentEntity::class],
+    entities = [
+        ConfigCurrentEntity::class,
+        ConfigHistoryEntity::class,
+        EngineStateEntity::class,
+        HistoryEventEntity::class,
+        SignalEntity::class,
+        CalendarEventCacheEntity::class,
+        CommandLogEntity::class,
+        AuditLogEntity::class,
+    ],
     version = 1,
     exportSchema = true,
 )
 abstract class DayCueDatabase : RoomDatabase() {
     abstract fun configDao(): ConfigDao
-}
+    abstract fun engineStateDao(): EngineStateDao
+    abstract fun historyDao(): HistoryDao
+    abstract fun signalDao(): SignalDao
+    abstract fun calendarCacheDao(): CalendarCacheDao
+    abstract fun commandLogDao(): CommandLogDao
+    abstract fun auditDao(): AuditDao
 
-/** Single row (id = 1) holding the current DayCueConfig JSON document. */
-@Entity(tableName = "config_current")
-data class ConfigCurrentEntity(
-    @PrimaryKey val id: Int = SINGLETON_ID,
-    @ColumnInfo(name = "schema_version") val schemaVersion: Int,
-    @ColumnInfo(name = "version") val version: Long,
-    @ColumnInfo(name = "json") val json: String,
-    @ColumnInfo(name = "updated_at_epoch_ms") val updatedAtEpochMs: Long,
-) {
     companion object {
-        const val SINGLETON_ID = 1
+        const val NAME = "daycue.db"
+
+        fun build(context: Context): DayCueDatabase =
+            Room.databaseBuilder(context.applicationContext, DayCueDatabase::class.java, NAME)
+                // Receivers, services and the UI all share one process-wide instance (AppContainer).
+                .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
+                .build()
+
+        fun inMemory(context: Context): DayCueDatabase =
+            Room.inMemoryDatabaseBuilder(context.applicationContext, DayCueDatabase::class.java).build()
     }
-}
-
-@Dao
-interface ConfigDao {
-    @Query("SELECT * FROM config_current WHERE id = 1")
-    suspend fun current(): ConfigCurrentEntity?
-
-    @Upsert
-    suspend fun put(entity: ConfigCurrentEntity)
 }

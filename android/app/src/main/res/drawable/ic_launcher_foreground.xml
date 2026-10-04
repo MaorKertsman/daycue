@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plane (dusk blue slab, -6 degrees), disc (saffron, overlapping the plane's top-end corner), horizon rule.
+     Everything stays inside the 66dp safe zone. Does not mirror in RTL. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="49"
+        android:pivotY="59"
+        android:rotation="-6">
+        <path
+            android:fillColor="@color/icon_plane"
+            android:pathData="M33,44 H65 A3,3 0 0 1 68,47 V71 A3,3 0 0 1 65,74 H33 A3,3 0 0 1 30,71 V47 A3,3 0 0 1 33,44 Z" />
+    </group>
+    <path
+        android:fillColor="@color/icon_disc"
+        android:pathData="M66,31 A13,13 0 1 1 66,57 A13,13 0 1 1 66,31 Z" />
+    <path
+        android:fillColor="@color/icon_rule"
+        android:pathData="M34.5,75 H73.5 A1.5,1.5 0 0 1 75,76.5 A1.5,1.5 0 0 1 73.5,78 H34.5 A1.5,1.5 0 0 1 33,76.5 A1.5,1.5 0 0 1 34.5,75 Z" />
+</vector>

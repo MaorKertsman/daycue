@@ -2,8 +2,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions are added progressively with the features that need them.
-         See docs/architecture/ANDROID.md "Permissions". -->
+    <!-- Install-time permissions (docs/architecture/ANDROID.md §5.2, §8). Runtime permissions are
+         asked in context by the UI; nothing is requested at first launch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Speech: TextToSpeech engines are found via this intent on API 30+ (package visibility). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:name=".DayCueApplication"
@@ -22,6 +39,79 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Ringing alarm screen (full-screen intent target). Placeholder UI; direct-boot aware. -->
+        <activity
+            android:name=".delivery.AlarmActivity"
+            android:directBootAware="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity="app.daycue.alarm"
+            android:turnScreenOn="true" />
+
+        <!-- Engine wake (single next-wake alarm). -->
+        <receiver
+            android:name=".scheduling.WakeAlarmReceiver"
+            android:exported="false" />
+
+        <!-- Notification buttons + delete intent. Never an ack on dismissal. -->
+        <receiver
+            android:name=".actions.CueActionReceiver"
+            android:exported="false" />
+
+        <!-- System broadcasts that invalidate the armed wake or the time base. -->
+        <receiver
+            android:name=".system.SystemEventsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Before first unlock: arms the device-protected boot snapshot only. -->
+        <receiver
+            android:name=".system.LockedBootReceiver"
+            android:directBootAware="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".system.LockedAlarmReceiver"
+            android:directBootAware="true"
+            android:exported="false" />
+
+        <service
+            android:name=".delivery.AlarmRingingService"
+            android:directBootAware="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".delivery.RoutinePlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Debug-only engine driver: disabled here, enabled at runtime only in debuggable builds,
+             and only callable by holders of DUMP (adb shell). See devtools/DevToolsReceiver.kt. -->
+        <receiver
+            android:name=".devtools.DevToolsReceiver"
+            android:enabled="false"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="app.daycue.devtools.CMD" />
+            </intent-filter>
+        </receiver>
 
         <!-- Persists the per-app language chosen in-app on API 26-32 (API 33+ uses the system setting). -->
         <service

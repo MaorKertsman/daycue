@@ -90,6 +90,9 @@ internal object MedicationModule {
                     val dueAt = TimeMath.resolveLocal(date, t, zone) // MED-6 DST handling
                     val existing = slots[ref.key]
                     if (existing == null) {
+                        // A previous-day dose from before the medication was tracked never existed for the user:
+                        // materializing it would surface it as "Not confirmed" (bug found by the app host, 2026-10-04).
+                        if (date.isBefore(today) && dueAt.isBefore(tracking[m.id]!!)) continue
                         val late = dueAt.isBefore(tracking[m.id]!!) || (run.event is Event.ConfigChanged && dueAt.isBefore(now))
                         slots[ref.key] = MedSlot(m.id, date, t, dueAt, materializedAt = now, noCueReason = if (late) "created_after_time" else null)
                     } else if (existing.dueAt != dueAt && existing.status != SlotStatus.Taken) {

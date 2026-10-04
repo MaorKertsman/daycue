@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window background before Compose draws (VISUAL.md paper). Compose tokens live in ui/theme/Color.kt. -->
+    <color name="daycue_paper">#F4EFE6</color>
+    <!-- Adaptive icon layers (VISUAL.md section 10). -->
+    <color name="icon_background">#F4EFE6</color>
+    <color name="icon_plane">#3F5A8A</color>
+    <color name="icon_disc">#E3A72F</color>
+    <color name="icon_rule">#1F1D1A</color>
+</resources>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew for values/strings_engine.xml. Same names and placeholders. Owner: scheduling engineer. -->
+<resources>
+    <!-- Habit cues -->
+    <string name="dc_cue_sunscreen_title">{name}</string>
+    <string name="dc_cue_sunscreen_title_alt">קרם הגנה</string>
+    <string name="dc_cue_hydration_title">{name}</string>
+    <string name="dc_cue_hydration_title_alt">שתייה</string>
+    <string name="dc_cue_generic_title">{name}</string>
+    <string name="dc_cue_generic_title_alt">תזכורת</string>
+    <string name="dc_cue_habit_title">תזכורת</string>
+    <string name="dc_cue_habit_body">{phrase}</string>
+    <string name="dc_cue_bottle_title">{name}</string>
+    <string name="dc_cue_bottle_title_alt">בקבוק מים</string>
+    <string name="dc_cue_waterbottle_title">בקבוק מים</string>
+
+    <!-- Posture -->
+    <string name="dc_cue_posture_title">תנוחה</string>
+    <string name="dc_cue_posture_switch_title">מעבר ל: {mode}</string>
+    <string name="dc_cue_posture_switch_title_alt">הגיע הזמן להחליף תנוחה</string>
+    <string name="dc_cue_posture_keep_going_title">ממשיכים: {mode}</string>
+    <string name="dc_cue_posture_keep_going_title_alt">להמשיך או לעשות הפסקה</string>
+
+    <!-- Medication -->
+    <string name="dc_cue_medication_title">{label}</string>
+    <string name="dc_cue_medication_title_alt">תזכורת לתרופה</string>
+    <string name="dc_cue_medication_body">{time} · יש להקיש לאישור</string>
+    <string name="dc_cue_medication_body_alt">יש להקיש לאישור</string>
+    <string name="dc_cue_medication_generic_title">תזכורת לתרופה</string>
+    <string name="dc_cue_medication_merged_title">{count} תזכורות לתרופות לא אושרו</string>
+    <string name="dc_cue_medication_merged_body">יש לפתוח את DayCue ולאשר כל מנה</string>
+    <string name="dc_cue_medication_policy_title">אזור הזמן השתנה</string>
+    <string name="dc_cue_medication_policy_body">כעת באזור הזמן {zone}. {followLocal} לפי השעה המקומית, {keepHome} לפי שעון הבית.</string>
+
+    <!-- Calendar -->
+    <string name="dc_cue_calendar_title">{kind} בעוד {minutes} דק׳</string>
+    <string name="dc_cue_calendar_title_alt">אירוע קרוב</string>
+    <string name="dc_cue_calendar_body">{title}</string>
+    <string name="dc_cue_calendar_body_alt">{template}</string>
+    <string name="dc_cue_calendar_generic_title">{kind} בעוד {minutes} דק׳</string>
+    <string name="dc_cue_calendar_generic_title_alt">אירוע קרוב</string>
+
+    <!-- Routines -->
+    <string name="dc_cue_routinestep_title">שלב בשגרה</string>
+    <string name="dc_cue_routine_step_title">{step} ({index}/{count})</string>
+    <string name="dc_cue_routine_step_title_alt">{step}</string>
+    <string name="dc_cue_routine_step_body">עד {endsAt}</string>
+    <string name="dc_cue_routine_step_body_alt">בסיום יש להקיש על „בוצע”</string>
+    <string name="dc_cue_routine_nudge_title">עדיין בשלב: {step}?</string>
+    <string name="dc_cue_routine_recover_title">{routine} נעצרה בשלב: {step}</string>
+    <string name="dc_cue_routine_recover_body">אפשר להמשיך, להתחיל מההתחלה או לבטל.</string>
+    <string name="dc_cue_routine_prompt_title">{routine} · להתחיל?</string>
+    <string name="dc_cue_routine_prompt_body">אפשר להתחיל עכשיו או לדלג היום.</string>
+
+    <!-- Sessions -->
+    <string name="dc_cue_session_started_title">התחיל פרק זמן ממוקד ב־{place}</string>
+    <string name="dc_cue_session_started_body">אם זה לא נכון, יש להקיש על „לא בעבודה”.</string>
+    <string name="dc_cue_session_suggest_title">להתחיל פרק זמן ממוקד ב־{place}?</string>
+    <string name="dc_cue_session_suggest_title_working">להתחיל לעבוד ב־{place}?</string>
+    <string name="dc_cue_session_suggest_title_studying">להתחיל ללמוד ב־{place}?</string>
+    <string name="dc_cue_session_suggest_body">נראה שיש כאן פעילות.</string>
+
+    <!-- Alarms -->
+    <string name="dc_cue_alarm_title">שעון מעורר</string>
+    <string name="dc_cue_alarm_missed_boot_title">שעת ההשכמה עברה: {time}</string>
+    <string name="dc_cue_alarm_missed_boot_body">הטלפון היה כבוי או בהפעלה מחדש ב־{time}, ולכן השעון המעורר לא צלצל.</string>
+    <string name="dc_alarm_ringing_title">{time} · {name}</string>
+    <string name="dc_alarm_ringing_body">שעון מעורר</string>
+    <string name="dc_alarm_test_title">בדיקה · {name}</string>
+    <string name="dc_alarm_generic_title">שעון מעורר · {time}</string>
+    <string name="dc_alarm_generic_body">לפרטים יש לבטל את נעילת הטלפון.</string>
+
+    <!-- Other -->
+    <string name="dc_cue_notice_title">הודעה</string>
+    <string name="dc_cue_test_title">בדיקה · {inner}</string>
+
+    <!-- Notification actions -->
+    <string name="dc_action_applied">מרחתי</string>
+    <string name="dc_action_drank">שתיתי</string>
+    <string name="dc_action_done">בוצע</string>
+    <string name="dc_action_got_it">הבנתי</string>
+    <string name="dc_action_not_needed">לא צריך</string>
+    <string name="dc_action_taken">לקחתי</string>
+    <string name="dc_action_snooze">דחייה ב־{minutes} דק׳</string>
+    <string name="dc_action_snooze_alt">דחייה</string>
+    <string name="dc_action_pause">השהיה לשעה</string>
+    <string name="dc_action_switched">החלפתי</string>
+    <string name="dc_action_extend">‎+{minutes} דק׳</string>
+    <string name="dc_action_skip">דילוג</string>
+    <string name="dc_action_start">התחלה</string>
+    <string name="dc_action_not_now">לא עכשיו</string>
+    <string name="dc_action_not_working">לא בעבודה</string>
+    <string name="dc_action_resume">המשך</string>
+    <string name="dc_action_restart">מההתחלה</string>
+    <string name="dc_action_cancel">ביטול</string>
+    <string name="dc_action_stop">עצירה</string>
+    <string name="dc_action_skip_today">דילוג היום</string>
+    <string name="dc_action_open">פתיחה</string>
+
+    <!-- Short names for "וגם: ..." -->
+    <string name="dc_short_sunscreen">קרם הגנה</string>
+    <string name="dc_short_hydration">שתייה</string>
+    <string name="dc_short_generic">{name}</string>
+    <string name="dc_short_generic_alt">תזכורת</string>
+    <string name="dc_short_habit">תזכורת</string>
+    <string name="dc_short_bottle">בקבוק מים</string>
+    <string name="dc_short_waterbottle">בקבוק מים</string>
+    <string name="dc_short_calendar">יומן</string>
+    <string name="dc_short_medication">תרופה</string>
+    <string name="dc_short_posture">תנוחה</string>
+    <string name="dc_short_routine">שגרה</string>
+    <string name="dc_short_routinestep">שגרה</string>
+    <string name="dc_short_alarm">שעון מעורר</string>
+    <string name="dc_short_notice">הודעה</string>
+
+    <!-- Speech -->
+    <string name="dc_speech_phrase">{text}</string>
+    <string name="dc_speech_calendar_title">בעוד {minutes} דקות: {title}</string>
+    <string name="dc_speech_calendar_generic">יש לך {kind} בעוד {minutes} דקות</string>
+    <string name="dc_speech_medication_label">הגיע הזמן לתרופה: {label}</string>
+    <string name="dc_speech_medication_generic">תזכורת לתרופה</string>
+    <string name="dc_speech_medication_merged">{count} תזכורות לתרופות ממתינות לאישור</string>
+    <string name="dc_speech_routine_prompt">השגרה {routine} מוכנה להתחלה</string>
+    <string name="dc_speech_also">וגם: {items}.</string>
+    <string name="dc_speech_more">ועוד {count}.</string>
+    <string name="dc_speech_separator">", "</string>
+
+    <!-- Why now? -->
+    <string name="dc_why_prefix">למה עכשיו: {reason}</string>
+    <string name="dc_why_sunscreen_due">עבר הזמן שהוגדר מאז המריחה האחרונה</string>
+    <string name="dc_why_sunscreen_repeat">עדיין לא סומן שמרחת</string>
+    <string name="dc_why_hydration_due">עבר הזמן שהוגדר מאז השתייה האחרונה</string>
+    <string name="dc_why_hydration_repeat">עדיין לא סומן ששתית</string>
+    <string name="dc_why_generic_due">עבר פרק הזמן שהוגדר</string>
+    <string name="dc_why_generic_repeat">עדיין לא סומן שבוצע</string>
+    <string name="dc_why_bottle">יוצאים ממקום שמור</string>
+    <string name="dc_why_calendar">אירוע ביומן תאם לכללים שהוגדרו</string>
+    <string name="dc_why_medication">זו השעה שנקבעה למנה</string>
+    <string name="dc_why_medication_merged">כמה מנות לא אושרו</string>
+    <string name="dc_why_medication_policy">אזור הזמן השתנה</string>
+    <string name="dc_why_posture">הזמן בתנוחה הנוכחית הסתיים</string>
+    <string name="dc_why_preview">זו תצוגה מקדימה</string>
+    <string name="dc_why_routine_prompt">השגרה מתוזמנת לעכשיו</string>
+    <string name="dc_why_routine_recover">השגרה נקטעה</string>
+    <string name="dc_why_routine_step">זה השלב הבא בשגרה</string>
+    <string name="dc_why_session">יש פעילות במקום שמור</string>
+    <string name="dc_why_alarm_boot">הטלפון היה כבוי בשעת ההשכמה</string>
+
+    <!-- Notification channels -->
+    <string name="dc_channel_alarm_name">שעונים מעוררים</string>
+    <string name="dc_channel_alarm_desc">שעון מעורר בבוקר. הצליל מושמע על ידי DayCue.</string>
+    <string name="dc_channel_medication_name">תרופות</string>
+    <string name="dc_channel_medication_desc">תזכורות לתרופות בשעות שנקבעו.</string>
+    <string name="dc_channel_routine_name">שגרות</string>
+    <string name="dc_channel_routine_desc">שלבי שגרה והצעות להתחלה.</string>
+    <string name="dc_channel_calendar_name">יומן</string>
+    <string name="dc_channel_calendar_desc">תזכורות לפני אירועים ביומן.</string>
+    <string name="dc_channel_bottle_name">בקבוק מים</string>
+    <string name="dc_channel_bottle_desc">תזכורות ביציאה ממקום.</string>
+    <string name="dc_channel_sunscreen_name">קרם הגנה</string>
+    <string name="dc_channel_sunscreen_desc">תזכורות למריחת קרם הגנה.</string>
+    <string name="dc_channel_posture_name">תנוחה</string>
+    <string name="dc_channel_posture_desc">מעבר בין ישיבה, עמידה והליכה.</string>
+    <string name="dc_channel_hydration_name">שתייה</string>
+    <string name="dc_channel_hydration_desc">תזכורות לשתות מים.</string>
+    <string name="dc_channel_habit_name">הרגלים</string>
+    <string name="dc_channel_habit_desc">תזכורות להרגלים אחרים.</string>
+    <string name="dc_channel_notice_name">הודעות</string>
+    <string name="dc_channel_notice_desc">הודעות שקטות, למשל על התחלת פרק זמן ממוקד.</string>
+    <string name="dc_channel_routine_playback_name">שגרה פעילה</string>
+    <string name="dc_channel_routine_playback_desc">ההתראה הקבועה בזמן ששגרה פועלת.</string>
+    <string name="dc_channel_system_name">מצב DayCue</string>
+    <string name="dc_channel_system_desc">בעיות שעלולות לעכב תזכורות.</string>
+
+    <!-- Routine playback -->
+    <string name="dc_routine_playback_title">{routine}</string>
+    <string name="dc_routine_playback_title_alt">שגרה פועלת</string>
+    <string name="dc_routine_playback_body">שלב {index} מתוך {count}: {step}</string>
+    <string name="dc_routine_playback_body_alt">מתחילים…</string>
+    <string name="dc_routine_playback_paused">מושהה בשלב: {step}</string>
+</resources>

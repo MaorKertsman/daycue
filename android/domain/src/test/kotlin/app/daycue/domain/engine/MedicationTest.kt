@@ -51,6 +51,15 @@ class MedicationTest {
     }
 
     @Test
+    fun `MED-1 a new medication has no previous-day dose to be Not confirmed`() {
+        val s = scenario(start = "10:00")
+        s.advanceTo("10:30")
+        assertFalse(s.state.medication.slots.keys.any { it.contains(s.date.minusDays(1).toString()) }, "no slot from before the medication existed")
+        assertTrue(s.history(HistoryKind.NotConfirmed).isEmpty())
+        assertFalse(Queries.todayView(s.config, s.state, s.clock).doses.any { it.status == DoseStatus.NotConfirmed })
+    }
+
+    @Test
     fun `MED-2 Taken marks taken, stops repeats, and is idempotent`() {
         val s = scenario()
         s.advanceTo("08:03")
