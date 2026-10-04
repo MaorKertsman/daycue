@@ -19,6 +19,8 @@ _Last updated: 2026-10-04 (session 1)_
 - Pure-Kotlin `:domain` reducer + versioned JSON config + `ConfigOp` edit path; one next-wake exact alarm.
 - Remote path = serverless relay + phone ack; FCM optional wake. All remote parts optional.
 
+- Relay hosting: the owner offered their Render account (2026-10-04). Render is the deploy target; the lead deploys after the relay passes local tests and the cost/free-tier limits are written down.
+
 ## Assumptions recorded (reversible)
 
 - minSdk 26; owner's phone model unknown — everything device-specific stays configurable.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">DayCue</string>
+    <string name="placeholder_title">Your day, gently cued</string>
+    <string name="placeholder_body">Nothing scheduled yet. Habits, routines and reminders will appear here.</string>
+</resources>
