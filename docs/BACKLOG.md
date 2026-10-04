@@ -36,6 +36,9 @@ Owner = agent role in `.claude/agents/`. The delivery lead integrates and commit
 - [ ] C5 Morning alarms with Spotify attempt + local fallback
 - [ ] C6 QA pass on scenarios 8–11, 14–16
 
+- [ ] C7 Relay follow-ups: per-companion signal slot (today one `signal/latest`), companion self-revoke endpoint, add `awaiting_confirmation` to the architecture state list, align calendar op names with `DOMAIN.md`, verify `PgStore`
+- [ ] C8 Phone side of the relay: pairing, Keystore-signed acks, command dedupe, snapshot publishing, companion signal verification
+
 ## Milestone D — complete delivery
 
 - [ ] D1 Integrated behavior testing (emulator; physical-device checklist)
