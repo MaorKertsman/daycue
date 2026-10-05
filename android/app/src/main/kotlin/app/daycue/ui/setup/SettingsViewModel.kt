@@ -78,19 +78,10 @@ class SettingsViewModel(app: Application) : SetupViewModel(app) {
 
     /** null = follow the phone; else a language tag. Applies at once (per-app locale) and sets the cue language. */
     fun setLanguage(tag: String?) {
-        AppCompatDelegate.setApplicationLocales(if (tag == null) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(tag))
-        val language = when (tag) {
-            "he" -> Language.he
-            "en" -> Language.en
-            else -> if (java.util.Locale.getDefault().language in setOf("he", "iw")) Language.he else Language.en
-        }
-        viewModelScope.launch { edit(listOf(ConfigOp.SetLanguage(language)), undo = false) }
+        viewModelScope.launch { facade.setAppLanguage(tag) }
     }
 
-    fun currentLanguageTag(): String? {
-        val locales = AppCompatDelegate.getApplicationLocales()
-        return if (locales.isEmpty) null else locales[0]?.language?.let { if (it == "iw") "he" else it }
-    }
+    fun currentLanguageTag(): String? = facade.appLanguageTag()
 
     fun setDayStart(t: LocalTime) = saveGlobal { it.copy(dayStartsAt = t) }
     fun setWorkDays(days: Set<java.time.DayOfWeek>) { if (days.isNotEmpty()) saveGlobal { it.copy(workDays = days) } }

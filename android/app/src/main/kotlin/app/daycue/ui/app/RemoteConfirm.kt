@@ -43,6 +43,7 @@ import app.daycue.ui.theme.DayCueShapes
 import app.daycue.ui.theme.DayCueSpacing
 import app.daycue.ui.theme.DayCueTheme
 import app.daycue.ui.util.friendlyDiffLines
+import app.daycue.ui.util.grantScopeLines
 import androidx.compose.ui.draw.drawBehind
 import kotlinx.coroutines.launch
 
@@ -87,7 +88,7 @@ fun RemoteConfirmRoot(remote: RelayFacade, activity: Activity, focusCommand: Str
                         ApprovalBlock(
                 title = stringResource(R.string.dc_remote_grant_title),
                 from = g.label,
-                lines = g.scopes.map { scopeLabel(it) },
+                lines = grantScopeLines(g),
                 note = stringResource(R.string.app_remote_grant_note), friendly = false,
                 onHintTap = { hint = holdHint },
                 onDecline = { scope.launch { remote.declineGrant(g.id) } },
@@ -96,16 +97,6 @@ fun RemoteConfirmRoot(remote: RelayFacade, activity: Activity, focusCommand: Str
             )
         }
     }
-}
-
-@Composable
-private fun scopeLabel(scope: String): String = when (scope) {
-    "config:read" -> stringResource(R.string.dc_remote_scope_config_read)
-    "config:write" -> stringResource(R.string.dc_remote_scope_config_write)
-    "sessions:control" -> stringResource(R.string.dc_remote_scope_sessions_control)
-    "activity:read" -> stringResource(R.string.dc_remote_scope_activity_read)
-    "medication" -> stringResource(R.string.dc_remote_scope_medication)
-    else -> scope.take(40)
 }
 
 @Composable

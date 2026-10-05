@@ -62,14 +62,18 @@ class HttpRelayApi(
     private val token: String?,
     private val transport: HttpTransport = UrlConnectionTransport(),
     private val timeoutMs: Int = 100_000,
+    /** Phone device key; required only for calls the relay wants signed (companion revoke). */
+    private val signer: DeviceSigner? = null,
+    private val nowMs: () -> Long = System::currentTimeMillis,
 ) : RelayApi {
     private val base = baseUrl.trimEnd('/')
 
-    private suspend fun call(method: String, path: String, body: JsonElement? = null): String {
+    private suspend fun call(method: String, path: String, body: JsonElement? = null, extraHeaders: Map<String, String> = emptyMap()): String {
         val headers = buildMap {
             put("Accept", "application/json")
             if (body != null) put("Content-Type", "application/json")
             if (token != null) put("Authorization", "Bearer $token")
+            putAll(extraHeaders)
         }
         val r = transport.request(method, "$base$path", headers, body?.toString(), timeoutMs)
         if (r.status in 200..299) return r.body
@@ -92,9 +96,17 @@ class HttpRelayApi(
     override suspend fun decideGrant(grantId: String, body: JsonObject): GrantDecisionResponse =
         WireJson.decodeFromString(GrantDecisionResponse.serializer(), call("POST", "/v1/phone/grants/${java.net.URLEncoder.encode(grantId, "UTF-8")}/decision", body))
     override suspend fun unpairSelf() { call("DELETE", "/v1/phone/self") }
-    override suspend fun revokeCompanion(companionId: String) { call("DELETE", "/v1/phone/companions/${java.net.URLEncoder.encode(companionId, "UTF-8")}") }
+    override suspend fun revokeCompanion(companionId: String) {
+        val s = signer ?: throw RelayException.Http(0, NO_DEVICE_KEY, "no phone device key available to sign the revoke")
+        val signedAt = nowMs()
+        val sig = Base64Url.encode(s.sign(SigningStrings.companionRevoke(companionId, signedAt).toByteArray(Charsets.UTF_8)))
+        call("DELETE", "/v1/phone/companions/${java.net.URLEncoder.encode(companionId, "UTF-8")}", null,
+            mapOf("X-DayCue-Signed-At" to signedAt.toString(), "X-DayCue-Signature" to sig))
+    }
 
     companion object {
+        const val NO_DEVICE_KEY = "no_device_key"
+
         /** Unauthenticated pairing call. [publicKeySpki] is `PublicKey.getEncoded()`. */
         suspend fun pair(
             baseUrl: String, code: String, publicKeySpki: ByteArray, label: String,

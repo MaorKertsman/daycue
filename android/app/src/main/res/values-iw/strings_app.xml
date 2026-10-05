@@ -354,4 +354,6 @@
     <string name="app_places_done">המיקום פועל. אפשר להוסיף מקומות בהגדרות.</string>
 
     <string name="app_remote_grant_note">דבר לא פעיל עד שתאשרו.</string>
+    <string name="app_place_im_at">אני ב־%1$s</string>
+    <string name="app_place_not_saved">לא במקום שמור</string>
 </resources>

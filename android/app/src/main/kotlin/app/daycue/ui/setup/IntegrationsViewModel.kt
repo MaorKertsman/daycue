@@ -8,7 +8,9 @@ import app.daycue.R
 import app.daycue.data.db.AuditLogEntity
 import app.daycue.integrations.relay.ConfigPolicy
 import app.daycue.integrations.relay.GrantDecisionResult
+import app.daycue.integrations.relay.CompanionRevokeResult
 import app.daycue.integrations.relay.PairResult
+import app.daycue.integrations.relay.PairedCompanion
 import app.daycue.integrations.relay.PendingRemote
 import app.daycue.integrations.relay.RelaySettings
 import app.daycue.integrations.relay.RelayStatus
@@ -39,7 +41,10 @@ class IntegrationsViewModel(app: Application) : SetupViewModel(app) {
     val status: StateFlow<RelayStatus> = remote.status
     val grants: StateFlow<List<RemoteGrant>> = remote.grants
     val pending: StateFlow<List<PendingRemote>> = remote.pending
+    val companions: StateFlow<List<PairedCompanion>> = remote.companions
     val alarmMusic: StateFlow<AlarmMusicState> = facade.alarmMusic
+    val spotify: StateFlow<app.daycue.integrations.spotify.SpotifyAvailability> = facade.spotify
+    fun refreshSpotify() = facade.refreshSpotify()
 
     /** Newest first. Only config changes and remote commands matter on this screen. */
     val audit: StateFlow<List<AuditLogEntity>> = facade.audit(80)
@@ -107,6 +112,22 @@ class IntegrationsViewModel(app: Application) : SetupViewModel(app) {
     }
 
     fun refreshGrants() { viewModelScope.launch { remote.refreshGrants() } }
+
+    fun refreshCompanions() { viewModelScope.launch { remote.refreshCompanions() } }
+
+    /** Unpairs one desktop companion. The relay may not support this from the phone yet: then the owner is told to do it on the PC. */
+    fun revokeCompanion(c: PairedCompanion) {
+        viewModelScope.launch {
+            when (remote.revokeCompanion(c.id)) {
+                CompanionRevokeResult.Done -> post(R.string.su_companion_unpaired)
+                CompanionRevokeResult.NotSupportedByRelay -> post(R.string.su_companion_unpair_on_pc)
+                CompanionRevokeResult.BadSignature -> post(R.string.su_companion_cant_unpair)
+                CompanionRevokeResult.Offline -> post(R.string.su_grant_offline)
+                CompanionRevokeResult.Unauthorized -> post(R.string.su_grant_unauthorized)
+                else -> post(R.string.su_grant_failed)
+            }
+        }
+    }
 
     fun decline(grant: RemoteGrant) { viewModelScope.launch { report(remote.declineGrant(grant.id), R.string.su_grant_declined) } }
     fun revoke(grant: RemoteGrant) { viewModelScope.launch { report(remote.revokeGrant(grant.id), R.string.su_grant_revoked) } }

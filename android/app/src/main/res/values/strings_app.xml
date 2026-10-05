@@ -350,4 +350,6 @@
     <string name="app_places_done">Location is on. Add your places in Setup.</string>
 
     <string name="app_remote_grant_note">Nothing is active until you approve.</string>
+    <string name="app_place_im_at">I’m at %1$s</string>
+    <string name="app_place_not_saved">Not at a saved place</string>
 </resources>

@@ -7,6 +7,9 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import app.daycue.ui.setup.UiPrefs
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,12 +62,16 @@ private fun DayCueColors.toMaterial(): ColorScheme {
 @Composable
 fun DayCueTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    reduceMotionSetting: Boolean = false,
+    reduceMotionSetting: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
+    // Shell-wide preferences: every Activity that shows DayCue UI gets them without wiring (reduce motion, 12/24 h).
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val prefReduce by remember(appContext) { UiPrefs.load(appContext); UiPrefs.reduceMotion }.collectAsState()
+    app.daycue.ui.util.SyncClockFromConfig(appContext)
     val colors = if (darkTheme) DarkDayCueColors else LightDayCueColors
     val type = remember { DayCueType() }
-    val reduce = reduceMotionSetting || rememberSystemReduceMotion()
+    val reduce = (reduceMotionSetting ?: prefReduce) || rememberSystemReduceMotion()
     CompositionLocalProvider(
         LocalDayCueColors provides colors,
         LocalDayCueType provides type,

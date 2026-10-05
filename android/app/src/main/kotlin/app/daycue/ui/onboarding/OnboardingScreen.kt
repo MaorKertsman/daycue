@@ -92,7 +92,7 @@ class OnboardingViewModel(private val facade: DayCueFacade) : ViewModel() {
     /** Sets the app language in the config (the Activity locale is switched by the caller after this returns). */
     fun setLanguage(language: Language, then: () -> Unit) {
         viewModelScope.launch {
-            facade.apply(listOf(ConfigOp.SetLanguage(language)), source = "onboarding")
+            facade.setAppLanguage(if (language == Language.he) "he" else "en")
             then()
         }
     }
@@ -221,9 +221,7 @@ private fun LanguageStep(vm: OnboardingViewModel, onNext: () -> Unit) {
     Title(stringResource(R.string.app_lang_title), stringResource(R.string.app_lang_body))
     fun choose(lang: Language) {
         if ((lang == Language.he) == isHebrew) return
-        vm.setLanguage(lang) {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(if (lang == Language.he) "he" else "en"))
-        }
+        vm.setLanguage(lang) {}
     }
     SecondaryButton("English", { choose(Language.en) }, Modifier.fillMaxWidth(), selected = !isHebrew)
     Spacer(Modifier.height(8.dp))

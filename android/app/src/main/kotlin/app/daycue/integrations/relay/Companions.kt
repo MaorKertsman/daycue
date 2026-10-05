@@ -16,8 +16,10 @@ enum class CompanionListResult { Done, NotPaired, Offline, Unauthorized, Failed 
 
 enum class CompanionRevokeResult {
     Done, NotPaired, NotFound,
-    /** The relay has no phone-side revoke endpoint yet: revoke it on the PC (Unpair) or with the owner API. */
+    /** An older relay without the phone-side revoke endpoint: revoke it on the PC (Unpair) or with the owner API. */
     NotSupportedByRelay,
+    /** The relay rejected the phone-key signature (403 `bad_signature`), or no device key was available (never a retry). */
+    BadSignature,
     Offline, Unauthorized, Failed,
 }
 
@@ -45,6 +47,8 @@ class CompanionDirectory(private val api: () -> RelayApi?) {
         } catch (e: RelayException.Http) {
             when {
                 e.isUnauthorized -> CompanionRevokeResult.Unauthorized
+                e.status == 403 && e.code == "bad_signature" -> CompanionRevokeResult.BadSignature
+                e.status == 0 && e.code == HttpRelayApi.NO_DEVICE_KEY -> CompanionRevokeResult.BadSignature
                 e.status == 404 && e.code == "unknown_companion" -> CompanionRevokeResult.NotFound
                 e.status == 404 || e.status == 405 -> CompanionRevokeResult.NotSupportedByRelay
                 else -> CompanionRevokeResult.Failed

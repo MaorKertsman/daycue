@@ -220,6 +220,23 @@ class RelayLocalIntegrationTest {
         assertEquals(sr.body, 200, sr.status)
         client.sync("activity")
         assertTrue("companion status: ${client.status.value.companion}", client.status.value.companion!!.contains("active (fresh)"))
+
+        // ---- phone revokes the companion with a phone-key signature; the companion's next signal is refused
+        val signedApi = HttpRelayApi(base, paired.token, signer = h.signer)
+        val dir = CompanionDirectory { signedApi }
+        assertEquals(CompanionListResult.Done, dir.refresh())
+        assertEquals(listOf(cid), dir.companions.value.map { it.id })
+        // a token without the signing key cannot revoke
+        assertEquals(CompanionRevokeResult.BadSignature, CompanionDirectory { HttpRelayApi(base, paired.token, signer = SoftwareSigner()) }.revoke(cid))
+        assertEquals(CompanionRevokeResult.Done, dir.revoke(cid))
+        assertEquals(CompanionRevokeResult.Done, dir.revoke(cid)) // idempotent
+        assertEquals(CompanionRevokeResult.NotFound, dir.revoke("dv_never_existed"))
+        val observed2 = System.currentTimeMillis()
+        val sig2 = Base64Url.encode(co.sign(SigningStrings.signal(cid, "active", observed2, 180).toByteArray()))
+        val sr2 = http.request("POST", "$base/v1/companion/signal", mapOf("Content-Type" to "application/json", "Authorization" to "Bearer ${cj["token"]!!.jsonPrimitive.content}"),
+            buildJsonObject { put("state", "active"); put("observedAt", observed2); put("ttlSeconds", 180); put("signature", sig2) }.toString(), 30_000)
+        assertEquals(sr2.body, 401, sr2.status)
+        assertTrue(api.activity().companions.none { it.id == cid })
     }
 
     /** Owner revokes the phone on the relay: the phone learns it (401), says so once and stops. */

@@ -54,6 +54,7 @@ fun historyKindRes(kind: String): Int? = when (kind) {
     "Unanswered" -> R.string.app_hist_unanswered
     "Retracted" -> R.string.app_hist_withdrawn
     "NotConfirmed" -> R.string.status_not_confirmed
+    "Corrected" -> R.string.cues_hist_corrected
     else -> null
 }
 

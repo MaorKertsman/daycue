@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,8 @@ import app.daycue.ui.util.currentLocale
 import app.daycue.ui.util.durationDescription
 import app.daycue.ui.util.durationText
 import app.daycue.ui.util.is24Hour
+import app.daycue.ui.util.grantScopeIsWarning
+import app.daycue.ui.util.grantScopeLines
 import app.daycue.ui.util.clockText
 import app.daycue.ui.util.friendlyDiffLines
 import app.daycue.ui.util.friendlyDiffSummary
@@ -83,6 +86,8 @@ fun IntegrationsScreen(onBack: () -> Unit, push: (String) -> Unit) {
     val grants by vm.grants.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val waiting = pending.size + grants.count { it.awaitsApproval }
+    val spotifyState by vm.spotify.collectAsStateWithLifecycle()
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { vm.refreshSpotify(); onPauseOrDispose { } }
 
     SetupFrame(stringResource(R.string.su_integrations_title), onBack) {
         Hint(stringResource(R.string.su_integrations_intro))
@@ -105,7 +110,7 @@ fun IntegrationsScreen(onBack: () -> Unit, push: (String) -> Unit) {
             },
             { push(SetupRoutes.REMOTE) },
         )
-        SettingRow(stringResource(R.string.su_spotify_title), stringResource(R.string.su_status_not_set_up), { push(SetupRoutes.SPOTIFY) })
+        SettingRow(stringResource(R.string.su_spotify_title), spotifyWord(spotifyState), { push(SetupRoutes.SPOTIFY) })
         SettingRow(stringResource(R.string.su_cal_title), stringResource(R.string.su_int_calendar_hint), { push(SetupRoutes.CALENDAR) })
     }
 }
@@ -209,6 +214,15 @@ private fun formatClockOf(ms: Long, is24: Boolean, locale: java.util.Locale): St
 @Composable
 private fun formatClock(ms: Long): String = formatClockOf(ms, is24Hour(LocalContext.current), currentLocale()).ltr()
 
+@Composable
+private fun spotifyWord(s: app.daycue.integrations.spotify.SpotifyAvailability): String = stringResource(
+    when {
+        !s.available || !s.installed -> R.string.su_status_not_set_up
+        s.connection == app.daycue.integrations.spotify.SpotifyConnection.FellBack -> R.string.su_status_needs_attention
+        else -> R.string.su_status_connected
+    },
+)
+
 // ---- Remote access (MCP) ----------------------------------------------------------------------------------------------
 
 @Composable
@@ -222,6 +236,8 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
     val audit by vm.audit.collectAsStateWithLifecycle()
     val version by vm.configVersion.collectAsStateWithLifecycle()
     val syncing by vm.syncing.collectAsStateWithLifecycle()
+    val companions by vm.companions.collectAsStateWithLifecycle()
+    LaunchedEffect(paired) { if (paired) vm.refreshCompanions() }
     val context = LocalContext.current
     val c = DayCueTheme.colors
     var policySheet by remember { mutableStateOf(false) }
@@ -309,7 +325,23 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
                 GrantRow(g, highlight = focusId == g.id, actions = { DayCueTextButton(stringResource(R.string.su_revoke), { revokeFor = g }) })
             }
         }
-        DayCueTextButton(stringResource(R.string.su_remote_refresh), { vm.refreshGrants() })
+        DayCueTextButton(stringResource(R.string.su_remote_refresh), { vm.refreshGrants(); vm.refreshCompanions() })
+
+        // Desktop companions paired with this relay: the name is chosen on the PC (unverified); compare the key fingerprint.
+        if (companions.isNotEmpty()) {
+            SectionHeader(stringResource(R.string.su_companions_header))
+            companions.forEachIndexed { i, comp ->
+                DayCueRow(
+                    primary = comp.label.take(60),
+                    secondary = stringResource(R.string.su_companion_unverified),
+                    extra = {
+                        Text(stringResource(R.string.su_companion_fingerprint, comp.fingerprint.chunked(5).joinToString("-").ltr()), style = DayCueTheme.type.bodySmall, color = c.ink2)
+                    },
+                    trailing = { DayCueTextButton(stringResource(R.string.su_companion_unpair), { vm.revokeCompanion(comp) }) },
+                    divider = i < companions.lastIndex,
+                )
+            }
+        }
 
         SectionHeader(stringResource(R.string.su_remote_recent_header))
         val remoteChanges = audit.filter { it.action.startsWith("remote.config") || it.action.startsWith("remote.undo") }
@@ -457,25 +489,15 @@ private fun GrantRow(g: RemoteGrant, highlight: Boolean, actions: @Composable ()
         secondary = if (g.awaitsApproval) stringResource(R.string.su_grant_pending)
         else stringResource(R.string.su_grant_last_used, g.lastUsedAtMs?.let { agoText(Instant.ofEpochMilli(it)) } ?: stringResource(R.string.su_grant_never_used)),
         extra = {
-            // One line per scope with its state, worded the same on the review screen.
-            g.scopes.sortedBy { KNOWN_SCOPES.indexOf(it) }.forEach { s ->
-                val on = s in g.activeScopes
-                val state = stringResource(if (on) R.string.su_scope_state_on else R.string.su_scope_off_until_approved)
-                Text("· ${stringResource(scopeText(s))} · $state", style = DayCueTheme.type.bodySmall, color = if (s == "medication") c.error.ink else c.ink)
+            // One line per scope with its state: the same function as the hold-to-approve screen.
+            val lines = grantScopeLines(g)
+            lines.forEachIndexed { i, line ->
+                val warn = grantScopeIsWarning(g, i)
+                Text("· $line", style = DayCueTheme.type.bodySmall, color = if (warn && g.holdsMedication) c.error.ink else c.ink)
             }
-            if (g.holdsMedication) Text(stringResource(R.string.su_scope_medication_warn), style = DayCueTheme.type.bodySmall, color = c.error.ink)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { actions() }
         },
     )
-}
-
-private fun scopeText(scope: String): Int = when (scope) {
-    "config:read" -> R.string.su_scope_config_read
-    "activity:read" -> R.string.su_scope_activity_read
-    "config:write" -> R.string.su_scope_config_write
-    "sessions:control" -> R.string.su_scope_sessions
-    "medication" -> R.string.su_scope_medication
-    else -> R.string.su_scope_other
 }
 
 @Composable
@@ -534,14 +556,27 @@ private fun syncSummary(result: SyncStatus?, at: Long?): String {
 fun SpotifyScreen(onBack: () -> Unit) {
     val vm: IntegrationsViewModel = viewModel()
     val state by vm.alarmMusic.collectAsStateWithLifecycle()
+    val avail by vm.spotify.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val c = DayCueTheme.colors
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { vm.refreshSpotify(); onPauseOrDispose { } }
 
     SetupFrame(stringResource(R.string.su_spotify_title), onBack) {
         Hint(stringResource(R.string.su_spotify_intro))
         LearnMore(stringResource(R.string.su_spotify_policy) + "\n\n" + stringResource(R.string.su_spotify_limit))
 
         SectionHeader(stringResource(R.string.su_spotify_status_header))
+        if (!avail.available) {
+            DayCueRow(stringResource(R.string.su_status_not_set_up), secondary = stringResource(R.string.su_spotify_unavailable))
+            return@SetupFrame
+        }
+        if (!avail.installed) {
+            DayCueRow(stringResource(R.string.su_status_not_set_up), secondary = stringResource(R.string.su_spotify_not_installed))
+            vm.alarmRecoveryIntent(RecoveryAction.InstallSpotify)?.let { i ->
+                SecondaryButton(stringResource(R.string.su_spr_install), { context.startActivitySafely(i) }, Modifier.fillMaxWidth())
+            }
+            return@SetupFrame
+        }
         when (val s = state) {
             AlarmMusicState.Idle -> DayCueRow(stringResource(R.string.su_spotify_idle), secondary = stringResource(R.string.su_spotify_idle_body))
             AlarmMusicState.Connecting -> DayCueRow(stringResource(R.string.su_spotify_connecting))

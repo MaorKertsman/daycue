@@ -92,8 +92,8 @@ fun TodaySheets(sheet: TodaySheet, m: TodayModel, vm: TodayViewModel, nav: Today
                     DayCueRow(stringResource(R.string.app_quick_start_studying), onClick = { vm.startSession(SessionKind.Studying, OverrideDuration.UntilChanged); onDismiss() })
                 }
                 if (!m.bottleEnabled) DayCueRow(stringResource(R.string.app_quick_leaving), onClick = { vm.leavingNow(); onDismiss() })
-                if (m.context.envOverride != null) {
-                    DayCueRow(stringResource(R.string.app_back_to_auto), onClick = { vm.clearEnvironment(); onDismiss() })
+                if (m.context.envOverride != null || m.context.placeOverride != null) {
+                    DayCueRow(stringResource(R.string.app_back_to_auto), onClick = { if (m.context.envOverride != null) vm.clearEnvironment(); if (m.context.placeOverride != null) vm.clearPlace(); onDismiss() })
                 }
                 if (m.context.detectionPaused) {
                     DayCueRow(stringResource(R.string.app_resume_detection), onClick = { vm.resumeDetection(); onDismiss() }, divider = false)
@@ -131,7 +131,7 @@ fun TodaySheets(sheet: TodaySheet, m: TodayModel, vm: TodayViewModel, nav: Today
 }
 
 /** Which dimension the context sheet is choosing a value for. */
-private enum class ContextPick { Environment, Activity }
+private enum class ContextPick { Place, Environment, Activity, Duration }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -142,26 +142,42 @@ private fun ContextSheetBody(m: TodayModel, vm: TodayViewModel, onDismiss: () ->
     val ink2 = DayCueTheme.colors.ink2
     val override = c.envOverride
     val session = c.session
+    val placeOverride = c.placeOverride
 
     val choosing = pick
     if (choosing != null) {
         // A radio list for one dimension; picking applies it right away and returns to the overview.
         Column {
-            val rows: List<Triple<Int, Boolean, () -> Unit>> = when (choosing) {
+            val rows: List<Triple<String, Boolean, () -> Unit>> = when (choosing) {
+                ContextPick.Place -> buildList {
+                    add(Triple(stringResource(R.string.app_choice_auto), placeOverride == null) { vm.clearPlace() })
+                    m.places.forEach { (id, name) ->
+                        add(Triple(stringResource(R.string.app_place_im_at, name.text()), placeOverride?.value?.placeId == id) { vm.setPlace(id, duration.forEnvironment()) })
+                    }
+                    add(Triple(stringResource(R.string.app_place_not_saved), placeOverride != null && placeOverride.value.placeId == null) { vm.setPlace(null, duration.forEnvironment()) })
+                }
+                ContextPick.Duration -> DurationChoice.entries.map { d ->
+                    Triple(stringResource(d.labelRes), duration == d) {
+                        duration = d
+                        if (placeOverride != null) vm.setPlace(placeOverride.value.placeId, d.forEnvironment())
+                        else if (override != null) vm.setEnvironment(override.value, d.forEnvironment())
+                        else if (session != null) vm.startSession(session.kind, d.forSession())
+                    }
+                }
                 ContextPick.Environment -> listOf(
-                    Triple(R.string.app_choice_auto, override == null) { vm.clearEnvironment() },
-                    Triple(R.string.app_quick_indoors, override?.value == Environment.Indoor) { vm.setEnvironment(Environment.Indoor, duration.forEnvironment()) },
-                    Triple(R.string.app_quick_outdoors, override?.value == Environment.Outdoor) { vm.setEnvironment(Environment.Outdoor, duration.forEnvironment()) },
+                    Triple(stringResource(R.string.app_choice_auto), override == null) { vm.clearEnvironment() },
+                    Triple(stringResource(R.string.app_quick_indoors), override?.value == Environment.Indoor) { vm.setEnvironment(Environment.Indoor, duration.forEnvironment()) },
+                    Triple(stringResource(R.string.app_quick_outdoors), override?.value == Environment.Outdoor) { vm.setEnvironment(Environment.Outdoor, duration.forEnvironment()) },
                 )
                 ContextPick.Activity -> listOf(
-                    Triple(R.string.app_choice_auto, session == null) { vm.endSession() },
-                    Triple(R.string.app_session_working, session?.kind == SessionKind.Working) { vm.startSession(SessionKind.Working, duration.forSession()) },
-                    Triple(R.string.app_session_studying, session?.kind == SessionKind.Studying) { vm.startSession(SessionKind.Studying, duration.forSession()) },
+                    Triple(stringResource(R.string.app_choice_auto), session == null) { vm.endSession() },
+                    Triple(stringResource(R.string.app_session_working), session?.kind == SessionKind.Working) { vm.startSession(SessionKind.Working, duration.forSession()) },
+                    Triple(stringResource(R.string.app_session_studying), session?.kind == SessionKind.Studying) { vm.startSession(SessionKind.Studying, duration.forSession()) },
                 )
             }
             rows.forEachIndexed { i, (label, selected, apply) ->
                 DayCueRow(
-                    primary = stringResource(label), role = Role.RadioButton,
+                    primary = label, role = Role.RadioButton,
                     onClick = { if (!selected) apply(); pick = null },
                     trailing = { if (selected) GlyphIcon(Glyph.Check, DayCueTheme.colors.ink) },
                     divider = i < rows.lastIndex,
@@ -174,10 +190,11 @@ private fun ContextSheetBody(m: TodayModel, vm: TodayViewModel, onDismiss: () ->
     }
 
     Column {
-        // Place: shown with its source; the facade has no place override, so there is no Change here.
+
         DayCueRow(
             primary = stringResource(R.string.app_ctx_place),
             secondary = listOfNotNull(placeText(c.place), sourceAgo(c.placeSource, c.placeSince, m.now)).joinToString(" · "),
+            trailing = { DayCueTextButton(stringResource(R.string.app_ctx_change), { pick = ContextPick.Place }) },
         )
         DayCueRow(
             primary = stringResource(R.string.app_ctx_environment),
@@ -194,18 +211,14 @@ private fun ContextSheetBody(m: TodayModel, vm: TodayViewModel, onDismiss: () ->
             divider = false,
         )
 
-        // "Keep my choice for" only matters once the owner has set something by hand.
-        if (override != null || session != null) {
-            Text(stringResource(R.string.app_ctx_for), style = DayCueTheme.type.label, color = ink2, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DurationChoice.entries.forEach { d ->
-                    SecondaryButton(stringResource(d.labelRes), {
-                        duration = d
-                        if (override != null) vm.setEnvironment(override.value, d.forEnvironment())
-                        else if (session != null) vm.startSession(session.kind, d.forSession())
-                    }, compact = true, selected = duration == d)
-                }
-            }
+        // "Keep my choice for" only matters once the owner has set something by hand: one row, one radio sheet.
+        if (override != null || session != null || placeOverride != null) {
+            DayCueRow(
+                primary = stringResource(R.string.app_ctx_for),
+                secondary = stringResource(duration.labelRes),
+                trailing = { DayCueTextButton(stringResource(R.string.app_ctx_change), { pick = ContextPick.Duration }) },
+                divider = false,
+            )
         }
 
         Spacer(Modifier.height(8.dp))

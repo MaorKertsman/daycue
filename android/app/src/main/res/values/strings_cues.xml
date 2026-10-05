@@ -253,7 +253,7 @@
     <string name="cues_pmeet_ignore_c">Reminders come as normal. Speech still follows your meeting speech setting.</string>
     <string name="cues_posture_breaks">Breaks</string>
     <string name="cues_posture_short_break">Short break limit</string>
-    <string name="cues_posture_short_break_c">Up to this long, the cycle continues with the time that was left.</string>
+    <string name="cues_posture_short_break_c">Up to this long, the cycle continues with the time that was left. A pause you set yourself has no limit.</string>
     <string name="cues_posture_long_break">After a longer break</string>
     <string name="cues_int_reset">Start again from the first mode</string>
     <string name="cues_int_reset_c">The first mode starts with its full time.</string>
@@ -285,7 +285,7 @@
     <string name="cues_posture_desc_pending">Next: %1$s, %2$s, not started</string>
     <string name="cues_posture_next">Next: %1$s (%2$s)</string>
     <string name="cues_posture_then_break">Then: keep going or take a break</string>
-    <string name="cues_posture_paused_by_you">Paused by you</string>
+    <string name="cues_posture_paused_by_you">Paused. Your place and the time left stay until you resume.</string>
     <string name="cues_posture_frozen_away">On hold while you are away · %1$s kept</string>
     <string name="cues_posture_frozen_hours">On hold outside the set hours · %1$s kept</string>
     <string name="cues_posture_snoozed_until">Reminder snoozed until %1$s</string>
@@ -538,4 +538,21 @@
     <string name="cues_med_ends">ends %1$s</string>
     <string name="cues_med_no_end">no end</string>
     <string name="cues_bottle_no_places">No places yet</string>
+    <string name="cues_med_taken_at">Taken at…</string>
+    <string name="cues_med_taken_at_title">When did you take it?</string>
+    <string name="cues_med_taken_at_save">Save time</string>
+    <string name="cues_med_correct">Correct</string>
+    <string name="cues_med_correct_title">Correct this entry</string>
+    <string name="cues_med_correct_taken">Taken at a different time…</string>
+    <string name="cues_med_correct_skipped">Mark as skipped</string>
+    <string name="cues_med_correct_undo">Not confirmed</string>
+    <string name="cues_med_correct_undo_hint">Takes it back to not confirmed. It will not remind you again.</string>
+    <string name="cues_hist_corrected_taken">Corrected: taken %1$s</string>
+    <string name="cues_hist_corrected_taken_nt">Corrected: taken</string>
+    <string name="cues_hist_corrected_skipped">Corrected: skipped</string>
+    <string name="cues_hist_corrected_undo">Corrected: not confirmed</string>
+    <string name="cues_hist_corrected">Corrected</string>
+    <string name="cues_med_change_time">Change time</string>
+    <string name="cues_alarm_spotify_not_installed">Spotify isn’t installed on this phone, so the tone will play.</string>
+    <string name="cues_alarm_spotify_unavailable">Spotify isn’t available in this version of DayCue, so the tone will play.</string>
 </resources>

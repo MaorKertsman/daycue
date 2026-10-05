@@ -108,6 +108,7 @@ object DiffText {
     private val ITEM = Regex("""^(\w+)\[([^\]]*)](.*)$""")
     private val PATH = Regex("""^[A-Za-z]\w*(\[[^\]]*])?(\.\w+(\[[^\]]*])?)*$""")
     private val SUMMARY_SPLIT = Regex(""";\s(?=[A-Za-z]\w*(\[[^\]]*])?(\.\w+(\[[^\]]*])?)*: )""")
+    private val NAME_IN_JSON = Regex("\"(name|label)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
     private val UUIDISH = Regex("""^[0-9a-fA-F-]{16,}$|^.*\d{6,}.*$""")
 
     private fun one(line: String, lex: DiffLex, env: DiffEnv): DiffEntry {
@@ -183,6 +184,11 @@ object DiffText {
             val j = v?.let(::parseJson) as? JsonObject ?: continue
             val n = (j["name"] ?: j["label"]).prim() ?: continue
             if (n.isNotBlank()) return n
+        }
+        // A long value can arrive cut off (not valid JSON): still pick the name out of it.
+        for (v in listOf(p.after, p.before)) {
+            val n = v?.let { NAME_IN_JSON.find(it)?.groupValues?.get(2) }?.replace("\\\"", "\"")?.trim()
+            if (!n.isNullOrBlank()) return n
         }
         if (section == "places") placeNote(p.after ?: p.before, lex)?.let { return it.first }
         env.nameOf(id)?.let { return it }
@@ -393,7 +399,9 @@ object DiffText {
         val m = min % 60
         return when {
             h == 0 -> lex.s(R.string.diff_dur_min, arrayOf(m))
+            h == 1 && m == 0 -> lex.s(R.string.diff_dur_1h, emptyArray())
             m == 0 -> lex.s(R.string.diff_dur_h, arrayOf(h))
+            h == 1 -> lex.s(R.string.diff_dur_1h_min, arrayOf(m))
             else -> lex.s(R.string.diff_dur_h_min, arrayOf(h, m))
         }
     }

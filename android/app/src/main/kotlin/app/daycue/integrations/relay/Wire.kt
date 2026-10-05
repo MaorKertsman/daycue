@@ -102,9 +102,9 @@ interface RelayApi {
     /** `DELETE /v1/phone/self`: unpair, revoking this phone's credential on the relay. */
     suspend fun unpairSelf()
     /**
-     * `DELETE /v1/phone/companions/:id` (phone credential): revoke one paired Windows companion. **Proposed endpoint, not in
-     * the relay yet** (RELAY.md has only the owner-secret `DELETE /v1/owner/devices/:id` and the companion's own
-     * `DELETE /v1/companion/self`); a relay without it answers 404 and the caller reports `NotSupportedByRelay`.
+     * `DELETE /v1/phone/companions/:id` (phone credential + phone-key signature in `X-DayCue-Signed-At` /
+     * `X-DayCue-Signature`, RELAY.md 4.4.2). 204 = revoked. A relay without the route answers 404/405 (not
+     * `unknown_companion`) and the caller reports `NotSupportedByRelay`.
      */
     suspend fun revokeCompanion(companionId: String) { throw RelayException.Http(404, "not_supported", "relay has no phone-side companion revoke") }
 }

@@ -55,11 +55,14 @@
     <string name="cd_more_actions">פעולות נוספות</string>
     <string name="switch_locked">פועל, אי אפשר לכבות: %1$s</string>
     <string name="reorder_moved">הועבר למקום %1$d מתוך %2$d</string>
+    <string name="reorder_title">שינוי סדר</string>
 
     <!-- Durations and time fields -->
     <string name="duration_min">%1$d דק׳</string>
     <string name="duration_h">%1$d שע׳</string>
-    <string name="duration_h_min">%1$d שע׳ %2$d דק׳</string>
+    <string name="duration_h_min">%1$d שע׳ ו־%2$d דק׳</string>
+    <string name="duration_1h">שעה</string>
+    <string name="duration_1h_min">שעה ו־%1$d דק׳</string>
     <string name="duration_sec">%1$d שנ׳</string>
     <string name="duration_custom">מותאם אישית</string>
     <string name="field_hours">שעות</string>

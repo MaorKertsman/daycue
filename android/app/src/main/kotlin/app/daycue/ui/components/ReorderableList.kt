@@ -1,6 +1,8 @@
 package app.daycue.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,12 +47,15 @@ fun <T> ReorderableList(
     itemContent: @Composable (item: T, index: Int, handle: @Composable () -> Unit) -> Unit,
 ) {
     val heights = remember { mutableStateMapOf<Any, Int>() }
+    // A tap on the handle opens "Move up / Move down": a visible, non-drag way to reorder (D5).
+    var menuKey by remember { mutableStateOf<Any?>(null) }
     var draggingKey by remember { mutableStateOf<Any?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val view = LocalView.current
     val moveUp = stringResource(R.string.cd_move_up)
     val moveDown = stringResource(R.string.cd_move_down)
     val movedTemplate = stringResource(R.string.reorder_moved)
+    val reorderTitle = stringResource(R.string.reorder_title)
 
     fun announce(position: Int) {
         @Suppress("DEPRECATION")
@@ -78,6 +83,7 @@ fun <T> ReorderableList(
                             Modifier
                                 .size(DayCueSpacing.minTouch)
                                 .semantics { contentDescription = handleDescription }
+                                .clickable(onClickLabel = reorderTitle, role = Role.Button) { menuKey = itemKey }
                                 .pointerInput(itemKey, items.size) {
                                     detectDragGestures(
                                         onDragStart = { draggingKey = itemKey; dragOffset = 0f },
@@ -114,5 +120,14 @@ fun <T> ReorderableList(
             }
         }
     }
-    @Suppress("UNUSED_EXPRESSION") 4.dp
+    menuKey?.let { k ->
+        val idx = items.indexOfFirst { keyOf(it) == k }
+        if (idx < 0) { menuKey = null; return@let }
+        DayCueBottomSheet({ menuKey = null }, reorderTitle) {
+            Column {
+                if (idx > 0) DayCueRow(moveUp, onClick = { onMove(idx, idx - 1); announce(idx); menuKey = null }, divider = idx < items.lastIndex)
+                if (idx < items.lastIndex) DayCueRow(moveDown, onClick = { onMove(idx, idx + 1); announce(idx + 2); menuKey = null }, divider = false)
+            }
+        }
+    }
 }

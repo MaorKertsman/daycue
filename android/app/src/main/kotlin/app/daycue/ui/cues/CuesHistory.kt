@@ -37,6 +37,8 @@ internal fun historyKindText(kind: String): String? = when (kind) {
     "AlarmRang" -> stringResource(R.string.cues_hist_alarm_rang)
     "AlarmSnoozed" -> stringResource(R.string.state_snoozed)
     "AlarmStopped" -> stringResource(R.string.cues_hist_alarm_stopped)
+    "Corrected" -> stringResource(R.string.cues_hist_corrected)
+    // "Reposted" (a cue the platform lost, shown again quietly) is not a delivery: not listed at all.
     else -> null
 }
 

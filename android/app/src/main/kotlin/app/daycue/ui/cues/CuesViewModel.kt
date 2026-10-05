@@ -82,6 +82,12 @@ class CuesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dispatch(event: Event) = facade.dispatchAsync(event)
 
+    /** MED-2 "I took it at": today's slot, time clamped by the engine. */
+    fun takenAt(slot: app.daycue.domain.engine.SlotRef, at: java.time.Instant) { viewModelScope.launch { facade.medicationTaken(slot, at) } }
+
+    /** MED-5 history correction (taken at / skipped / undo). */
+    fun correct(slot: app.daycue.domain.engine.SlotRef, correction: app.daycue.domain.engine.DoseCorrection) { viewModelScope.launch { facade.correctDose(slot, correction) } }
+
     fun history(subjectType: String, subjectId: String, limit: Int = 50): Flow<List<HistoryEventEntity>> =
         facade.historyFor(subjectType, subjectId, limit)
 

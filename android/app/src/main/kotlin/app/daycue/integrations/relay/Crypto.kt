@@ -37,6 +37,10 @@ object SigningStrings {
     fun grant(grantId: String, decision: String, approvedScopes: Collection<String>, decidedAt: Long): String =
         "daycue.grant.v1\n$grantId\n$decision\n${approvedScopes.sorted().joinToString(" ")}\n$decidedAt"
 
+    /** Phone revokes a companion (RELAY.md 4.4.2); [companionId] is the raw id, not URL-encoded. */
+    fun companionRevoke(companionId: String, signedAt: Long): String =
+        "daycue.companion.revoke.v1\n$companionId\n$signedAt"
+
     fun signal(companionId: String, state: String, observedAt: Long, ttlSeconds: Int): String =
         "daycue.signal.v1\n$companionId\n$state\n$observedAt\n$ttlSeconds"
 }

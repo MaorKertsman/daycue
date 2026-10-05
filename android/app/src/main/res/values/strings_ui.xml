@@ -55,11 +55,14 @@
     <string name="cd_more_actions">More actions</string>
     <string name="switch_locked">On, can’t turn off: %1$s</string>
     <string name="reorder_moved">Moved to position %1$d of %2$d</string>
+    <string name="reorder_title">Change order</string>
 
     <!-- Durations and time fields -->
     <string name="duration_min">%1$d min</string>
     <string name="duration_h">%1$d h</string>
     <string name="duration_h_min">%1$d h %2$d min</string>
+    <string name="duration_1h">1 h</string>
+    <string name="duration_1h_min">1 h %1$d min</string>
     <string name="duration_sec">%1$d s</string>
     <string name="duration_custom">Custom</string>
     <string name="field_hours">Hours</string>

@@ -56,6 +56,7 @@ data class ContextInfo(
     val activitySince: Instant?,
     val session: Session?,
     val envOverride: EnvOverride?,
+    val placeOverride: app.daycue.domain.context.PlaceOverride?,
     val detectionPaused: Boolean,
     val detectionPausedUntil: Instant?,
     val lineKind: ContextLineKind,
@@ -192,6 +193,8 @@ data class TodayModel(
     val alarmEnabled: Boolean,
     /** Today's medication doses, for the (calm) nothing-else-today decision. */
     val doseCount: Int,
+    /** Saved places the owner can pick in the context sheet (id, display name). */
+    val places: List<Pair<String, ItemName>> = emptyList(),
 )
 
 /** Bundled default names that must follow the app language (user-renamed items keep their own text). */
@@ -221,7 +224,7 @@ object TodayMapper {
         val lineKind = when {
             ctx.detectionPaused -> ContextLineKind.Paused
             ctx.place.value.kind == PlaceKind.Unknown -> ContextLineKind.Uncertain
-            ctx.environment.source == ContextSource.Manual || state.context.envOverride != null -> ContextLineKind.Override
+            ctx.environment.source == ContextSource.Manual || state.context.envOverride != null || state.context.placeOverride != null -> ContextLineKind.Override
             else -> ContextLineKind.Normal
         }
         val context = ContextInfo(
@@ -236,6 +239,7 @@ object TodayMapper {
             activitySince = ctx.activity.since,
             session = state.context.session,
             envOverride = state.context.envOverride,
+            placeOverride = state.context.placeOverride,
             detectionPaused = ctx.detectionPaused,
             detectionPausedUntil = pausedUntil,
             lineKind = lineKind,
@@ -256,6 +260,7 @@ object TodayMapper {
             bottleEnabled = bottle,
             alarmEnabled = config.alarms.any { it.enabled },
             doseCount = view.doses.size,
+            places = config.places.map { it.id to defaultName(it.id, it.name) },
         )
     }
 

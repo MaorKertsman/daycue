@@ -254,7 +254,7 @@
     <string name="cues_pmeet_ignore_c">התזכורות מגיעות כרגיל. הקול עדיין פועל לפי הגדרת הקול בפגישות.</string>
     <string name="cues_posture_breaks">הפסקות</string>
     <string name="cues_posture_short_break">גבול להפסקה קצרה</string>
-    <string name="cues_posture_short_break_c">עד המשך הזה, המחזור ממשיך עם הזמן שנשאר.</string>
+    <string name="cues_posture_short_break_c">עד משך הזמן הזה, המחזור ממשיך עם הזמן שנשאר. להשהיה ידנית אין הגבלה.</string>
     <string name="cues_posture_long_break">אחרי הפסקה ארוכה יותר</string>
     <string name="cues_int_reset">להתחיל מחדש מהמצב הראשון</string>
     <string name="cues_int_reset_c">המצב הראשון מתחיל עם הזמן המלא שלו.</string>
@@ -286,7 +286,7 @@
     <string name="cues_posture_desc_pending">הבא: %1$s, %2$s, עוד לא התחיל</string>
     <string name="cues_posture_next">הבא: %1$s (%2$s)</string>
     <string name="cues_posture_then_break">אחר כך: להמשיך או לקחת הפסקה</string>
-    <string name="cues_posture_paused_by_you">הושהה על ידיכם</string>
+    <string name="cues_posture_paused_by_you">מושהה. המקום והזמן שנותר נשמרים עד שממשיכים.</string>
     <string name="cues_posture_frozen_away">בהמתנה בזמן היעדרות · נשמרו %1$s</string>
     <string name="cues_posture_frozen_hours">בהמתנה מחוץ לשעות הקבועות · נשמרו %1$s</string>
     <string name="cues_posture_snoozed_until">התזכורת נדחתה עד %1$s</string>
@@ -546,4 +546,21 @@
     <string name="cues_med_ends">מסתיימות ב־%1$s</string>
     <string name="cues_med_no_end">בלי סיום</string>
     <string name="cues_bottle_no_places">עדיין אין מקומות</string>
+    <string name="cues_med_taken_at">לקחתי בשעה…</string>
+    <string name="cues_med_taken_at_title">מתי לקחתי?</string>
+    <string name="cues_med_taken_at_save">שמירת השעה</string>
+    <string name="cues_med_correct">תיקון</string>
+    <string name="cues_med_correct_title">תיקון הרישום</string>
+    <string name="cues_med_correct_taken">נלקחה בשעה אחרת…</string>
+    <string name="cues_med_correct_skipped">סימון כדילוג</string>
+    <string name="cues_med_correct_undo">לא אושרה</string>
+    <string name="cues_med_correct_undo_hint">מחזיר ללא אישור. התזכורת לא תחזור.</string>
+    <string name="cues_hist_corrected_taken">תוקן: נלקחה ב־%1$s</string>
+    <string name="cues_hist_corrected_taken_nt">תוקן: נלקחה</string>
+    <string name="cues_hist_corrected_skipped">תוקן: דילוג</string>
+    <string name="cues_hist_corrected_undo">תוקן: לא אושרה</string>
+    <string name="cues_hist_corrected">תוקן</string>
+    <string name="cues_med_change_time">שינוי השעה</string>
+    <string name="cues_alarm_spotify_not_installed">Spotify לא מותקנת בטלפון, ולכן יושמע הצליל.</string>
+    <string name="cues_alarm_spotify_unavailable">Spotify לא זמינה בגרסה הזו, ולכן יושמע הצליל.</string>
 </resources>

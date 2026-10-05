@@ -238,7 +238,7 @@ internal fun RoutineEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Un
             RoutineStepRow(
                 index = index, name = stepName(s.id, s.name), secondary = stepSummary(s), handle = handle,
                 onMore = { stepMenu = s },
-                modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = { stepEdit = s.id }),
+                modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = androidx.compose.ui.semantics.Role.Button, onClick = { stepEdit = s.id }),
                 divider = index < steps.lastIndex,
             )
         }

@@ -3,6 +3,8 @@ package app.daycue.ui.util
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
@@ -59,7 +61,24 @@ fun clockDuration(minutes: Int, seconds: Int): String = "$minutes:${"%02d".forma
 @Composable
 fun currentLocale(): Locale = LocalLocale.current.platformLocale
 
-fun is24Hour(context: Context): Boolean = DateFormat.is24HourFormat(context)
+/**
+ * The 12/24-hour choice of the owner (`config.settings.use24Hour`), mirrored here so every screen formats times the
+ * same way as notifications and speech. Null until the config has loaded: then the device setting applies.
+ */
+object ClockPrefs {
+    var use24Hour: Boolean? by androidx.compose.runtime.mutableStateOf<Boolean?>(null)
+}
+
+fun is24Hour(context: Context): Boolean = ClockPrefs.use24Hour ?: DateFormat.is24HourFormat(context)
+
+/** Keeps [ClockPrefs] in step with the config (call once per Activity, inside the theme). */
+@Composable
+fun SyncClockFromConfig(appContext: Context) {
+    val facade = (appContext as? app.daycue.DayCueApplication)?.container?.facade ?: return
+    androidx.compose.runtime.LaunchedEffect(facade) {
+        facade.config.collect { ClockPrefs.use24Hour = it.settings.use24Hour }
+    }
+}
 
 /** Formats a clock time with the device 24h/12h setting, Western digits, as an LTR isolate. */
 @Composable
@@ -70,14 +89,16 @@ fun formatTime(hour: Int, minute: Int): String = formatTimeRaw(hour, minute).ltr
 fun formatTimeRaw(hour: Int, minute: Int): String =
     clockText(hour, minute, is24Hour(LocalContext.current), currentLocale())
 
-/** Short visual duration, e.g. "2 h 15 min" / "2 שע׳ 15 דק׳". Not isolated. */
+/** Short visual duration, e.g. "2 h 15 min" / "2 שע׳ ו־15 דק׳" (one hour is the word "שעה": "כל שעה ו־15 דק׳"). Not isolated. */
 @Composable
 fun durationText(totalMinutes: Int): String {
     val h = totalMinutes / 60
     val m = totalMinutes % 60
     return when {
         h == 0 -> stringResource(R.string.duration_min, m)
+        h == 1 && m == 0 -> stringResource(R.string.duration_1h)
         m == 0 -> stringResource(R.string.duration_h, h)
+        h == 1 -> stringResource(R.string.duration_1h_min, m)
         else -> stringResource(R.string.duration_h_min, h, m)
     }
 }

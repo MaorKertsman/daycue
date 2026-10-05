@@ -28,7 +28,12 @@ import app.daycue.data.repo.HistoryPayload
 import app.daycue.domain.config.DayCueConfig
 import app.daycue.domain.config.DayCueJson
 import app.daycue.domain.config.Medication
+import app.daycue.domain.engine.DoseCorrection
 import app.daycue.domain.engine.Event
+import app.daycue.domain.engine.SlotRef
+import app.daycue.ui.components.TimeStepperPicker
+import java.time.ZonedDateTime
+import java.time.Duration
 import app.daycue.domain.query.DoseStatus
 import app.daycue.domain.query.DoseView
 import app.daycue.ui.components.DayChip
@@ -134,7 +139,7 @@ private fun MedicationRow(m: Medication, doses: List<DoseView>, onClick: () -> U
     )
 }
 
-/** Dose detail: explicit Taken, Snooze, and Skip this dose (secondary). Nothing is implied by opening it. */
+/** Dose detail: explicit Taken, Taken at, Snooze, and Skip this dose (secondary). Nothing is implied by opening it. */
 @Composable
 private fun DoseSheet(vm: CuesViewModel, d: DoseView, onDismiss: () -> Unit) {
     DayCueBottomSheet(onDismiss, d.label, CueType.Medication) {
@@ -142,15 +147,61 @@ private fun DoseSheet(vm: CuesViewModel, d: DoseView, onDismiss: () -> Unit) {
         StatusText(d.status.kind(), detail = if (d.status == DoseStatus.Taken && d.takenAt != null) instantTime(d.takenAt!!) else null, cue = CueType.Medication)
         Spacer(Modifier.height(16.dp))
         val open = d.status == DoseStatus.Due || d.status == DoseStatus.Upcoming
-        if (open) {
+        var pickingTime by remember { mutableStateOf(false) }
+        if (pickingTime) {
+            TakenAtPicker(d.slot, d.dueAt, initial = Instant.now(), onSave = { at -> vm.takenAt(d.slot, at); onDismiss() }, onCancel = { pickingTime = false })
+        } else if (open) {
             PrimaryButton(stringResource(R.string.cues_med_taken), { vm.dispatch(Event.MedicationTaken(d.slot)); onDismiss() }, Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
             FlowRowButtons {
+                SecondaryButton(stringResource(R.string.cues_med_taken_at), { pickingTime = true })
                 if (d.status == DoseStatus.Due) SecondaryButton(stringResource(R.string.cues_med_snooze), { vm.dispatch(Event.MedicationSnooze(d.slot)); onDismiss() })
                 SecondaryButton(stringResource(R.string.cues_med_skip_dose), { vm.dispatch(Event.MedicationSkip(d.slot)); onDismiss() })
             }
+        } else {
+            // Taken / Skipped / Not confirmed: correcting goes through the same MED-5 path as the history entry.
+            DoseCorrectionActions(vm, d.slot, d.dueAt, d.status, d.takenAt, onDone = onDismiss)
         }
         Text(stringResource(R.string.cues_med_disclaimer), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+/** The time a "Taken at" pick means: the clock time on the day nearest the dose, never in the future. */
+internal fun takenInstantFor(minutesOfDay: Int, slot: SlotRef, dueAt: Instant, now: Instant = Instant.now(), zone: java.time.ZoneId = zoneNow): Instant {
+    val time = LocalTime.of(minutesOfDay / 60, minutesOfDay % 60)
+    val candidates = (-1L..1L).map { slot.date.plusDays(it).atTime(time).atZone(zone).toInstant() }.filter { !it.isAfter(now) }
+    return candidates.minByOrNull { Duration.between(it, dueAt).abs() } ?: now
+}
+
+@Composable
+private fun TakenAtPicker(slot: SlotRef, dueAt: Instant, initial: Instant, onSave: (Instant) -> Unit, onCancel: () -> Unit) {
+    val start = initial.atZone(zoneNow).toLocalTime()
+    var minutes by remember { mutableStateOf(start.hour * 60 + (start.minute / 5) * 5) }
+    Text(stringResource(R.string.cues_med_taken_at_title), style = DayCueTheme.type.label, color = DayCueTheme.colors.ink2)
+    Spacer(Modifier.height(8.dp))
+    TimeStepperPicker(minutes, { minutes = it })
+    Spacer(Modifier.height(12.dp))
+    PrimaryButton(stringResource(R.string.cues_med_taken_at_save), { onSave(takenInstantFor(minutes, slot, dueAt)) }, Modifier.fillMaxWidth())
+    DayCueTextButton(stringResource(R.string.cues_cancel), onCancel)
+}
+
+/** MED-5 corrections for a slot that already has an outcome: another time, skipped, or back to not confirmed. */
+@Composable
+internal fun DoseCorrectionActions(vm: CuesViewModel, slot: SlotRef, dueAt: Instant, status: DoseStatus, takenAt: Instant?, onDone: () -> Unit) {
+    var pickingTime by remember { mutableStateOf(false) }
+    if (pickingTime) {
+        TakenAtPicker(slot, dueAt, initial = takenAt ?: Instant.now(), onSave = { at -> vm.correct(slot, DoseCorrection.Taken(at)); onDone() }, onCancel = { pickingTime = false })
+        return
+    }
+    FlowRowButtons {
+        SecondaryButton(stringResource(if (status == DoseStatus.Taken) R.string.cues_med_change_time else R.string.cues_med_correct_taken), { pickingTime = true })
+        if (status != DoseStatus.Skipped) SecondaryButton(stringResource(R.string.cues_med_correct_skipped), { vm.correct(slot, DoseCorrection.Skipped); onDone() })
+        if (status == DoseStatus.Taken || status == DoseStatus.Skipped) {
+            SecondaryButton(stringResource(R.string.cues_med_correct_undo), { vm.correct(slot, DoseCorrection.Undo); onDone() })
+        }
+    }
+    if (status == DoseStatus.Taken || status == DoseStatus.Skipped) {
+        Text(stringResource(R.string.cues_med_correct_undo_hint), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 8.dp))
     }
 }
 
@@ -162,7 +213,21 @@ private fun FlowRowButtons(content: @Composable () -> Unit) {
 
 // ---- History ----------------------------------------------------------------------------------------
 
-private val MED_KINDS = setOf("Taken", "Skipped", "NotConfirmed", "Snoozed", "Dismissed", "Delivered")
+private val MED_KINDS = setOf("Taken", "Skipped", "NotConfirmed", "Snoozed", "Dismissed", "Delivered", "Corrected")
+private val OUTCOME_KINDS = setOf("Taken", "Skipped", "NotConfirmed", "Corrected")
+
+/** What a history row asks the owner to correct: the slot, its current outcome and when it was taken. */
+private data class CorrectTarget(val slot: SlotRef, val dueAt: Instant, val status: DoseStatus, val takenAt: Instant?)
+
+private fun slotOf(r: HistoryEventEntity): SlotRef? {
+    val key = r.payloadJson?.let { runCatching { DayCueJson.decodeFromString(HistoryPayload.serializer(), it).itemKey }.getOrNull() } ?: return null
+    val parts = key.substringAfter(':').split('|')
+    if (parts.size != 3) return null
+    return runCatching { SlotRef(parts[0], LocalDate.parse(parts[1]), LocalTime.parse(parts[2])) }.getOrNull()
+}
+
+private fun detailOf(r: HistoryEventEntity): Map<String, String> =
+    r.payloadJson?.let { runCatching { DayCueJson.decodeFromString(HistoryPayload.serializer(), it).detail }.getOrNull() } ?: emptyMap()
 
 /** Medication history grouped by day, filterable by item (UX 3.5). No percentages, streaks or scores. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -172,6 +237,7 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
     val rows: List<HistoryEventEntity> by remember { vm.allHistory(600) }.collectAsState(emptyList())
     val cfg = config
     var filter by remember { mutableStateOf<String?>(null) }
+    var correcting by remember { mutableStateOf<CorrectTarget?>(null) }
     CuesScreen(stringResource(R.string.cues_med_history), onBack) {
         if (cfg == null) return@CuesScreen
         if (cfg.medications.size > 1) {
@@ -189,6 +255,7 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
         }
         val dayStart = cfg.settings.dayStartsAt
         val zone = zoneNow
+        val handledSlots = mutableSetOf<String>()
         val byDay = shown.groupBy { r ->
             Instant.ofEpochMilli(r.occurredAtMs).atZone(zone).minusHours(dayStart.hour.toLong()).minusMinutes(dayStart.minute.toLong()).toLocalDate()
         }
@@ -196,10 +263,20 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
             SectionHeader(dayHeaderText(day))
             list.forEachIndexed { i, r ->
                 val label = cfg.medication(r.subjectId)?.label ?: stringResource(R.string.cues_med_removed)
-                val slot = r.payloadJson?.let { runCatching { DayCueJson.decodeFromString(HistoryPayload.serializer(), it).itemKey.substringAfterLast('|') }.getOrNull() }
+                val slotRef = slotOf(r)
+                val detail = detailOf(r)
                 val at = Instant.ofEpochMilli(r.occurredAtMs).atZone(zone).toLocalTime()
-                val word = if (r.kind == "Delivered") stringResource(R.string.cues_hist_reminder) else (historyKindText(r.kind) ?: r.kind)
-                val doseText = if (slot != null && slot.contains(':') && slot.length <= 5) stringResource(R.string.cues_med_hist_dose, runCatching { LocalTime.parse(slot) }.getOrNull()?.let { timeText(it) } ?: slot) else null
+                val word = when (r.kind) {
+                    "Delivered" -> stringResource(R.string.cues_hist_reminder)
+                    "Corrected" -> when (detail["to"]) {
+                        "Taken" -> detail["takenAt"]?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { stringResource(R.string.cues_hist_corrected_taken, instantTime(it)) } ?: stringResource(R.string.cues_hist_corrected_taken_nt)
+                        "Skipped" -> stringResource(R.string.cues_hist_corrected_skipped)
+                        "Due", "Upcoming" -> stringResource(R.string.cues_hist_corrected_undo)
+                        else -> stringResource(R.string.cues_hist_corrected)
+                    }
+                    else -> historyKindText(r.kind) ?: r.kind
+                }
+                val doseText = slotRef?.let { stringResource(R.string.cues_med_hist_dose, timeText(it.time)) }
                 if (r.kind == "Delivered" || r.kind == "Dismissed") {
                     // Reminder sent / notification dismissed are context for the dose, not events of their own: ink2 secondary line.
                     Text(
@@ -208,15 +285,36 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
                         modifier = Modifier.padding(start = DayCueSpacing.markSlot + DayCueSpacing.inRow, top = 2.dp, bottom = 6.dp),
                     )
                 } else {
+                    // The newest outcome of each slot from today or yesterday can be corrected (MED-5).
+                    val canCorrect = r.kind in OUTCOME_KINDS && slotRef != null && handledSlots.add(slotRef.key) &&
+                        !slotRef.date.isBefore(LocalDate.now(zone).minusDays(1))
+                    val status = when (r.kind) {
+                        "Taken" -> DoseStatus.Taken
+                        "Skipped" -> DoseStatus.Skipped
+                        "NotConfirmed" -> DoseStatus.NotConfirmed
+                        else -> when (detail["to"]) { "Taken" -> DoseStatus.Taken; "Skipped" -> DoseStatus.Skipped; "Due" -> DoseStatus.Due; else -> DoseStatus.Upcoming }
+                    }
+                    val takenAtIso = if (r.kind == "Corrected") detail["takenAt"] else null
                     DayCueRow(
                         primary = label,
-                        secondary = listOfNotNull(doseText, "$word ${timeText(at)}").joinToString(" · "),
+                        secondary = listOfNotNull(doseText, if (r.kind == "Corrected") word else "$word ${timeText(at)}").joinToString(" · "),
                         leading = { CueMark(CueType.Medication) },
+                        trailing = if (canCorrect) ({
+                            DayCueTextButton(stringResource(R.string.cues_med_correct), {
+                                val due = slotRef!!.date.atTime(slotRef.time).atZone(zone).toInstant()
+                                correcting = CorrectTarget(slotRef, due, status, takenAtIso?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: if (r.kind == "Taken") Instant.ofEpochMilli(r.occurredAtMs) else null)
+                            })
+                        }) else null,
                         divider = i < list.lastIndex,
                     )
                 }
             }
         }
         Text(stringResource(R.string.cues_med_disclaimer), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 16.dp))
+    }
+    correcting?.let { c ->
+        DayCueBottomSheet({ correcting = null }, stringResource(R.string.cues_med_correct_title), CueType.Medication) {
+            DoseCorrectionActions(vm, c.slot, c.dueAt, c.status, c.takenAt, onDone = { correcting = null })
+        }
     }
 }

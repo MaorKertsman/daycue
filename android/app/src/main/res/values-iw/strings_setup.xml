@@ -63,7 +63,9 @@
     <string name="diff_more">ועוד %1$d</string>
     <string name="diff_dur_min">%1$d דק׳</string>
     <string name="diff_dur_h">%1$d שע׳</string>
-    <string name="diff_dur_h_min">%1$d שע׳ %2$d דק׳</string>
+    <string name="diff_dur_h_min">%1$d שע׳ ו־%2$d דק׳</string>
+    <string name="diff_dur_1h">שעה</string>
+    <string name="diff_dur_1h_min">שעה ו־%1$d דק׳</string>
     <string name="diff_dur_min_list">%1$s דק׳</string>
     <string name="diff_sec">%1$d שנ׳</string>
     <string name="diff_meters">%1$d מ׳</string>
@@ -985,4 +987,13 @@
     <string name="su_privacy_control_header">השליטה נשארת אצלך</string>
     <string name="su_privacy_control">אפשר לכבות את הגישה מרחוק מיד, לבטל כל עוזר, לייצא את ההגדרות ולמחוק אותן על ידי ניקוי הנתונים של האפליקציה.</string>
 
+    <string name="su_companions_header">מחשבים מחוברים</string>
+    <string name="su_companion_unverified">השם נקבע במחשב ולא אומת</string>
+    <string name="su_companion_fingerprint">טביעת מפתח %1$s</string>
+    <string name="su_companion_unpair">ניתוק</string>
+    <string name="su_companion_unpaired">המחשב נותק.</string>
+    <string name="su_companion_unpair_on_pc">אפשר לנתק אותו מהמחשב עצמו.</string>
+    <string name="su_spotify_unavailable">התראות עם Spotify לא זמינות בגרסה הזו של DayCue. משמיעים את צליל השעון.</string>
+    <string name="su_spotify_not_installed">Spotify לא מותקנת בטלפון הזה. משמיעים את צליל השעון.</string>
+    <string name="su_companion_cant_unpair">אי אפשר לנתק מהטלפון הזה. אפשר לנתק אותו מהמחשב עצמו.</string>
 </resources>

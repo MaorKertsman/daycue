@@ -64,6 +64,8 @@
     <string name="diff_dur_min">%1$d min</string>
     <string name="diff_dur_h">%1$d h</string>
     <string name="diff_dur_h_min">%1$d h %2$d min</string>
+    <string name="diff_dur_1h">1 h</string>
+    <string name="diff_dur_1h_min">1 h %1$d min</string>
     <string name="diff_dur_min_list">%1$s min</string>
     <string name="diff_sec">%1$d sec</string>
     <string name="diff_meters">%1$d m</string>
@@ -963,4 +965,13 @@
     <string name="su_privacy_control">You can turn remote access off at once, revoke any assistant, export your setup and delete it by clearing the app’s data.</string>
 
     <!-- Undo / snackbar messages -->
+    <string name="su_companions_header">Desktop companions</string>
+    <string name="su_companion_unverified">Name set on the PC, not verified</string>
+    <string name="su_companion_fingerprint">Key fingerprint %1$s</string>
+    <string name="su_companion_unpair">Unpair</string>
+    <string name="su_companion_unpaired">Companion unpaired.</string>
+    <string name="su_companion_unpair_on_pc">Unpair it on the PC.</string>
+    <string name="su_spotify_unavailable">Spotify alarms aren’t available in this version of DayCue. The alarm tone is used.</string>
+    <string name="su_spotify_not_installed">Spotify isn’t installed on this phone. The alarm tone is used.</string>
+    <string name="su_companion_cant_unpair">Couldn’t unpair from this phone. Unpair it on the PC.</string>
 </resources>

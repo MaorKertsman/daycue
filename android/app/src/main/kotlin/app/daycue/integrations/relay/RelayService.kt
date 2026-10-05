@@ -110,6 +110,9 @@ class RelayService(private val c: AppContainer) {
 
     internal fun credentialsForCalls(): Pair<String, String>? = creds.load()?.let { it.relayUrl to it.token }
 
+    /** API for ad-hoc calls from the UI facade, with the Keystore phone key attached (needed for companion revoke). */
+    internal fun apiForCalls(): RelayApi? = creds.load()?.let { HttpRelayApi(it.relayUrl, it.token, signer = KeystoreSigner(it.keyAlias)) }
+
     fun relayHost(): String? = creds.load()?.relayUrl?.let { runCatching { URI(it).host }.getOrNull() }
 
     private val debuggable get() = app.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0

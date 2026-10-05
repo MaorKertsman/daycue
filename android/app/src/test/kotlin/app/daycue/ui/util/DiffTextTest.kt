@@ -58,7 +58,7 @@ class DiffTextTest {
     @Test fun `interval of a named habit`() {
         assertEquals("Hydration: every 1 h → every 1 h 30 min", english("habits[hydration].intervalMin: 60 -> 90").single())
         val h = hebrew("habits[hydration].intervalMin: 60 -> 90").single()
-        assertTrue(h, h.startsWith("שתייה: כל 1 שע׳ ← כל 1 שע׳ 30 דק׳"))
+        assertTrue(h, h.startsWith("שתייה: כל שעה ← כל שעה ו־30 דק׳"))
     }
 
     @Test fun `quiet hours windows are readable and never raw json`() {
@@ -88,6 +88,31 @@ class DiffTextTest {
     @Test fun `added item uses its name from json`() {
         val l = "habits[x1]: added {\"type\":\"interval\",\"id\":\"x1\",\"name\":\"Stretch\",\"intervalMin\":45}"
         assertEquals("Added reminder: Stretch", english(l).single())
+    }
+
+    @Test fun `added and removed items of every kind read as sentences, never JSON`() {
+        val cases = mapOf(
+            "habits[x1]: added {\"type\":\"interval\",\"id\":\"x1\",\"name\":\"Stretch\",\"intervalMin\":45}" to "Added reminder: Stretch",
+            "places[p-77]: added {\"id\":\"p-77\",\"name\":\"Studio\",\"radiusM\":120}" to "Added place: Studio",
+            "routines[r1]: added {\"id\":\"r1\",\"name\":\"Evening wind-down\",\"steps\":[{\"id\":\"s1\"}]}" to "Added routine: Evening wind-down",
+            "alarms[a1]: added {\"id\":\"a1\",\"name\":\"Gym\",\"time\":\"06:00\"}" to "Added alarm: Gym",
+            "medications[med-a]: added {\"id\":\"med-a\",\"label\":\"Vitamin X\",\"travelPolicy\":{\"type\":\"followLocalTime\"}}" to "Added medication: Vitamin X",
+            "habits[x1]: removed {\"type\":\"interval\",\"id\":\"x1\",\"name\":\"Stretch\"}" to "Removed reminder: Stretch",
+            "places[p-77]: removed {\"id\":\"p-77\",\"name\":\"Studio\"}" to "Removed place: Studio",
+            "routines[r1]: removed {\"id\":\"r1\",\"name\":\"Evening wind-down\"}" to "Removed routine: Evening wind-down",
+            "alarms[a1]: removed {\"id\":\"a1\",\"name\":\"Gym\"}" to "Removed alarm: Gym",
+            "medications[med-a]: removed {\"id\":\"med-a\",\"label\":\"Vitamin X\"}" to "Removed medication: Vitamin X",
+            // a value cut off by the summary length limit is not valid JSON, but the name is still shown
+            "medications[med-b]: added {\"id\":\"med-b\",\"label\":\"Vitamin Y\",\"times\":[\"08:00\",\"20" to "Added medication: Vitamin Y",
+        )
+        for ((line, expected) in cases) {
+            val e = english(line).single()
+            assertEquals(expected, e)
+            assertFalse(e, e.contains("{") || e.contains("\"") || e.contains("[") )
+        }
+        val he = hebrew("medications[med-a]: added {\"id\":\"med-a\",\"label\":\"Vitamin X\",\"travelPolicy\":{\"type\":\"followLocalTime\"}}").single()
+        assertEquals("הוספת תרופה: Vitamin X", he)
+        assertFalse(hebrew("alarms[a1]: removed {\"id\":\"a1\",\"name\":\"Gym\"}").single().contains("{"))
     }
 
     @Test fun `long lists are truncated`() {

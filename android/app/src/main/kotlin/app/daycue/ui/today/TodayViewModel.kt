@@ -100,6 +100,29 @@ class TodayViewModel(private val facade: DayCueFacade) : ViewModel() {
         }
     }
 
+    /** "I'm at <place>" / "Not at a saved place" (placeId null). Undo restores the previous manual place, or clears it. */
+    fun setPlace(placeId: String?, duration: OverrideDuration) {
+        val previous = model.value?.context?.placeOverride
+        viewModelScope.launch {
+            facade.setPlace(placeId, duration)
+            _messages.emit(TodayMessage(R.string.app_msg_context_set, undo = {
+                viewModelScope.launch {
+                    if (previous == null) facade.clearPlaceOverride() else facade.setPlace(previous.value.placeId, OverrideDuration.UntilTransition)
+                }
+            }))
+        }
+    }
+
+    fun clearPlace() {
+        val previous = model.value?.context?.placeOverride
+        viewModelScope.launch {
+            facade.clearPlaceOverride()
+            _messages.emit(TodayMessage(R.string.app_msg_context_auto, undo = {
+                if (previous != null) viewModelScope.launch { facade.setPlace(previous.value.placeId, OverrideDuration.UntilTransition) }
+            }))
+        }
+    }
+
     fun startSession(kind: SessionKind, duration: OverrideDuration) {
         viewModelScope.launch {
             facade.startSession(kind, duration)

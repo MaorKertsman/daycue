@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import app.daycue.BuildConfig
 import app.daycue.R
 import app.daycue.domain.config.AlarmSource
 import app.daycue.domain.config.DayCueConfig
@@ -68,8 +67,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.TextStyle
 
-/** The Spotify item field is only offered when the integration is available in this build (BuildConfig.SPOTIFY_SDK). */
-private val spotifyAvailable: Boolean get() = BuildConfig.SPOTIFY_SDK
 
 @Composable
 private fun skipText(a: MorningAlarm): String? {
@@ -144,6 +141,8 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
     val config by vm.config.collectAsState()
     val errors by vm.errors.collectAsState()
     val music by vm.facade.alarmMusic.collectAsState()
+    val sp by vm.facade.spotify.collectAsState()
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { vm.facade.refreshSpotify(); onPauseOrDispose { } }
     val cfg = config
     val a = cfg?.alarm(id)
     if (cfg == null) { CuesScreen("", onBack) {}; return }
@@ -157,7 +156,7 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
     val openSounds: () -> Unit = { context.startActivity(app.daycue.delivery.DeepLinks.intent(context, "setup", "sounds")) }
     val def = remember { MorningAlarm(id = "x") }
     val spotify = a.source as? AlarmSource.SpotifyItem
-    val showSpotify = spotifyAvailable || spotify != null
+    val showSpotify = sp.available || spotify != null
     val selectedDays = a.days ?: cfg.settings.workDays
     val changed = listOf(a.volumeRampSec != def.volumeRampSec, a.snoozeMin != def.snoozeMin || a.maxSnoozes != def.maxSnoozes, a.ringTimeoutMin != def.ringTimeoutMin, a.vibrate != def.vibrate)
 
@@ -177,6 +176,7 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
             if (spotify != null) {
                 CommitTextField(spotify.uri, { save(a.copy(source = spotify.copy(uri = it.trim()))) }, stringResource(R.string.cues_alarm_spotify_item), helper = stringResource(R.string.cues_alarm_spotify_help))
                 FieldErrors(errors, "$path.source")
+                if (!sp.enabled) Text(stringResource(if (sp.available) R.string.cues_alarm_spotify_not_installed else R.string.cues_alarm_spotify_unavailable), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
             }
         } else {
             DayCueRow(primary = stringResource(R.string.cues_alarm_sound), secondary = stringResource(R.string.cues_alarm_src_tone), trailing = { GlyphIcon(Glyph.Chevron, DayCueTheme.colors.ink2) }, onClick = openSounds)

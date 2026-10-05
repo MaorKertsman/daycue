@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -383,17 +384,19 @@ fun RoutineStepRow(
 ) {
     val c = DayCueTheme.colors
     val moreDescription = stringResource(R.string.cd_more_actions)
-    val disc = when (index) { 0 -> 16.dp; 1 -> 13.dp; else -> 11.dp }
-    val shapeColor = if (index == 0) c.routine.shape else androidx.compose.ui.graphics.lerp(c.routine.shape, c.paper, 0.3f)
+    // The step number sits INSIDE the routine disc; the discs recede (28/26/24dp) and lighten after the first step.
+    val disc = when (index) { 0 -> 28.dp; 1 -> 26.dp; else -> 24.dp }
+    val shapeColor = androidx.compose.ui.graphics.lerp(c.routine.shape, c.paper, if (index == 0) 0.45f else 0.65f)
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = DayCueSpacing.rowMin), verticalAlignment = Alignment.CenterVertically) {
             handle()
-            Row(Modifier.width(36.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(disc).background(shapeColor, androidx.compose.foundation.shape.CircleShape))
+            Box(Modifier.width(40.dp), contentAlignment = Alignment.CenterStart) {
+                Box(
+                    Modifier.defaultMinSize(minWidth = disc, minHeight = disc).background(shapeColor, androidx.compose.foundation.shape.CircleShape).padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("${index + 1}", style = DayCueTheme.type.labelSmall, color = c.ink)
                 }
-                Spacer(Modifier.width(4.dp))
-                Text("${index + 1}", style = DayCueTheme.type.labelSmall, color = c.ink)
             }
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
@@ -403,7 +406,7 @@ fun RoutineStepRow(
             GlyphButton(Glyph.MoreVertical, moreDescription, onMore, tint = c.ink2)
         }
         if (divider) {
-            Box(Modifier.padding(start = DayCueSpacing.minTouch + 44.dp).fillMaxWidth().height(1.dp).background(c.outline))
+            Box(Modifier.padding(start = DayCueSpacing.minTouch + 48.dp).fillMaxWidth().height(1.dp).background(c.outline))
         }
     }
 }
