@@ -171,7 +171,6 @@
     <string name="app_wait_meeting">after your meeting</string>
     <string name="app_wait_routine">after the routine</string>
     <string name="app_wait_from">from %1$s</string>
-    <string name="app_wait_covered">next after %1$s</string>
     <string name="app_wait_first">after your first confirmation</string>
     <string name="app_wait_frozen">paused while away from the computer</string>
 

@@ -76,7 +76,7 @@ jobs:
           retention-days: 14
 
   mcp:
-    name: MCP relay (Node 20)
+    name: MCP relay (Node 24)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:

@@ -58,7 +58,7 @@ object Templates {
             value.length in 5..8 && value[2] == ':' -> runCatching { hhmm.format(LocalTime.parse(value)) }.getOrNull()
             else -> null
         } ?: return value
-        return if (rtl) "⁦$time⁩" else time
+        return if (rtl) "\u2066$time\u2069" else time
     }
 
     /** "Also: a, b." / "And 2 more." joiner for COL-1 utterances. */

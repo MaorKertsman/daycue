@@ -122,7 +122,7 @@ fun CalendarScreen(onBack: () -> Unit, push: (String) -> Unit) {
         if (failed) {
             StateBlock(StateBlockKind.Error, stringResource(R.string.su_cal_read_failed), body = stringResource(R.string.su_cal_read_failed_body), actionLabel = stringResource(R.string.su_try_again), onAction = { vm.refresh() })
         } else if (stale) {
-            StateBlock(StateBlockKind.Uncertain, stringResource(R.string.su_cal_stale, ageHours(syncedAt)), body = stringResource(R.string.su_cal_stale_body), actionLabel = stringResource(R.string.su_sync_now), onAction = { vm.refresh() })
+            StateBlock(StateBlockKind.Uncertain, pluralStringResource(R.plurals.su_cal_stale, ageHours(syncedAt), ageHours(syncedAt)), body = stringResource(R.string.su_cal_stale_body), actionLabel = stringResource(R.string.su_sync_now), onAction = { vm.refresh() })
         }
         DayCueRow(
             primary = stringResource(R.string.su_cal_sync_status),
@@ -490,7 +490,7 @@ fun CalendarPreviewScreen(onBack: () -> Unit) {
         val maxAge = config?.calendarRules?.maxCacheAgeHours ?: 24
         val stale = syncedAt?.let { Duration.between(it, Instant.now()).toHours() >= maxAge } == true
         if (stale) {
-            StateBlock(StateBlockKind.Uncertain, stringResource(R.string.su_cal_stale, ageHours(syncedAt)), body = stringResource(R.string.su_cal_stale_body), actionLabel = stringResource(R.string.su_sync_now), onAction = { vm.refresh() })
+            StateBlock(StateBlockKind.Uncertain, pluralStringResource(R.plurals.su_cal_stale, ageHours(syncedAt), ageHours(syncedAt)), body = stringResource(R.string.su_cal_stale_body), actionLabel = stringResource(R.string.su_sync_now), onAction = { vm.refresh() })
         }
         when {
             !permission -> StateBlock(StateBlockKind.Empty, stringResource(R.string.su_cal_perm_title), body = stringResource(R.string.su_cal_perm_without))

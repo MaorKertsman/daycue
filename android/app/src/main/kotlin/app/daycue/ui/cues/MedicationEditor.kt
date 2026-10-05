@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.daycue.R
@@ -275,10 +276,10 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
 
 @Composable
 private fun repeatSummary(r: RepeatPolicy) =
-    if (r.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else stringResource(R.string.cues_repeat_summary, r.maxRepeats, durationText(r.everyMin))
+    if (r.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else pluralStringResource(R.plurals.cues_repeat_summary, r.maxRepeats, r.maxRepeats, durationText(r.everyMin))
 
 @Composable
-private fun durationDays(d: Int) = stringResource(R.string.cues_days_count, d)
+private fun durationDays(d: Int) = pluralStringResource(R.plurals.su_days, d, d)
 
 @Composable
 private fun lockLabel(p: LockScreenPresentation) = stringResource(when (p) {

@@ -259,7 +259,10 @@
     <string name="su_cal_latency_note">A change in your calendar app reaches DayCue after the phone syncs it: usually within a minute, sometimes up to half an hour. Cues for an event you add right before it starts may be late or missed.</string>
     <string name="su_cal_read_failed">Couldn’t read calendars</string>
     <string name="su_cal_read_failed_body">Your last known events are still used. Try again, or check calendar access in app settings.</string>
-    <string name="su_cal_stale">Calendar last updated %d hours ago</string>
+    <plurals name="su_cal_stale">
+        <item quantity="one">Calendar last updated %d hour ago</item>
+        <item quantity="other">Calendar last updated %d hours ago</item>
+    </plurals>
     <string name="su_cal_stale_body">New calendar cues are paused until it syncs.</string>
     <string name="su_cal_calendars_header">Calendars</string>
     <string name="su_cal_none">No calendars found</string>
@@ -816,5 +819,4 @@
     <string name="su_privacy_control">You can turn remote access off at once, revoke any assistant, export your setup and delete it by clearing the app’s data.</string>
 
     <!-- Undo / snackbar messages -->
-    <string name="su_profile_saved">Cue saved.</string>
 </resources>

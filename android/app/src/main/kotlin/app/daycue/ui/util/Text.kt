@@ -3,8 +3,8 @@ package app.daycue.ui.util
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.daycue.R
@@ -13,9 +13,9 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-internal const val LRI = "⁦"
-internal const val PDI = "⁩"
-internal const val NBSP = " "
+internal const val LRI = "\u2066"
+internal const val PDI = "\u2069"
+internal const val NBSP = "\u00A0"
 
 /** Wraps a clock time, range or number run in an LTR isolate so it never reorders inside Hebrew strings. */
 fun String.ltr(): String = "$LRI$this$PDI"
@@ -57,7 +57,7 @@ fun amPmMarkers(locale: Locale): Array<String> = DateFormatSymbols.getInstance(l
 fun clockDuration(minutes: Int, seconds: Int): String = "$minutes:${"%02d".format(Locale.ROOT, seconds)}".ltr()
 
 @Composable
-fun currentLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+fun currentLocale(): Locale = LocalLocale.current.platformLocale
 
 fun is24Hour(context: Context): Boolean = DateFormat.is24HourFormat(context)
 

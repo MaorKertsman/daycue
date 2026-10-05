@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -117,7 +118,7 @@ internal fun BottleEditor(vm: CuesViewModel, cfg: DayCueConfig, h: TransitionHab
             FieldErrors(errors, "$path.dedupWindowMin")
             SettingRow(
                 stringResource(R.string.cues_repeat),
-                if (h.repeat.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else stringResource(R.string.cues_repeat_summary, h.repeat.maxRepeats, durationText(h.repeat.everyMin)),
+                if (h.repeat.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else pluralStringResource(R.plurals.cues_repeat_summary, h.repeat.maxRepeats, h.repeat.maxRepeats, durationText(h.repeat.everyMin)),
                 { sheet = "repeat" }, changed = changed[2],
             )
         }

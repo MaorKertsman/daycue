@@ -37,7 +37,6 @@
     <string name="cues_date_today">היום</string>
     <string name="cues_date_plus_week">+שבוע</string>
     <string name="cues_date_plus_month">+חודש</string>
-    <string name="cues_days_count">%1$d ימים</string>
     <string name="cues_every">כל %1$s</string>
     <string name="cues_next_at">הבא ב־%1$s</string>
     <string name="cues_paused_until">מושהה עד %1$s</string>
@@ -177,7 +176,11 @@
     <string name="cues_daystart_at_c">התזכורת הראשונה מגיעה כשמתחילות שעות הפעילות.</string>
     <string name="cues_repeat">חזרה אם התעלמו</string>
     <string name="cues_repeat_none">ללא חזרה</string>
-    <string name="cues_repeat_summary">%1$d פעמים, כל %2$s</string>
+    <plurals name="cues_repeat_summary">
+        <item quantity="one">פעם אחת, כל %2$s</item>
+        <item quantity="two">פעמיים, כל %2$s</item>
+        <item quantity="other">%1$d פעמים, כל %2$s</item>
+    </plurals>
     <string name="cues_repeat_count">מספר חזרות</string>
     <string name="cues_repeat_every">חזרה כל</string>
     <string name="cues_unanswered">אם ממשיכים להתעלם</string>
@@ -495,7 +498,11 @@
     <string name="cues_alarm_ramp_off">כבויה</string>
     <string name="cues_alarm_ramp_c">הצליל מתחיל בשקט ומגיע לעוצמה מלאה במשך הזמן הזה.</string>
     <string name="cues_alarm_snooze">דחייה</string>
-    <string name="cues_alarm_snooze_value">%1$s, עד %2$d פעמים</string>
+    <plurals name="cues_alarm_snooze_value">
+        <item quantity="one">%1$s, עד פעם אחת</item>
+        <item quantity="two">%1$s, עד פעמיים</item>
+        <item quantity="other">%1$s, עד %2$d פעמים</item>
+    </plurals>
     <string name="cues_alarm_max_snoozes">מספר דחיות</string>
     <string name="cues_alarm_timeout">הפסקת צלצול אחרי</string>
     <string name="cues_alarm_timeout_c">אחרי הזמן הזה הוא נדחה מעצמו כל עוד נשארו דחיות, ואחרת נעצר.</string>

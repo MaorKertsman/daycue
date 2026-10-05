@@ -107,14 +107,14 @@ fun TodayScreen(nav: TodayNav, initial: TodayInitial, modifier: Modifier = Modif
     var showAllNext by remember { mutableStateOf(false) }
     var showAllDue by remember { mutableStateOf(false) }
 
-    val appContext = androidx.compose.ui.platform.LocalContext.current
+    val resources by androidx.compose.runtime.rememberUpdatedState(androidx.compose.ui.platform.LocalResources.current)
     val talkBackNow = androidx.compose.runtime.rememberUpdatedState(talkBack)
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
             // One snackbar at a time; a newer message replaces the one on screen.
             snackbar.currentSnackbarData?.dismiss()
             launch {
-                val result = snackbar.showUndo(appContext.getString(msg.text), appContext.getString(R.string.app_undo), talkBackNow.value)
+                val result = snackbar.showUndo(resources.getString(msg.text), resources.getString(R.string.app_undo), talkBackNow.value)
                 if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) msg.undo?.invoke()
             }
         }

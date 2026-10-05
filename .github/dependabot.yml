@@ -14,6 +14,11 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # Type definitions must match the Node runtime major (CI and engines: Node 24 LTS), not the newest release.
+      # Raise this together with the runtime.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: nuget
     directory: /companion
     schedule:

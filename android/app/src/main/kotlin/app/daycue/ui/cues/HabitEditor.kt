@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -332,7 +333,7 @@ internal fun RepeatEditor(r: RepeatPolicy, maxRepeats: Int, onChange: (RepeatPol
 
 @Composable
 private fun repeatLabel(r: RepeatPolicy): String =
-    if (r.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else stringResource(R.string.cues_repeat_summary, r.maxRepeats, durationText(r.everyMin))
+    if (r.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else pluralStringResource(R.plurals.cues_repeat_summary, r.maxRepeats, r.maxRepeats, durationText(r.everyMin))
 
 @Composable
 internal fun firstReminderLabel(p: FirstReminderPolicy): String = when (p) {

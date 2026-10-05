@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -200,7 +201,7 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
         }) {
             SettingRow(stringResource(R.string.cues_alarm_ramp), if (a.volumeRampSec == 0) stringResource(R.string.cues_alarm_ramp_off) else durationSecondsText(a.volumeRampSec), { sheet = "ramp" }, changed = changed[0])
             FieldErrors(errors, "$path.volumeRampSec")
-            SettingRow(stringResource(R.string.cues_alarm_snooze), stringResource(R.string.cues_alarm_snooze_value, durationText(a.snoozeMin), a.maxSnoozes), { sheet = "snooze" }, changed = changed[1])
+            SettingRow(stringResource(R.string.cues_alarm_snooze), pluralStringResource(R.plurals.cues_alarm_snooze_value, a.maxSnoozes, durationText(a.snoozeMin), a.maxSnoozes), { sheet = "snooze" }, changed = changed[1])
             FieldErrors(errors, "$path.snoozeMin")
             FieldErrors(errors, "$path.maxSnoozes")
             SettingRow(stringResource(R.string.cues_alarm_timeout), durationText(a.ringTimeoutMin), { sheet = "timeout" }, changed = changed[2])

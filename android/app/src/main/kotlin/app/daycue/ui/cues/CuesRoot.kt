@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -25,6 +26,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -85,12 +87,12 @@ fun CuesRoot(
     }
 
     val snackbar = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val resources by rememberUpdatedState(LocalResources.current)
     val talkBack = rememberTalkBackOn()
     val undoLabel = stringResource(R.string.cues_undo)
     LaunchedEffect(Unit) {
         vm.messages.collectLatest { m ->
-            val text = context.getString(m.textRes, *m.args.toTypedArray())
+            val text = resources.getString(m.textRes, *m.args.toTypedArray())
             val result = snackbar.showSnackbar(
                 message = text,
                 actionLabel = if (m.undo) undoLabel else null,

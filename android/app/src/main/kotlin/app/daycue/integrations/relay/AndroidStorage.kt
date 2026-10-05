@@ -2,6 +2,8 @@ package app.daycue.integrations.relay
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
+import androidx.annotation.RequiresApi
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
@@ -44,17 +46,23 @@ class KeystoreSigner(private val alias: String) : DeviceSigner {
         /** Generates a fresh key under [alias] (replacing any old one) and returns its signer. */
         fun generate(alias: String): KeystoreSigner {
             delete(alias)
-            fun spec(strongBox: Boolean) = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
-                .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-                .setDigests(KeyProperties.DIGEST_SHA256)
-                .apply { if (strongBox) setIsStrongBoxBacked(true) }
-                .build()
             val gen = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, PROVIDER)
-            try { gen.initialize(spec(true)); gen.generateKeyPair() }
-            catch (e: StrongBoxUnavailableException) { gen.initialize(spec(false)); gen.generateKeyPair() }
-            catch (e: java.security.ProviderException) { gen.initialize(spec(false)); gen.generateKeyPair() }
+            // StrongBox exists from API 28 only; below that (minSdk is 26) go straight to the TEE-backed key.
+            val strongBoxFailed = if (Build.VERSION.SDK_INT >= 28) generateStrongBox(gen, alias) else false
+            if (Build.VERSION.SDK_INT < 28 || strongBoxFailed) { gen.initialize(baseSpec(alias).build()); gen.generateKeyPair() }
             return KeystoreSigner(alias)
         }
+
+        private fun baseSpec(alias: String) = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+
+        /** Tries a StrongBox-backed key; returns true when StrongBox is unavailable and the caller should fall back. */
+        @RequiresApi(28)
+        private fun generateStrongBox(gen: KeyPairGenerator, alias: String): Boolean = try {
+            gen.initialize(baseSpec(alias).setIsStrongBoxBacked(true).build()); gen.generateKeyPair(); false
+        } catch (e: StrongBoxUnavailableException) { true }
+        catch (e: java.security.ProviderException) { true }
 
         fun delete(alias: String) {
             runCatching { KeyStore.getInstance(PROVIDER).apply { load(null) }.deleteEntry(alias) }

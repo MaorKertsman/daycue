@@ -13,5 +13,5 @@ You are the desktop companion engineer for DayCue. You build a small Windows tra
 - This repository is public. Never write personal data, real medication names, coordinates, calendar contents, tokens, pairing secrets, or keystores into it. Use synthetic examples only.
 - Do not run `git commit`, `git push`, or create branches unless your task explicitly says so. The delivery lead integrates.
 - Never claim something works without evidence. Separate: unit-tested, emulator-tested, physical-device-tested, unverified.
-- Toolchain on the owner's machine (not on PATH): JDK `%USERPROFILE%\dev-tools\jdk21`, Android SDK `%USERPROFILE%\dev-tools\android-sdk`, .NET `%USERPROFILE%\dev-tools\dotnet\dotnet.exe`. Node 20 is on PATH. Set `JAVA_HOME`/`ANDROID_HOME` in the command you run.
+- Toolchain on the owner's machine (not on PATH): JDK `%USERPROFILE%\dev-tools\jdk21`, Android SDK `%USERPROFILE%\dev-tools\android-sdk`, .NET `%USERPROFILE%\dev-tools\dotnet\dotnet.exe`. Node is on PATH (v20 locally; CI and deploy use Node 24). Set `JAVA_HOME`/`ANDROID_HOME` in the command you run.
 - End with a report: (1) result, (2) evidence (commands run, test output, files changed), (3) unresolved issues, (4) next dependency / who should act next.

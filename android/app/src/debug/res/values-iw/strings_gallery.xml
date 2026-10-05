@@ -49,15 +49,15 @@
     <string name="gal_variants_note">מפלסים 0, 50, 100%. תנוחה: ישיבה, עמידה, הליכה, כללי. רק סימני השגרה והתנוחה מתהפכים בפריסה מימין לשמאל.</string>
 
     <!-- Field page -->
-    <string name="gal_field_home">מישור בית, עמידה מלאה ב־60%, קרם הגנה מתקרב</string>
+    <string name="gal_field_home" formatted="false">מישור בית, עמידה מלאה ב־60%, קרם הגנה מתקרב</string>
     <string name="gal_field_ambient_on">תנועת רקע פעילה, נעצרת אחרי 60 שניות</string>
     <string name="gal_field_ambient_off">תנועת רקע כבויה: הפחתת תנועה</string>
-    <string name="gal_field_work">מישור עבודה, דיסקית שגרה מלאה ב־30%, תרופה קרובה לנקודת ההתחלה</string>
+    <string name="gal_field_work" formatted="false">מישור עבודה, דיסקית שגרה מלאה ב־30%, תרופה קרובה לנקודת ההתחלה</string>
     <string name="gal_field_outdoors">מישור חוץ, שום דבר לא רץ, שתייה רחוקה</string>
     <string name="gal_field_transit">מישור תנועה, ישיבה, תזכורת יומן מתקרבת</string>
     <string name="gal_field_due">הגיע הזמן: הדיסקית חופפת למישור והזרע מופיע</string>
     <string name="gal_field_overdue">באיחור: אין תנועה נוספת, הטקסט נושא את האיחור</string>
-    <string name="gal_field_unknown">הקשר לא ידוע: מישור מקווקו ב־85%, מוחזק בקלילות</string>
+    <string name="gal_field_unknown" formatted="false">הקשר לא ידוע: מישור מקווקו ב־85%, מוחזק בקלילות</string>
     <string name="gal_field_desc_work">בעבודה. שגרה, 30 אחוז הושלמו. הבא: ויטמין לדוגמה בעוד 100 דקות.</string>
     <string name="gal_field_desc_outdoors">בחוץ. הבא: שתייה בעוד 110 דקות.</string>
     <string name="gal_field_desc_transit">בתנועה. ישיבה, 20 אחוז הושלמו. הבא: יומן בעוד 15 דקות.</string>

@@ -275,7 +275,11 @@
     <string name="su_cal_latency_note">שינוי באפליקציית היומן מגיע ל־DayCue אחרי שהטלפון מסנכרן אותו: בדרך כלל תוך דקה, לפעמים עד חצי שעה. תזכורת לאירוע שנוסף ממש לפני שהוא מתחיל עלולה להגיע באיחור או לא להגיע.</string>
     <string name="su_cal_read_failed">לא הצלחנו לקרוא את היומנים</string>
     <string name="su_cal_read_failed_body">האירועים האחרונים שידועים עדיין בשימוש. כדאי לנסות שוב או לבדוק את הגישה ליומן בהגדרות האפליקציה.</string>
-    <string name="su_cal_stale">היומן עודכן לאחרונה לפני %d שעות</string>
+    <plurals name="su_cal_stale">
+        <item quantity="one">היומן עודכן לאחרונה לפני שעה</item>
+        <item quantity="two">היומן עודכן לאחרונה לפני שעתיים</item>
+        <item quantity="other">היומן עודכן לאחרונה לפני %d שעות</item>
+    </plurals>
     <string name="su_cal_stale_body">תזכורות חדשות מהיומן מושהות עד לסנכרון.</string>
     <string name="su_cal_calendars_header">יומנים</string>
     <string name="su_cal_none">לא נמצאו יומנים</string>
@@ -837,5 +841,4 @@
     <string name="su_privacy_control_header">השליטה נשארת אצלך</string>
     <string name="su_privacy_control">אפשר לכבות את הגישה מרחוק מיד, לבטל כל עוזר, לייצא את ההגדרות ולמחוק אותן על ידי ניקוי הנתונים של האפליקציה.</string>
 
-    <string name="su_profile_saved">התזכורת נשמרה.</string>
 </resources>

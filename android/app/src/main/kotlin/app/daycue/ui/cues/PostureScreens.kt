@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -149,7 +150,7 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
                 longInterruption = def.longInterruption, extendOptionsMin = def.extendOptionsMin, snoozeMin = def.snoozeMin))
         }) {
             SettingRow(stringResource(R.string.cues_posture_timer_start), timerStartLabel(pc.timerStart), { sheet = "timer" }, changed = changed[0])
-            SettingRow(stringResource(R.string.cues_posture_confirm_repeat), if (pc.confirmRepeat.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else stringResource(R.string.cues_repeat_summary, pc.confirmRepeat.maxRepeats, durationText(pc.confirmRepeat.everyMin)), { sheet = "confirm" }, changed = changed[1])
+            SettingRow(stringResource(R.string.cues_posture_confirm_repeat), if (pc.confirmRepeat.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else pluralStringResource(R.plurals.cues_repeat_summary, pc.confirmRepeat.maxRepeats, pc.confirmRepeat.maxRepeats, durationText(pc.confirmRepeat.everyMin)), { sheet = "confirm" }, changed = changed[1])
             FieldErrors(errors, "postureCycle.confirmRepeat")
             SettingRow(stringResource(R.string.cues_during_meetings), meetingPostureLabel(pc.duringMeeting), { sheet = "meeting" }, changed = changed[2])
             SettingRow(stringResource(R.string.cues_posture_breaks), "${durationText(pc.shortInterruptionMin)} · ${interruptionLabel(pc.longInterruption)}", { sheet = "breaks" }, changed = changed[3])

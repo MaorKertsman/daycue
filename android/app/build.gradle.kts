@@ -92,6 +92,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // In-app language switching (Hebrew/English) needs every language in the base bundle, not split per device locale.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

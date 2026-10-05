@@ -173,7 +173,6 @@
     <string name="app_wait_meeting">אחרי הפגישה</string>
     <string name="app_wait_routine">אחרי השגרה</string>
     <string name="app_wait_from">החל מ־%1$s</string>
-    <string name="app_wait_covered">הבא אחרי %1$s</string>
     <string name="app_wait_first">אחרי האישור הראשון</string>
     <string name="app_wait_frozen">בהשהיה בזמן התרחקות מהמחשב</string>
 

@@ -37,7 +37,6 @@
     <string name="cues_date_today">Today</string>
     <string name="cues_date_plus_week">+1 week</string>
     <string name="cues_date_plus_month">+1 month</string>
-    <string name="cues_days_count">%1$d days</string>
     <string name="cues_every">Every %1$s</string>
     <string name="cues_next_at">Next at %1$s</string>
     <string name="cues_paused_until">Paused until %1$s</string>
@@ -177,7 +176,10 @@
     <string name="cues_daystart_at_c">The first reminder comes as your active hours begin.</string>
     <string name="cues_repeat">Repeat if ignored</string>
     <string name="cues_repeat_none">Does not repeat</string>
-    <string name="cues_repeat_summary">%1$d times, every %2$s</string>
+    <plurals name="cues_repeat_summary">
+        <item quantity="one">%1$d time, every %2$s</item>
+        <item quantity="other">%1$d times, every %2$s</item>
+    </plurals>
     <string name="cues_repeat_count">Number of repeats</string>
     <string name="cues_repeat_every">Repeat every</string>
     <string name="cues_unanswered">If still ignored</string>
@@ -495,7 +497,10 @@
     <string name="cues_alarm_ramp_off">Off</string>
     <string name="cues_alarm_ramp_c">The sound starts quiet and reaches full volume over this time.</string>
     <string name="cues_alarm_snooze">Snooze</string>
-    <string name="cues_alarm_snooze_value">%1$s, up to %2$d times</string>
+    <plurals name="cues_alarm_snooze_value">
+        <item quantity="one">%1$s, up to %2$d time</item>
+        <item quantity="other">%1$s, up to %2$d times</item>
+    </plurals>
     <string name="cues_alarm_max_snoozes">Number of snoozes</string>
     <string name="cues_alarm_timeout">Stop ringing after</string>
     <string name="cues_alarm_timeout_c">After this time it snoozes by itself while snoozes are left, otherwise it stops.</string>

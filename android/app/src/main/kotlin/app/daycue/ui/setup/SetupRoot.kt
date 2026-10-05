@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,6 +21,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import app.daycue.DayCueApplication
 import app.daycue.ui.components.DayCueSnackbarHost
@@ -115,14 +117,15 @@ fun SetupRoot(
     val remoteFocus = startItem?.takeIf { it.startsWith("remote:") }?.removePrefix("remote:")
 
     val context = LocalContext.current
+    val resources by rememberUpdatedState(LocalResources.current)
     val host = remember { SnackbarHostState() }
     val talkBack = rememberTalkBackOn()
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         SetupBus.snacks.collect { snack ->
-            val text = context.getString(snack.message, *snack.args.toTypedArray())
+            val text = resources.getString(snack.message, *snack.args.toTypedArray())
             if (snack.undo) {
-                val undoLabel = context.getString(app.daycue.R.string.su_undo)
+                val undoLabel = resources.getString(app.daycue.R.string.su_undo)
                 val result = host.showUndo(text, undoLabel, talkBack)
                 if (result == SnackbarResult.ActionPerformed) {
                     val facade = (context.applicationContext as DayCueApplication).container.facade

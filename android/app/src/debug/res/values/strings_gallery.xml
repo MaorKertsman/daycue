@@ -50,15 +50,15 @@
     <string name="gal_variants_note">Levels 0, 50, 100%. Posture: sit, stand, walk, generic. Only the routine and posture marks mirror in right-to-left layouts.</string>
 
     <!-- Field page -->
-    <string name="gal_field_home">Home plane, standing 60% filled, next sunscreen approaching</string>
+    <string name="gal_field_home" formatted="false">Home plane, standing 60% filled, next sunscreen approaching</string>
     <string name="gal_field_ambient_on">Ambient motion on, stops after 60 s</string>
     <string name="gal_field_ambient_off">Ambient off: reduced motion</string>
-    <string name="gal_field_work">Work plane, routine disc 30% filled, next medication close to the start</string>
+    <string name="gal_field_work" formatted="false">Work plane, routine disc 30% filled, next medication close to the start</string>
     <string name="gal_field_outdoors">Outdoors plane, nothing running, next hydration far away</string>
     <string name="gal_field_transit">Transit plane, sitting, next calendar cue arriving</string>
     <string name="gal_field_due">Due: the disc overlaps the plane and the seed appears</string>
     <string name="gal_field_overdue">Overdue: no further movement, the text carries the delay</string>
-    <string name="gal_field_unknown">Unknown context: hatched plane at 85%, held loosely</string>
+    <string name="gal_field_unknown" formatted="false">Unknown context: hatched plane at 85%, held loosely</string>
     <string name="gal_field_desc_work">At work. Routine, 30 percent done. Next: example vitamin in 100 minutes.</string>
     <string name="gal_field_desc_outdoors">Outdoors. Next: hydration in 110 minutes.</string>
     <string name="gal_field_desc_transit">On the move. Sitting, 20 percent done. Next: calendar in 15 minutes.</string>
