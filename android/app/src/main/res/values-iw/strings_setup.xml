@@ -757,7 +757,7 @@
     <string name="su_remote_unpaired_by_relay_body">שרת הממסר כבר לא סומך על הטלפון הזה, ולכן שום דבר לא נקרא, לא משתנה ולא נשלח. צימוד מחדש יחזיר את הגישה מרחוק.</string>
     <string name="su_pair_intro">אפשר להדביק את קישור הצימוד, או להזין את כתובת שרת הממסר ואת הקוד משרת הממסר.</string>
     <string name="su_pair_url">כתובת שרת הממסר</string>
-    <string name="su_pair_url_hint">מתחילה ב־https://. קישור daycue://pair שהודבק ימלא גם את הקוד.</string>
+    <string name="su_pair_url_hint">מתחילה ב־⁦https://⁩. קישור ⁦daycue://pair⁩ שהודבק ימלא גם את הקוד.</string>
     <string name="su_pair_code">קוד צימוד</string>
     <string name="su_pair_code_hint">נראה כמו ABCDE-FGHJK.</string>
     <string name="su_pair_label">שם הטלפון הזה</string>

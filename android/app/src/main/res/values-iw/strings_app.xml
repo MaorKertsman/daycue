@@ -351,9 +351,16 @@
     <string name="app_places_allow">לאפשר מיקום</string>
     <string name="app_places_bg_why">כדי לזהות הגעה גם כשהאפליקציה סגורה, צריך לאפשר מיקום כל הזמן. אנדרואיד תפתח לשם כך דף הגדרות.</string>
     <string name="app_places_bg_allow">לאפשר כל הזמן</string>
+    <string name="app_places_home_body">אם אתם בבית עכשיו, DayCue יכולה לזכור את המקום הזה כבית. הקואורדינטות נשמרות רק בטלפון הזה.</string>
+    <string name="app_places_home_use">להשתמש במיקום הנוכחי</string>
+    <string name="app_places_home_locating">מחפשים את המיקום…</string>
+    <string name="app_places_home_saved">הבית נקבע.</string>
+    <string name="app_places_home_coarse">המיקום לא מספיק מדויק למקום. אפשר לאפשר מיקום מדויק, או לקבוע את הבית אחר כך בהגדרות.</string>
+    <string name="app_places_home_failed">לא הצלחנו לקבל מיקום כרגע. אפשר לקבוע את הבית אחר כך בהגדרות.</string>
+    <string name="app_places_home_name">בית</string>
     <string name="app_places_done">המיקום פועל. אפשר להוסיף מקומות בהגדרות.</string>
 
     <string name="app_remote_grant_note">דבר לא פעיל עד שתאשרו.</string>
-    <string name="app_place_im_at">אני ב־%1$s</string>
+    <string name="app_place_im_at">המקום: %1$s</string>
     <string name="app_place_not_saved">לא במקום שמור</string>
 </resources>

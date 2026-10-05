@@ -41,7 +41,7 @@ import java.time.temporal.ChronoUnit
  * adb shell am broadcast -n app.daycue/.devtools.DevToolsReceiver -a app.daycue.devtools.CMD --es cmd dump
  * ... --es cmd demo --ei interval 5          interval habit "demo" every N (>= 5) min, quiet hours off
  * ... --es cmd demo_med --ei inMin 3         synthetic dose in N minutes
- * ... --es cmd demo_alarm --ei inMin 2       one-off alarm in N minutes
+ * ... --es cmd demo_alarm --ei inMin 2 [--es id x]  one-off alarm in N minutes (new id = fresh occurrence)
  * ... --es cmd ack --es habit demo           in-app ack (cueId = null)
  * ... --es cmd event --es json '{"type":"habitSnooze","habitId":"demo"}'
  * ... --es cmd ops --es json '[{"type":"setHabitInterval","id":"demo","minutes":5}]'
@@ -80,7 +80,7 @@ class DevToolsReceiver : BroadcastReceiver() {
                 }
                 "demo_alarm" -> {
                     val local = now.plus(intent.getIntExtra("inMin", 2).toLong(), ChronoUnit.MINUTES).atZone(zone)
-                    val alarm = MorningAlarm("demo-alarm", "Demo alarm", enabled = true, time = local.toLocalTime().truncatedTo(ChronoUnit.MINUTES),
+                    val alarm = MorningAlarm(intent.getStringExtra("id") ?: "demo-alarm", "Demo alarm", enabled = true, time = local.toLocalTime().truncatedTo(ChronoUnit.MINUTES),
                         days = emptySet(), oneOffDate = local.toLocalDate(), volumeRampSec = 5, ringTimeoutMin = 2)
                     val cfg = host.ensureLoaded().config
                     report(host.applyOps(listOf(ConfigOp.UpsertAlarm(alarm)), cfg.version, "debug"))

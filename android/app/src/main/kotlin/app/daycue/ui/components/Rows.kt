@@ -133,7 +133,7 @@ fun DayCueRow(
                         secondary,
                         style = DayCueTheme.type.bodySmall,
                         color = secondaryColor,
-                        maxLines = 3,
+                        maxLines = Int.MAX_VALUE,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

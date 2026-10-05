@@ -122,9 +122,10 @@ fun CueCard(
     val stack = LocalDensity.current.fontScale >= 1.3f || actions.size > 2
     val moreDescription = stringResource(R.string.cd_more_actions)
     var menuOpen by remember { mutableStateOf(false) }
-    val overflowButton: @Composable () -> Unit = {
+    val overflowButton: @Composable (Boolean) -> Unit = { asText ->
         Box {
-            GlyphButton(Glyph.More, moreDescription, { menuOpen = true }, tint = c.ink2)
+            if (asText) DayCueTextButton(moreDescription, { menuOpen = true })
+            else GlyphButton(Glyph.More, moreDescription, { menuOpen = true }, tint = c.ink2)
             DropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
@@ -166,11 +167,11 @@ fun CueCard(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     actions.forEach { a -> ActionButton(a, Modifier.fillMaxWidth()) }
                 }
-                if (moreActions.isNotEmpty()) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { overflowButton() }
+                if (moreActions.isNotEmpty()) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) { overflowButton(true) }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     actions.forEachIndexed { i, a -> ActionButton(a, Modifier.weight(if (moreActions.isNotEmpty() && i > 0) 1.6f else 1f)) }
-                    if (moreActions.isNotEmpty()) overflowButton()
+                    if (moreActions.isNotEmpty()) overflowButton(false)
                 }
             }
         }

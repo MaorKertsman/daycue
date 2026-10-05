@@ -192,7 +192,7 @@ fun ChoiceRow(
     ) {
         Box(
             Modifier
-                .padding(top = 12.dp)
+                .padding(top = 8.dp)
                 .size(24.dp)
                 .border(1.5.dp, if (selected) c.ink else c.outlineStrong, CircleShape),
             contentAlignment = Alignment.Center,

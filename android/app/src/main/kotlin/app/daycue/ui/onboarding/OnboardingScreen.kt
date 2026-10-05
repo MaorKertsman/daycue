@@ -21,6 +21,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.rememberCoroutineScope
 import app.daycue.integrations.location.LocationPermissionStep
+import app.daycue.integrations.location.CurrentLocationResult
+import app.daycue.domain.config.Defaults
+import app.daycue.domain.config.GeoPoint
+import app.daycue.domain.config.Place
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -342,6 +346,8 @@ private fun PlacesStep(onNext: () -> Unit) {
     val facade = rememberFacade()
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(facade.places.nextPermissionStep()) }
+    var homeState by remember { mutableStateOf(HomeState.Idle) }
+    var homeSkipped by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         scope.launch {
             facade.places.onPermissionsChanged()
@@ -352,6 +358,22 @@ private fun PlacesStep(onNext: () -> Unit) {
         scope.launch { facade.places.refreshAccess(); step = facade.places.nextPermissionStep() }
         onPauseOrDispose { }
     }
+    val homeName = stringResource(R.string.app_places_home_name)
+    fun useHere() {
+        if (homeState == HomeState.Locating) return
+        homeState = HomeState.Locating
+        scope.launch {
+            homeState = when (val r = facade.places.currentLocation()) {
+                is CurrentLocationResult.Ok -> if (!r.precise) HomeState.Coarse else {
+                    val point = GeoPoint(r.fix.lat, r.fix.lng)
+                    val existing = facade.config.firstOrNull()?.places?.firstOrNull { it.id == Defaults.HOME }
+                    if (existing == null) facade.places.upsertPlace(Place(Defaults.HOME, homeName))
+                    if (facade.places.setPlaceLocation(Defaults.HOME, point) is ApplyOutcome.Applied) HomeState.Saved else HomeState.Failed
+                }
+                else -> HomeState.Failed
+            }
+        }
+    }
     val c = DayCueTheme.colors
     Title(stringResource(R.string.app_places_title), stringResource(R.string.app_places_body))
     when (step) {
@@ -361,19 +383,39 @@ private fun PlacesStep(onNext: () -> Unit) {
             PrimaryButton(stringResource(R.string.app_places_allow), { launcher.launch(step.permissions.toTypedArray()) }, Modifier.fillMaxWidth())
             DayCueTextButton(stringResource(R.string.app_not_now), onNext)
         }
-        LocationPermissionStep.Background -> {
-            Text(stringResource(R.string.app_places_bg_why), style = DayCueTheme.type.body, color = c.ink)
-            Spacer(Modifier.height(DayCueSpacing.inRow))
-            PrimaryButton(stringResource(R.string.app_places_bg_allow), { launcher.launch(step.permissions.toTypedArray()) }, Modifier.fillMaxWidth())
-            DayCueTextButton(stringResource(R.string.app_skip), onNext)
-        }
-        LocationPermissionStep.Done -> {
-            Text(stringResource(R.string.app_places_done), style = DayCueTheme.type.body, color = c.ink)
-            Spacer(Modifier.height(DayCueSpacing.inRow))
-            PrimaryButton(stringResource(R.string.app_continue), onNext, Modifier.fillMaxWidth())
+        else -> {
+            // Foreground location is granted. First the optional "set Home from here", then the separate background step.
+            if (homeState != HomeState.Saved && !homeSkipped) {
+                Text(stringResource(R.string.app_places_home_body), style = DayCueTheme.type.body, color = c.ink)
+                when (homeState) {
+                    HomeState.Coarse -> Text(stringResource(R.string.app_places_home_coarse), style = DayCueTheme.type.bodySmall, color = c.ink2)
+                    HomeState.Failed -> Text(stringResource(R.string.app_places_home_failed), style = DayCueTheme.type.bodySmall, color = c.ink2)
+                    HomeState.Locating -> Text(stringResource(R.string.app_places_home_locating), style = DayCueTheme.type.bodySmall, color = c.ink2)
+                    else -> {}
+                }
+                Spacer(Modifier.height(DayCueSpacing.inRow))
+                PrimaryButton(stringResource(R.string.app_places_home_use), { useHere() }, Modifier.fillMaxWidth(), enabled = homeState != HomeState.Locating)
+                DayCueTextButton(stringResource(R.string.app_not_now), { homeSkipped = true })
+            } else if (step == LocationPermissionStep.Background) {
+                if (homeState == HomeState.Saved) Text(stringResource(R.string.app_places_home_saved), style = DayCueTheme.type.bodySmall, color = c.ink2)
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.app_places_bg_why), style = DayCueTheme.type.body, color = c.ink)
+                Spacer(Modifier.height(DayCueSpacing.inRow))
+                PrimaryButton(stringResource(R.string.app_places_bg_allow), { launcher.launch(step.permissions.toTypedArray()) }, Modifier.fillMaxWidth())
+                DayCueTextButton(stringResource(R.string.app_skip), onNext)
+            } else {
+                Text(
+                    stringResource(if (homeState == HomeState.Saved) R.string.app_places_home_saved else R.string.app_places_done),
+                    style = DayCueTheme.type.body, color = c.ink,
+                )
+                Spacer(Modifier.height(DayCueSpacing.inRow))
+                PrimaryButton(stringResource(R.string.app_continue), onNext, Modifier.fillMaxWidth())
+            }
         }
     }
 }
+
+private enum class HomeState { Idle, Locating, Saved, Coarse, Failed }
 
 @Composable
 private fun TestStep(vm: OnboardingViewModel, onYes: () -> Unit, onNo: () -> Unit, onSkip: () -> Unit) {

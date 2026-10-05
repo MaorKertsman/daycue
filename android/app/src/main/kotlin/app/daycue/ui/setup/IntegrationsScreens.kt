@@ -247,7 +247,7 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
 
     SetupFrame(stringResource(R.string.su_remote_title), onBack) {
         Hint(stringResource(R.string.su_remote_intro_short))
-        LearnMore(stringResource(R.string.su_remote_intro), label = stringResource(R.string.su_what_is_sent))
+        LearnMore(stringResource(R.string.su_remote_intro) + "\n\n" + stringResource(R.string.su_pair_privacy), label = stringResource(R.string.su_what_is_sent))
 
         if (status.unpairedByRelay) {
             StateBlock(StateBlockKind.Error, stringResource(R.string.su_remote_unpaired_by_relay), body = stringResource(R.string.su_remote_unpaired_by_relay_body))
@@ -437,7 +437,6 @@ private fun PairForm(vm: IntegrationsViewModel, replaceExisting: Boolean) {
         Modifier.fillMaxWidth(), enabled = !working && url.isNotBlank() && code.isNotBlank(),
     )
     if (working) Hint(stringResource(R.string.su_pair_slow))
-    LearnMore(stringResource(R.string.su_pair_privacy), label = stringResource(R.string.su_what_is_sent))
 }
 
 @Composable

@@ -235,7 +235,7 @@ private fun TodayContent(
         if (m.due.isNotEmpty()) {
             SectionHeader(stringResource(R.string.app_now), topPadding = 24.dp)
             val shown = if (showAllDue) m.due else m.due.take(2)
-            shown.forEach { item -> DueCard(item, m, handlers, Modifier.padding(bottom = 8.dp)) }
+            shown.forEach { item -> DueCard(item, m, handlers, Modifier.padding(bottom = 24.dp)) }
             if (m.due.size > 2 && !showAllDue) {
                 DayCueTextButton(androidx.compose.ui.res.pluralStringResource(R.plurals.app_more_due, m.due.size - 2, m.due.size - 2), { onShowAllDue(true) })
             }

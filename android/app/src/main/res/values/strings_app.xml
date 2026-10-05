@@ -347,6 +347,13 @@
     <string name="app_places_allow">Allow location</string>
     <string name="app_places_bg_why">To notice arrivals while DayCue is closed, allow location all the time. Android opens a settings page for this.</string>
     <string name="app_places_bg_allow">Allow all the time</string>
+    <string name="app_places_home_body">If you are home now, DayCue can remember this spot as Home. The coordinates stay on this phone.</string>
+    <string name="app_places_home_use">Use my current location</string>
+    <string name="app_places_home_locating">Finding your location…</string>
+    <string name="app_places_home_saved">Home is set.</string>
+    <string name="app_places_home_coarse">The location is too rough for a place. Allow precise location, or set Home later in Setup.</string>
+    <string name="app_places_home_failed">Couldn’t get a location right now. You can set Home later in Setup.</string>
+    <string name="app_places_home_name">Home</string>
     <string name="app_places_done">Location is on. Add your places in Setup.</string>
 
     <string name="app_remote_grant_note">Nothing is active until you approve.</string>
