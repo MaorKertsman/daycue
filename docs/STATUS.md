@@ -44,27 +44,27 @@ _Last updated: 2026-10-04 (session 1)_
 - Relay hosting question open with owner: (A) Render free + Supabase free Postgres, $0, cold starts; (B) Render Starter + disk ~$7/mo. Lead recommends A. Do not deploy before the owner chooses.
 - One early commit (8141492) contains the local path with the Windows username in docs/setup/MCP.md; fixed forward; owner told, history not rewritten.
 
-## State at 2026-10-05 (session continued)
+## State at 2026-10-05, end of day
 
-Committed through c59b66a; CI green at 9584927 (re-check after each push — it was red for several commits on lint errors and the lead missed it).
+Code complete for the authorized scope except the items under "Not built". Last code commit 69ee2d6 (full gate green locally: 160 domain + 249 app unit tests, debug + release, lint 0 errors). QA: 13 scenarios pass, 5 partial, 0 fail at 1740ef9 (docs/VALIDATION.md); defects D9-D13 fixed afterwards and verified by the implementer only (VALIDATION section 7).
 
-Done since the earlier notes: places/geofencing/activity recognition/calendar provider; security review 1 and its fixes (relay hardening 103 tests, domain value-level redaction + explicit op sensitivity, app adoption, grant approval, backup exclusion); real screens for all three tabs + onboarding/readiness/alarm; design reviews 1 and 2 with fix rounds; QA report docs/VALIDATION.md (10 pass / 7 partial / 1 fail before fixes); engine/platform fixes for QA defects D1, D2, D4, D6 (analysis), D7, D8, posture extend/pause, place override, dose correction, clock-jump medication catch-up (owner decision: one merged notice, 48 h window).
+Signed release: a keystore was generated on the owner's PC at %USERPROFILE%daycue-keys (daycue-release.jks + keystore.properties with the generated password; android/keystore.properties is the git-ignored copy Gradle reads). versionName 0.1.0, versionCode 1. The owner must back this folder up — losing it means future updates cannot install over the app. The CI release workflow has not run (GitHub signing secrets not set).
 
-Owner decisions so far: communicate in English; Render offered for hosting; medication catch-up notice after clock jumps (yes).
-Still open with owner: relay hosting A (Render free + Supabase free Postgres) vs B (Render Starter + disk); Spotify alarms (shipped off; policy forbids alarm use without approval); whether global pause should also pause calendar cues; posture after long manual pause now keeps position (owner may object).
+Process lessons: check CI after every push (it was red for several commits once); never let two agents run Gradle in android/ at the same time (it corrupted the build cache); agents that run long can end without a final report — give bounded-effort rules and audit their work.
 
-## In progress
+Owner decisions made: English communication; Render offered for hosting; one merged medication catch-up notice after clock jumps (48 h window).
+Open with owner: relay hosting A (Render free + Supabase free Postgres, $0, cold starts, PgStore only emulation-tested) vs B (Render Starter + disk, about $7/month, unconfirmed price); Spotify alarms (off; Spotify policy forbids alarm use without written approval); posture after a long manual pause now keeps position (spec reading; owner may object); work week comes from device region.
 
-- UI engineer (single owner of ui/**): adopting new facade APIs, remaining REVIEW-2 shell/shared items, QA D3/D5; captures to ../daycue-review/app-3 (emulator-5556).
-- Integrations engineer: relay DELETE /v1/phone/companions/:id (signed) — app request shape may need adjusting afterwards.
-- Docs writer: README.md, docs/QUICKSTART.he.md, docs/setup/INSTALL.md, docs/LIMITATIONS.md.
+## Not built / not verified (see docs/LIMITATIONS.md)
+
+- Nothing verified on a physical phone: audibility of sounds/speech/alarm on a locked phone, vibration, real geofence latency, deep Doze, OEM battery restrictions, Hebrew TTS voice install, real calendar account sync, companion tray UI and real lock/sleep events.
+- Relay not deployed; no live Claude Code / Claude.ai / ChatGPT connector check; FCM push not configured; companion key pinning; biometric step for medication-scope grants.
+- UI for "pause everything"; map picking for places; Quick Settings tile/widget for "Leaving now"; TalkBack run; QA re-test of D9-D13.
+- Dependabot PRs #1-#4 untouched (recommendation: close #1 @types/node 26; rebase and merge #2-#4).
 
 ## Next steps
 
-1. Build (incl. lint) + commit each result; confirm CI.
-2. If the relay endpoint requires a signature the app does not send, have the integrations engineer adjust integrations/relay (small).
-3. QA re-verification of fixed defects (D1 reboot, D2 release manifest, D3, D4, D5, D7, D8, posture) and scenarios 8/9 with the real companion against a local relay; update VALIDATION.md.
-4. Final designer pass on ../daycue-review/app-3 if time allows.
-5. Release: owner must create a keystore (docs/setup/BUILD.md) for a signed APK; until then attach a debug-signed APK to a GitHub pre-release and say so. Handle Dependabot PRs (#1 close; #2-#4 rebase/merge).
-6. Deploy relay only after the owner picks hosting; then live checks with Claude Code / Claude.ai.
-7. Owner bundle: hosting, Spotify, Firebase (optional), keystore, phone model + USB debugging for the physical checks in VALIDATION.md section 5.
+1. Owner: install the 0.1.0 pre-release APK on the phone (docs/QUICKSTART.he.md), back up %USERPROFILE%daycue-keys, and run the physical checks in docs/VALIDATION.md section 5 — or connect the phone by USB with debugging on so the lead can run them.
+2. Owner: choose relay hosting and Spotify handling. Then deploy the relay (mcp/render.yaml, Node 24), pair the phone, and verify Claude Code (stdio) and Claude.ai (remote MCP) end to end.
+3. QA re-test of D9-D13 and TalkBack; designer pass on ../daycue-review/app-3, qa-3.
+4. Build the small missing pieces if the owner wants them: pause-everything control, Leaving-now tile, companion key pinning.
