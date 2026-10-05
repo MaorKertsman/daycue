@@ -2,7 +2,24 @@ package app.daycue.ui.alarm
 
 import android.content.ActivityNotFoundException
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import app.daycue.ui.field.Field
+import app.daycue.ui.field.FieldActive
+import app.daycue.ui.field.FieldContext
+import app.daycue.ui.marks.CueType
+import app.daycue.ui.theme.DayCueShapes
+import app.daycue.ui.util.durationText
+import app.daycue.ui.cues.alarmName
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,37 +124,64 @@ fun AlarmRingingScreen(alarm: RingingAlarm, onStop: () -> Unit, onSnooze: () -> 
 @Composable
 fun AlarmContent(alarm: RingingAlarm, music: AlarmMusicState, onStop: () -> Unit, onSnooze: () -> Unit, onRecover: (RecoveryAction) -> Unit) {
     val c = DayCueTheme.colors
-    Box(Modifier.fillMaxSize().background(c.paper)) {
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    val fontScale = LocalDensity.current.fontScale
+    val name = alarmName(alarm.alarmId, alarm.name).ifBlank { alarm.title }
+    val snoozeLabel = stringResource(R.string.app_alarm_snooze_for, durationText(alarm.snoozeMin))
+    val fieldDescription = stringResource(R.string.app_alarm_field_desc, name)
+    BoxWithConstraints(Modifier.fillMaxSize().background(c.paper)) {
+        val screenHeight = maxHeight
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Three groups spread over the full screen: time and name up top, the Field in the upper middle, the two
+            // controls anchored to the lower third. At large text the page scrolls and Stop stays reachable.
             Column(
-                Modifier.widthIn(max = DayCueSpacing.contentMaxWidth).fillMaxWidth().padding(horizontal = DayCueSpacing.gutter).padding(vertical = 24.dp),
+                Modifier.widthIn(max = DayCueSpacing.contentMaxWidth).fillMaxWidth().heightIn(min = screenHeight)
+                    .statusBarsPadding().navigationBarsPadding().padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Spacer(Modifier.height(24.dp))
-                Text(
-                    alarm.time.ltr(),
-                    style = DayCueTheme.type.display.copy(fontSize = 72.sp, lineHeight = 84.sp),
-                    color = c.ink, textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(alarm.title, style = DayCueTheme.type.headline, color = c.ink, textAlign = TextAlign.Center)
-                if (alarm.isTest) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = DayCueSpacing.gutter), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        alarm.time.ltr(),
+                        style = DayCueTheme.type.display.copy(fontSize = if (fontScale >= 1.5f) 56.sp else 88.sp, lineHeight = if (fontScale >= 1.5f) 64.sp else 96.sp),
+                        color = c.ink, textAlign = TextAlign.Center,
+                    )
                     Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.app_alarm_test), style = DayCueTheme.type.label, color = c.ink2)
-                }
-                MusicNote(music, onRecover)
-                Spacer(Modifier.height(40.dp))
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                    if (alarm.canSnooze) {
-                        SecondaryButton(stringResource(R.string.app_alarm_snooze), onSnooze, Modifier.fillMaxWidth().heightIn(min = 72.dp))
+                    Text(name, style = DayCueTheme.type.title.copy(fontSize = 26.sp, lineHeight = 34.sp), color = c.ink, textAlign = TextAlign.Center)
+                    if (alarm.isTest) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.app_alarm_test), style = DayCueTheme.type.label, color = c.ink2)
                     }
-                    PrimaryButton(stringResource(R.string.dc_action_stop), onStop, Modifier.fillMaxWidth().heightIn(min = 72.dp))
+                    MusicNote(music, onRecover)
+                }
+                // The Field, edge to edge: the plane with the alarm disc arrived on it (due, with the seed dot).
+                Field(
+                    context = FieldContext.Home, active = FieldActive.None, nextCue = CueType.Alarm,
+                    remainingMinutes = 0, horizonMinutes = 1, description = fieldDescription, overdue = true,
+                    modifier = Modifier.padding(vertical = 24.dp),
+                )
+                Column(Modifier.fillMaxWidth().padding(horizontal = DayCueSpacing.gutter), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (alarm.canSnooze) {
+                        // Snooze: a pill, outlined. Stop: a slab, filled. Different shapes, both well over 72dp.
+                        AlarmButton(snoozeLabel, onSnooze, RoundedCornerShape(50), Color.Transparent, c.ink, c.outlineStrong)
+                    }
+                    AlarmButton(stringResource(R.string.dc_action_stop), onStop, DayCueShapes.plane, c.ink, c.paper, null)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AlarmButton(text: String, onClick: () -> Unit, shape: Shape, container: Color, content: Color, border: Color?) {
+    Box(
+        Modifier.fillMaxWidth().heightIn(min = 80.dp).clip(shape).background(container)
+            .then(if (border != null) Modifier.border(BorderStroke(2.dp, border), shape) else Modifier)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = DayCueTheme.type.title.copy(fontSize = 22.sp, lineHeight = 30.sp), color = content, textAlign = TextAlign.Center)
     }
 }
 

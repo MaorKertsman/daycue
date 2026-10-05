@@ -72,9 +72,9 @@ class DiffTextTest {
         assertEquals("Hydration: Off → On", english("habits[hydration].enabled: false -> true").single())
         assertEquals("Usually: Indoors → Outdoors", english("places[abc-1].typicalEnvironment: Indoor -> Outdoor").single())
         val unknown = english("habits[hydration].onLeaveCondition: RetractAndHold -> KeepVisible").single()
-        assertEquals("Setting changed (On leave condition (Hydration)): Retract and hold → Keep visible", unknown)
+        assertEquals("Hydration, on leave condition: Retract and hold → Keep visible", unknown)
         val heUnknown = hebrew("contextRules.placeEnterDwellMin: 3 -> 5").single()
-        assertTrue(heUnknown, heUnknown.startsWith("הגדרה שונתה (כללי הקשר)"))
+        assertEquals("כללי הקשר: עודכן", heUnknown)
         assertFalse(heUnknown.any { it in 'a'..'z' })
     }
 

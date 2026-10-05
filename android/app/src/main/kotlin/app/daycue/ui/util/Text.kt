@@ -82,7 +82,7 @@ fun SyncClockFromConfig(appContext: Context) {
 
 /** Formats a clock time with the device 24h/12h setting, Western digits, as an LTR isolate. */
 @Composable
-fun formatTime(hour: Int, minute: Int): String = formatTimeRaw(hour, minute).ltr()
+fun formatTime(hour: Int, minute: Int): String = clockTextIsolated(hour, minute, is24Hour(LocalContext.current), currentLocale())
 
 /** Same as [formatTime] but without the isolate, for building a range with [isolatedRange]. */
 @Composable
@@ -120,3 +120,9 @@ fun durationDescription(totalMinutes: Int): String {
         else -> "$hours $minutes"
     }
 }
+
+/**
+ * THE clock formatter (every UI, notification, speech and alarm-screen time goes through [clockText]): the AM/PM
+ * marker comes from [locale] (Hebrew "לפנה״צ" / "אחה״צ"), digits are Western, and the result is one LTR isolate.
+ */
+fun clockTextIsolated(hour: Int, minute: Int, is24: Boolean, locale: Locale): String = clockText(hour, minute, is24, locale).ltr()

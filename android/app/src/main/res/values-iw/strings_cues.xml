@@ -100,6 +100,7 @@
     <string name="cues_hist_alarm_rang">צלצל</string>
     <string name="cues_hist_alarm_stopped">הופסק</string>
     <string name="cues_hist_today_at">היום %1$s</string>
+    <string name="cues_med_recorded_at">נרשם ב־%1$s</string>
     <string name="cues_hist_all">הכול</string>
     <string name="cues_remind_every">תזכורת כל</string>
     <string name="cues_when">מתי</string>

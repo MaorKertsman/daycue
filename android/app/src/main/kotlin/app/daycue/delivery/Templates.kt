@@ -3,7 +3,8 @@ package app.daycue.delivery
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import app.daycue.ui.util.clockText
+import java.util.Locale
 
 /**
  * Pure template filling for domain [app.daycue.domain.engine.Text] (no Android imports; JVM-tested).
@@ -15,8 +16,8 @@ import java.time.format.DateTimeFormatter
  */
 object Templates {
     private val placeholder = Regex("\\{([a-zA-Z0-9_]+)\\}")
-    private val hhmm: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    private val hmma: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
+
+
 
     /** Keys whose resource name is derived from the domain key. */
     fun resourceName(key: String): String = "dc_" + key.replace('.', '_').replace('-', '_')
@@ -27,8 +28,8 @@ object Templates {
     fun needsAlt(template: String, args: Map<String, String>): Boolean =
         placeholders(template).any { it != "inner" && args[it].isNullOrBlank() }
 
-    fun fill(template: String, args: Map<String, String>, zone: ZoneId, rtl: Boolean, hour24: Boolean = true): String {
-        val formatted = args.mapValues { (k, v) -> formatArg(k, v, zone, rtl, hour24) }
+    fun fill(template: String, args: Map<String, String>, zone: ZoneId, rtl: Boolean, hour24: Boolean = true, locale: Locale = Locale.US): String {
+        val formatted = args.mapValues { (k, v) -> formatArg(k, v, zone, rtl, hour24, locale) }
         val expanded = formatted["template"]?.let { t -> mapOf("template" to substitute(t, formatted - "template")) } ?: emptyMap()
         return substitute(template, formatted + expanded).trim()
     }
@@ -54,13 +55,13 @@ object Templates {
      * Instants -> local `HH:mm` (or `h:mm AM` when ![hour24], `settings.use24Hour`); `HH:mm[:ss]` times kept;
      * times are LTR-isolated inside RTL text.
      */
-    fun formatArg(key: String, value: String, zone: ZoneId, rtl: Boolean, hour24: Boolean = true): String {
-        val fmt = if (hour24) hhmm else hmma
+    fun formatArg(key: String, value: String, zone: ZoneId, rtl: Boolean, hour24: Boolean = true, locale: Locale = Locale.US): String {
+        val fmt = { t: LocalTime -> clockText(t.hour, t.minute, hour24, locale) }
         val time = when {
             key == "template" -> null
             value.length >= 16 && value[10] == 'T' && value.endsWith("Z") ->
-                runCatching { fmt.format(Instant.parse(value).atZone(zone)) }.getOrNull()
-            value.length in 5..8 && value[2] == ':' -> runCatching { fmt.format(LocalTime.parse(value)) }.getOrNull()
+                runCatching { fmt(Instant.parse(value).atZone(zone).toLocalTime()) }.getOrNull()
+            value.length in 5..8 && value[2] == ':' -> runCatching { fmt(LocalTime.parse(value)) }.getOrNull()
             else -> null
         } ?: return value
         return if (rtl) "\u2066$time\u2069" else time

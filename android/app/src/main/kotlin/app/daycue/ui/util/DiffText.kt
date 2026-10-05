@@ -3,6 +3,7 @@ package app.daycue.ui.util
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -32,8 +33,10 @@ fun friendlyDiffLines(lines: List<String>): List<String> {
     val locale = currentLocale()
     val resources = context.resources
     val is24 = is24Hour(context)
-    return remember(lines, locale, is24, resources) {
-        DiffText.lines(lines, DiffLex { id, args -> resources.getString(id, *args) }, DiffEnv(locale, is24))
+    val facade = remember(context) { (context.applicationContext as? app.daycue.DayCueApplication)?.container?.facade }
+    val cfg = facade?.snapshot?.collectAsState()?.value?.config
+    return remember(lines, locale, is24, resources, cfg) {
+        DiffText.lines(lines, DiffLex { id, args -> resources.getString(id, *args) }, envFor(locale, is24, cfg))
     }
 }
 
@@ -59,6 +62,8 @@ class DiffEnv(
     val is24: Boolean,
     /** Optional id to display-name lookup (habit "hydration" -> "Hydration"). */
     val nameOf: (String) -> String? = { null },
+    /** 1-based position of a routine step (routineId, stepId), when the current config knows it. */
+    val stepNumber: (String, String) -> Int? = { _, _ -> null },
 ) {
     val hebrew: Boolean get() = locale.language == "iw" || locale.language == "he"
 }
@@ -70,7 +75,7 @@ object DiffText {
 
     private val json = Json
 
-    fun lines(raw: List<String>, lex: DiffLex, env: DiffEnv): List<String> = entries(raw, lex, env).map { it.sentence }
+    fun lines(raw: List<String>, lex: DiffLex, env: DiffEnv): List<String> = entries(raw, lex, env).map { it.sentence }.distinct()
 
     /** "Change quiet hours to 23:00-06:30" for one simple change, "N changes" otherwise; null if unknown. */
     fun title(raw: List<String>, lex: DiffLex, env: DiffEnv): String? {
@@ -109,6 +114,8 @@ object DiffText {
     private val PATH = Regex("""^[A-Za-z]\w*(\[[^\]]*])?(\.\w+(\[[^\]]*])?)*$""")
     private val SUMMARY_SPLIT = Regex(""";\s(?=[A-Za-z]\w*(\[[^\]]*])?(\.\w+(\[[^\]]*])?)*: )""")
     private val NAME_IN_JSON = Regex("\"(name|label)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+    /** `steps[<id>]` or `steps[<id>].<leaf>` inside a routine. */
+    private val STEP = Regex("""^steps\[([^\]]*)](?:\.(.+))?$""")
     private val UUIDISH = Regex("""^[0-9a-fA-F-]{16,}$|^.*\d{6,}.*$""")
 
     private fun one(line: String, lex: DiffLex, env: DiffEnv): DiffEntry {
@@ -137,9 +144,49 @@ object DiffText {
             }
             tail == "location" -> location(item, p, lex)
             // The on-phone preview carries the raw coordinates object: say only that a location was saved or removed.
-            tail == "center" -> location(item, Parsed(p.path, p.before, if (p.after == null || p.after == "none") "none" else "set"), lex)
+            tail == "center" || tail.startsWith("center.") -> location(item, Parsed(p.path, p.before, if (p.after == null || p.after == "none") "none" else "set"), lex)
+            section == "routines" && STEP.matchEntire(tail) != null -> routineStep(id, env.nameOf(id) ?: kindLabel(section, lex).replaceFirstChar { it.uppercase() }.let { k -> id.takeIf { x -> x.isNotBlank() && x.none { c -> c.isDigit() } && x.length <= 24 }?.replace('-', ' ')?.replace('_', ' ')?.replaceFirstChar { c -> c.uppercase() } ?: k }, STEP.matchEntire(tail)!!, p, lex, env)
             else -> field("$section[].$tail", section, known, p, lex, env, kindFallback = item)
         }
+    }
+
+    // ---- routine steps ----
+
+    private fun routineStep(routineId: String, routine: String, m: MatchResult, p: Parsed, lex: DiffLex, env: DiffEnv): DiffEntry {
+        fun s(id: Int, vararg a: Any) = lex.s(id, a)
+        val stepId = m.groupValues[1]
+        val leaf = m.groupValues[2]
+        val n = env.stepNumber(routineId, stepId)
+        val where = if (n != null) s(R.string.diff_step_n, routine, n.toString()) else s(R.string.diff_step, routine)
+        if (leaf.isEmpty()) {
+            val name = stepNameOf(p.after ?: p.before)
+            val t = when {
+                p.before == null -> s(R.string.diff_step_added, routine, name ?: "")
+                p.after == null -> s(R.string.diff_step_removed, routine, name ?: "")
+                else -> s(R.string.diff_generic, where)
+            }
+            return DiffEntry(where, null, name, t.trim().trimEnd(':').trim())
+        }
+        val spec = when (leaf) {
+            "name" -> Spec(null, K.Text)
+            "durationSec" -> Spec(R.string.diff_l_duration, K.Sec)
+            "repeat" -> Spec(R.string.diff_l_repeat, K.Int)
+            "optional" -> Spec(R.string.diff_l_optional, K.Bool)
+            "phrase" -> Spec(R.string.diff_l_phrase, K.Text)
+            else -> null
+        }
+        if (spec == null) return DiffEntry(where, null, null, s(R.string.diff_generic, where))
+        val b = p.before?.let { value(spec, it, lex, env) }
+        val a = p.after?.let { value(spec, it, lex, env) }
+        val head = if (spec.label != null) s(R.string.diff_step_field, where, s(spec.label)) else where
+        if ((p.before != null && b == null) || (p.after != null && a == null)) return DiffEntry(head, null, null, s(R.string.diff_generic, head))
+        return DiffEntry(head, b, a, compose(head, b, a, lex))
+    }
+
+    private fun stepNameOf(v: String?): String? {
+        val j = v?.let(::parseJson) as? JsonObject
+        j?.get("name").prim()?.takeIf { it.isNotBlank() }?.let { return it }
+        return v?.let { NAME_IN_JSON.find(it)?.groupValues?.get(2) }?.replace("\\\"", "\"")?.trim()?.takeIf { it.isNotBlank() }
     }
 
     // ---- whole item added / removed ----
@@ -318,6 +365,10 @@ object DiffText {
         }
         val b = p.before?.let { value(spec, it, lex, env) }
         val a = p.after?.let { value(spec, it, lex, env) }
+        // A rename reads "Renamed: Old → New" whatever the item is.
+        if (spec.kind == K.Text && key.endsWith(".name") || key == "medications[].label") {
+            if (b != null && a != null && p.before != "none" && p.after != "none") return DiffEntry(label, b, a, s(R.string.diff_renamed, b, a))
+        }
         val bb = if (b != null && spec.every) s(R.string.diff_every, b) else b
         val aa = if (a != null && spec.every) s(R.string.diff_every, a) else a
         // A value we cannot put in words (nested JSON): say the setting changed, never "removed".
@@ -334,16 +385,18 @@ object DiffText {
 
     private fun generic(key: String, section: String, item: String?, p: Parsed, lex: DiffLex, env: DiffEnv): DiffEntry {
         // The leaf name is an English code identifier: shown (humanized) in English only, never inside Hebrew.
-        val leaf = key.substringAfterLast('.').substringAfterLast(']')
-        val what = when {
-            env.hebrew -> item ?: sectionName(section, lex)
-            else -> humanize(leaf).let { h -> if (item != null) lex.s(R.string.diff_of, arrayOf(h, item)) else h }
+        val leaf = key.substringAfterLast('.').substringBefore('[')
+        // Hebrew has no word for an English code identifier, so it says only which item or area was updated.
+        if (env.hebrew) {
+            val what = item ?: sectionName(section, lex)
+            return DiffEntry(what, null, null, lex.s(R.string.diff_generic, arrayOf(what)))
         }
-        val label = lex.s(R.string.diff_generic, arrayOf(what))
+        val h = humanize(leaf)
+        val what = if (item != null) lex.s(R.string.diff_item_leaf, arrayOf(item, h.replaceFirstChar { it.lowercase() })) else lex.s(R.string.diff_item_leaf, arrayOf(sectionName(section, lex), h.replaceFirstChar { it.lowercase() }))
         val b = p.before?.let { plainValue(it, lex, env) }
         val a = p.after?.let { plainValue(it, lex, env) }
-        if ((p.before != null && b == null) || (p.after != null && a == null)) return DiffEntry(label, null, null, label)
-        return DiffEntry(label, b, a, compose(label, b, a, lex))
+        if ((p.before != null && b == null) || (p.after != null && a == null)) return DiffEntry(what, null, null, lex.s(R.string.diff_generic, arrayOf(what)))
+        return DiffEntry(what, b, a, compose(what, b, a, lex))
     }
 
     /** Short plain values only (booleans, numbers, English words); JSON and long text are dropped. */
@@ -493,3 +546,19 @@ fun friendlyDiffSummary(summary: String): String {
 /** Convenience for non-composable callers (view models): friendly lines from a [Context]. */
 fun friendlyDiffLines(context: Context, lines: List<String>, locale: Locale = Locale.getDefault()): List<String> =
     DiffText.lines(lines, DiffLex { id, args -> context.getString(id, *args) }, DiffEnv(locale, is24Hour(context)))
+
+/** A [DiffEnv] that resolves item ids and step positions from [cfg] (the config the diff is shown against), when known. */
+fun envFor(locale: Locale, is24: Boolean, cfg: app.daycue.domain.config.DayCueConfig?): DiffEnv {
+    if (cfg == null) return DiffEnv(locale, is24)
+    val names: Map<String, String> = buildMap {
+        cfg.habits.forEach { put(it.id, it.name) }
+        cfg.routines.forEach { put(it.id, it.name) }
+        cfg.alarms.forEach { put(it.id, it.name) }
+        cfg.places.forEach { put(it.id, it.name) }
+    }
+    return DiffEnv(
+        locale, is24,
+        nameOf = { id -> names[id]?.takeIf { it.isNotBlank() } },
+        stepNumber = { routineId, stepId -> cfg.routine(routineId)?.steps?.indexOfFirst { it.id == stepId }?.takeIf { it >= 0 }?.plus(1) },
+    )
+}

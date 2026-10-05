@@ -320,6 +320,8 @@
 
     <!-- Ringing alarm -->
     <string name="app_alarm_snooze">Snooze</string>
+    <string name="app_alarm_snooze_for">Snooze · %1$s</string>
+    <string name="app_alarm_field_desc">Alarm ringing: %1$s</string>
     <string name="app_alarm_test">Test · not recorded</string>
     <string name="app_alarm_connecting">Starting Spotify…</string>
     <string name="app_alarm_recover_install">Install Spotify</string>
@@ -338,6 +340,21 @@
     <string name="app_just_now">just now</string>
     <string name="app_src_ago">%1$s, %2$s</string>
     <string name="app_why_last">You last confirmed it at %1$s.</string>
+    <string name="app_why_every">Every %1$s</string>
+    <string name="app_why_every_outdoors">Every %1$s outdoors</string>
+    <string name="app_why_every_indoors">Every %1$s indoors</string>
+    <string name="app_why_every_working">Every %1$s while working</string>
+    <string name="app_why_every_studying">Every %1$s while studying</string>
+    <string name="app_why_every_session">Every %1$s during a work session</string>
+    <string name="app_why_every_generic">Every %1$s when your conditions match</string>
+    <string name="app_why_last_applied">last applied %1$s</string>
+    <string name="app_why_last_drank">last drank %1$s</string>
+    <string name="app_why_last_done">last done %1$s</string>
+    <string name="app_why_snoozed">You snoozed it, so it came back.</string>
+    <string name="app_why_stretch">The conditions you chose just started, so the first reminder is here.</string>
+    <string name="app_why_dose">Scheduled for %1$s. Medication reminders are never held back by quiet hours or context.</string>
+    <string name="app_why_dose_open">Scheduled for %1$s and not confirmed yet. Medication reminders are never held back by quiet hours or context.</string>
+    <string name="app_why_alarm">Rings at %1$s on %2$s.</string>
     <string name="app_rd_section_optional">Optional</string>
 
     <!-- Onboarding: places step -->

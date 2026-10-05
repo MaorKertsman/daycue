@@ -124,8 +124,13 @@ fun ItemDetailScreen(
 
         // Why now: a section, not a button inside an already expanded block. The rule names its source.
         SectionHeader(stringResource(R.string.why_now))
-        Text(ruleText(rule), style = DayCueTheme.type.body, color = c.ink)
-        if (lastAck != null) {
+        val whyInfo = model.why[itemKey]
+        val lines = whyLines(whyInfo, rule, model.now, model.zone)
+        lines.forEachIndexed { i, line ->
+            Text(line, style = DayCueTheme.type.body, color = c.ink, modifier = if (i > 0) Modifier.padding(top = 4.dp) else Modifier)
+        }
+        // Items with a specific line already state their last confirmation in it.
+        if (lastAck != null && (whyInfo == null || whyInfo.kind != WhyKind.Interval)) {
             Text(
                 stringResource(R.string.app_why_last, dayAwareClock(lastAck, model.now, model.zone)),
                 style = DayCueTheme.type.body, color = c.ink, modifier = Modifier.padding(top = 4.dp),

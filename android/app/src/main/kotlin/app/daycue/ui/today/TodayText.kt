@@ -175,3 +175,65 @@ fun sourceAgo(source: ContextSource, since: Instant?, now: Instant): String? {
     val ago = if (m < 1) stringResource(R.string.app_just_now) else stringResource(R.string.app_ago, durationText(m))
     return stringResource(R.string.app_src_ago, word, ago)
 }
+
+/**
+ * The specific "Why now?" explanation for an item, e.g. "Every 2 h outdoors · last applied 08:10", built from the
+ * domain's reason data ([WhyInfo]). The generic rule sentence ([ruleText]) is added only where it says something the
+ * specific line does not (snoozed, repeating, waiting for a condition, ...), and is the whole answer for item types the
+ * domain explains only with a rule id.
+ */
+@Composable
+fun whyLines(info: WhyInfo?, rule: String, now: Instant, zone: ZoneId): List<String> {
+    if (info == null) return listOf(ruleText(rule))
+    return when (info.kind) {
+        WhyKind.Interval -> {
+            val every = info.intervalMin?.let { m ->
+                val d = durationText(m)
+                stringResource(
+                    when (info.condition) {
+                        null -> R.string.app_why_every
+                        ConditionText.Outdoors -> R.string.app_why_every_outdoors
+                        ConditionText.Indoors -> R.string.app_why_every_indoors
+                        ConditionText.Working -> R.string.app_why_every_working
+                        ConditionText.Studying -> R.string.app_why_every_studying
+                        ConditionText.SessionRunning -> R.string.app_why_every_session
+                        ConditionText.Generic -> R.string.app_why_every_generic
+                    },
+                    d,
+                )
+            }
+            val last = info.lastAck?.let {
+                stringResource(
+                    when (info.habitKind) {
+                        app.daycue.domain.config.IntervalKind.Sunscreen -> R.string.app_why_last_applied
+                        app.daycue.domain.config.IntervalKind.Hydration -> R.string.app_why_last_drank
+                        else -> R.string.app_why_last_done
+                    },
+                    dayAwareClock(it, now, zone),
+                )
+            }
+            val specific = listOfNotNull(every, last).joinToString(" · ")
+            val extra = when {
+                info.due && (info.repeat || info.rule == "GEN-4") -> ruleText("GEN-4")
+                info.due && info.rule == "GEN-3" -> stringResource(R.string.app_why_snoozed)
+                info.due && info.rule == "SUN-8" -> stringResource(R.string.app_why_stretch)
+                info.due -> null
+                info.rule == "SUN-2" || info.rule == "HYD-3" -> null
+                else -> ruleText(info.rule)
+            }
+            listOfNotNull(specific.ifBlank { null }, extra).ifEmpty { listOf(ruleText(info.rule)) }
+        }
+        WhyKind.Dose -> listOf(
+            when {
+                info.at == null -> ruleText("MED-1")
+                info.notConfirmed -> stringResource(R.string.app_why_dose_open, dayAwareClock(info.at, now, zone))
+                else -> stringResource(R.string.app_why_dose, dayAwareClock(info.at, now, zone))
+            },
+        )
+        WhyKind.Alarm -> listOf(
+            if (info.at != null && info.days != null) stringResource(R.string.app_why_alarm, clockOf(info.at, zone), app.daycue.ui.cues.daysSummary(info.days))
+            else ruleText("ALM-1"),
+        )
+        WhyKind.Other -> listOf(ruleText(info.rule))
+    }
+}

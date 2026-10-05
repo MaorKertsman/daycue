@@ -60,6 +60,7 @@ internal fun RecentActivity(vm: CuesViewModel, subjectType: String, subjectId: S
     if (words.isEmpty()) return
     SectionHeader(stringResource(R.string.cues_recent_activity))
     words.forEachIndexed { i, (row, word) ->
-        DayCueRow(primary = word!!, secondary = historyWhen(row.occurredAtMs), divider = i < words.lastIndex)
+        val shownMs = app.daycue.data.repo.takenTimes(row.kind, row.occurredAtMs, app.daycue.data.repo.historyDetail(row.payloadJson))?.takenAt?.toEpochMilli() ?: row.occurredAtMs
+        DayCueRow(primary = word!!, secondary = historyWhen(shownMs), divider = i < words.lastIndex)
     }
 }

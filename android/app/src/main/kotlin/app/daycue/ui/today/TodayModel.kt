@@ -169,6 +169,26 @@ data class NextItem(
     val lastAck: Instant?,
 )
 
+/** What "Why now?" says about an item, from the domain's own reason data (rule id + facts) and the item's config. */
+enum class WhyKind { Interval, Dose, Alarm, Other }
+
+data class WhyInfo(
+    val rule: String,
+    val kind: WhyKind = WhyKind.Other,
+    val habitKind: IntervalKind? = null,
+    val intervalMin: Int? = null,
+    /** Null = the habit has no condition ("any"). */
+    val condition: ConditionText? = null,
+    val lastAck: Instant? = null,
+    /** The cue repeated because it was not answered (GEN-4). */
+    val repeat: Boolean = false,
+    val at: Instant? = null,
+    val notConfirmed: Boolean = false,
+    /** Shown for an item that is due now (not for a Next row). */
+    val due: Boolean = false,
+    val days: Set<java.time.DayOfWeek>? = null,
+)
+
 data class FieldModel(
     val context: FieldContext,
     val active: FieldActive,
@@ -195,6 +215,8 @@ data class TodayModel(
     val doseCount: Int,
     /** Saved places the owner can pick in the context sheet (id, display name). */
     val places: List<Pair<String, ItemName>> = emptyList(),
+    /** "Why now?" data by item key (due and next items). */
+    val why: Map<String, WhyInfo> = emptyMap(),
 )
 
 /** Bundled default names that must follow the app language (user-renamed items keep their own text). */
@@ -261,6 +283,7 @@ object TodayMapper {
             alarmEnabled = config.alarms.any { it.enabled },
             doseCount = view.doses.size,
             places = config.places.map { it.id to defaultName(it.id, it.name) },
+            why = whyInfos(view, config, state, due),
         )
     }
 
@@ -363,6 +386,59 @@ object TodayMapper {
         PostureModeKind.Standing -> PostureMode.Stand
         PostureModeKind.Walking -> PostureMode.Walk
         PostureModeKind.Custom -> null
+    }
+
+    /**
+     * "Why now?" data from the domain's reason data: the delivered cue's `why` (rule, reason key, facts incl.
+     * `intervalMin`, `lastAck`) for due items, the upcoming item's rule and facts for next items, plus the item's own
+     * config (interval, condition, days). Item types the domain only explains with a generic rule id carry just that
+     * rule (calendar, posture, routine prompts, sessions, bottle).
+     */
+    internal fun whyInfos(view: TodayView, config: DayCueConfig, state: EngineState, due: List<DueItem>): Map<String, WhyInfo> {
+        val out = mutableMapOf<String, WhyInfo>()
+        fun instant(s: String?) = s?.takeIf { it.isNotBlank() }?.let { runCatching { Instant.parse(it) }.getOrNull() }
+        for (u in view.upcoming) {
+            val habit = if (u.itemKey.startsWith("habit:")) config.habit(u.itemKey.removePrefix("habit:")) as? IntervalHabit else null
+            out[u.itemKey] = when {
+                habit != null -> WhyInfo(u.rule, WhyKind.Interval, habit.kind, habit.intervalMin, conditionOfHabit(habit), instant(u.facts["lastAck"]), at = u.at)
+                u.itemKey.startsWith("med:") -> WhyInfo(u.rule, WhyKind.Dose, at = u.at)
+                u.itemKey.startsWith("alarm:") -> {
+                    val a = config.alarm(u.itemKey.removePrefix("alarm:"))
+                    WhyInfo(u.rule, WhyKind.Alarm, at = u.at, days = a?.let { it.days ?: config.settings.workDays })
+                }
+                else -> WhyInfo(u.rule)
+            }
+        }
+        for (d in due) {
+            when (d) {
+                is HabitDue -> {
+                    val habit = config.habit(d.habitId) as? IntervalHabit
+                    val cue = state.delivery.visible[d.key]?.cue?.why
+                    if (habit != null) {
+                        out[d.key] = WhyInfo(
+                            rule = cue?.rule?.let { if (it == "HYD-1" || it == "SUN-3") "SUN-2" else it } ?: d.rule, kind = WhyKind.Interval, due = true, habitKind = habit.kind,
+                            intervalMin = cue?.facts?.get("intervalMin")?.toIntOrNull() ?: habit.intervalMin,
+                            condition = conditionOfHabit(habit), lastAck = d.lastAck ?: instant(cue?.facts?.get("lastAck")),
+                            repeat = cue?.reason?.endsWith(".repeat") == true || cue?.rule == "GEN-4",
+                        )
+                    } else cue?.let { out[d.key] = WhyInfo(it.rule) }
+                }
+                is DoseDue -> out[d.key] = WhyInfo("MED-1", WhyKind.Dose, at = d.dueAt, notConfirmed = d.notConfirmed, due = true)
+                else -> state.delivery.visible[d.key]?.cue?.why?.let { out[d.key] = WhyInfo(it.rule) }
+            }
+        }
+        return out
+    }
+
+    private fun conditionOfHabit(habit: IntervalHabit): ConditionText? = if (habit.condition.isAny) null else {
+        val c = habit.condition
+        when {
+            c.environments == setOf(Environment.Outdoor) -> ConditionText.Outdoors
+            c.environments == setOf(Environment.Indoor) -> ConditionText.Indoors
+            c.activities == setOf(Activity.Working) -> ConditionText.Working
+            c.activities == setOf(Activity.Studying) -> ConditionText.Studying
+            else -> ConditionText.Generic
+        }
     }
 
     private fun conditionOf(config: DayCueConfig, item: UpcomingItem): ConditionText {

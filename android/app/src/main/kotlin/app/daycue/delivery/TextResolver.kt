@@ -68,7 +68,7 @@ class TextResolver(private val context: Context) {
         // `kindKey` -> localized `kind` (after variant selection, which uses only a real `kind`).
         val filled = Templates.withResolvedKind(args) { raw(it, lang) }
         if (Templates.needsAlt(template, filled)) raw("${base}_alt", lang)?.let { template = it }
-        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he, hour24 = use24Hour)
+        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he, hour24 = use24Hour, locale = Locale.forLanguageTag(lang.name))
     }
 
     @SuppressLint("DiscouragedApi") // keys are data from the domain; names are kept from shrinking by res/raw/keep_engine.xml

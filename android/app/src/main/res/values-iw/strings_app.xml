@@ -324,6 +324,8 @@
 
     <!-- Ringing alarm -->
     <string name="app_alarm_snooze">דחייה</string>
+    <string name="app_alarm_snooze_for">דחייה · %1$s</string>
+    <string name="app_alarm_field_desc">שעון מעורר מצלצל: %1$s</string>
     <string name="app_alarm_test">בדיקה · לא נרשמת</string>
     <string name="app_alarm_connecting">Spotify מתחילה…</string>
     <string name="app_alarm_recover_install">התקנת Spotify</string>
@@ -342,6 +344,21 @@
     <string name="app_just_now">הרגע</string>
     <string name="app_src_ago">%1$s, %2$s</string>
     <string name="app_why_last">אישרת אותה לאחרונה ב־%1$s.</string>
+    <string name="app_why_every">כל %1$s</string>
+    <string name="app_why_every_outdoors">כל %1$s בחוץ</string>
+    <string name="app_why_every_indoors">כל %1$s בפנים</string>
+    <string name="app_why_every_working">כל %1$s בזמן עבודה</string>
+    <string name="app_why_every_studying">כל %1$s בזמן לימודים</string>
+    <string name="app_why_every_session">כל %1$s בזמן סשן עבודה</string>
+    <string name="app_why_every_generic">כל %1$s כשהתנאים שלך מתקיימים</string>
+    <string name="app_why_last_applied">נמרח לאחרונה ב־%1$s</string>
+    <string name="app_why_last_drank">שתית לאחרונה ב־%1$s</string>
+    <string name="app_why_last_done">בוצע לאחרונה ב־%1$s</string>
+    <string name="app_why_snoozed">דחית אותה, ולכן היא חזרה.</string>
+    <string name="app_why_stretch">התנאים שבחרת התחילו עכשיו, ולכן הגיעה התזכורת הראשונה.</string>
+    <string name="app_why_dose">נקבעה ל־%1$s. תזכורות לתרופות לא נעצרות בגלל שעות שקט או הקשר.</string>
+    <string name="app_why_dose_open">נקבעה ל־%1$s ועדיין לא אושרה. תזכורות לתרופות לא נעצרות בגלל שעות שקט או הקשר.</string>
+    <string name="app_why_alarm">מצלצל ב־%1$s בימים %2$s.</string>
     <string name="app_rd_section_optional">אופציונלי</string>
 
     <!-- הכנה: שלב המקומות -->

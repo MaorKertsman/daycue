@@ -78,6 +78,20 @@ class FacadeGapsTest {
     }
 
     @Test
+    fun `MED-5 Taken history entry always carries takenAt and keeps the recorded time as entry at`() {
+        val s = medScenario()
+        s.advanceTo("10:05")
+        s.send(Event.MedicationTaken(s.slot("08:00").ref, takenAt = s.t("08:05")))
+        val e = s.history(HistoryKind.Taken).single()
+        assertEquals(s.t("08:05").toString(), e.detail["takenAt"])
+        assertEquals(s.t("10:05"), e.at, "recorded-at stays the entry instant")
+        s.advanceTo("20:03")
+        s.send(Event.MedicationTaken(s.slot("20:00").ref))
+        val now = s.history(HistoryKind.Taken).last()
+        assertEquals(s.t("20:03").toString(), now.detail["takenAt"], "tap time recorded explicitly when no time entered")
+    }
+
+    @Test
     fun `MED-5 corrections - change time, undo (no new cue), skipped, all recorded with before and after`() {
         val s = medScenario()
         s.advanceTo("08:01")

@@ -197,4 +197,27 @@ class TodayMapperTest {
         )
         assertEquals(listOf("med:med-1|2026-10-05|09:30", "habit:sunscreen", "habit:hydration"), m.due.map { it.key })
     }
+
+    @Test
+    fun whyNowCarriesSpecificFactsFromTheDomainReasonData() {
+        val base = Defaults.config()
+        val hydration = base.habits.filterIsInstance<IntervalHabit>().first { it.id == Defaults.HYDRATION }
+        val config = base.copy(habits = base.habits.map { if (it.id == Defaults.HYDRATION) hydration.copy(enabled = true, intervalMin = 120) else it })
+        val last = "2026-10-05T08:10:00Z"
+        val v = view(upcoming = listOf(
+            UpcomingItem("habit:${Defaults.HYDRATION}", DomainCue.Hydration, "Hydration", at = Instant.parse("2026-10-05T10:10:00Z"), rule = "HYD-3", facts = mapOf("lastAck" to last)),
+            UpcomingItem("med:m|2026-10-05|20:00", DomainCue.Medication, "Synthetic", at = Instant.parse("2026-10-05T20:00:00Z"), rule = "MED-1"),
+            UpcomingItem("alarm:${Defaults.MORNING_ALARM}", DomainCue.Alarm, "Morning alarm", at = Instant.parse("2026-10-06T07:00:00Z"), rule = "ALM-1"),
+            UpcomingItem("cal:e1", DomainCue.Calendar, "Event", at = Instant.parse("2026-10-05T12:00:00Z"), rule = "CAL-1"),
+        ))
+        val why = TodayMapper.map(v, config, EngineState(), zone).why
+        val h = why.getValue("habit:${Defaults.HYDRATION}")
+        assertEquals(WhyKind.Interval, h.kind)
+        assertEquals(120, h.intervalMin)
+        assertEquals(Instant.parse(last), h.lastAck)
+        assertEquals(WhyKind.Dose, why.getValue("med:m|2026-10-05|20:00").kind)
+        assertEquals(WhyKind.Alarm, why.getValue("alarm:${Defaults.MORNING_ALARM}").kind)
+        assertTrue(why.getValue("alarm:${Defaults.MORNING_ALARM}").days!!.isNotEmpty())
+        assertEquals(WhyKind.Other, why.getValue("cal:e1").kind)
+    }
 }

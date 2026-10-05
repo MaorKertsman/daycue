@@ -36,7 +36,7 @@ internal object MedicationModule {
                 val at = clampTakenAt(run, s, ev.takenAt)
                 put(run, s.copy(status = SlotStatus.Taken, takenAt = at, snoozedUntil = null))
                 run.history(slotKey(s), HistoryKind.Taken, "MED-2", ev.cueId ?: s.cue?.cueId,
-                    if (at != run.now) mapOf("takenAt" to at.toString()) else emptyMap())
+                    mapOf("takenAt" to at.toString())) // the entry's own `at` is when it was recorded
                 closeMergedIfResolved(run)
             }
             is Event.MedicationCorrect -> correct(run, ev)

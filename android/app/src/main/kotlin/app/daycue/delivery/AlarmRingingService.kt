@@ -27,7 +27,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** What the alarm screen shows; null when nothing rings. */
-data class RingingAlarm(val alarmId: String, val title: String, val time: String, val canSnooze: Boolean, val locked: Boolean, val isTest: Boolean)
+data class RingingAlarm(
+    val alarmId: String, val title: String, val time: String, val canSnooze: Boolean, val locked: Boolean, val isTest: Boolean,
+    /** The alarm's own name (raw; the screen localizes default names) and its snooze length, for the screen. */
+    val name: String = "", val snoozeMin: Int = 9,
+)
 
 /**
  * Ringing morning alarm (ANDROID.md §6.3, §7): `mediaPlayback` foreground service started from the
@@ -77,6 +81,8 @@ class AlarmRingingService : Service() {
             canSnooze = intent.getIntExtra(EXTRA_SNOOZE_COUNT, 0) < intent.getIntExtra(EXTRA_MAX_SNOOZES, 3),
             locked = locked,
             isTest = intent.getBooleanExtra(EXTRA_TEST, false),
+            name = intent.getStringExtra(EXTRA_NAME) ?: "",
+            snoozeMin = intent.getIntExtra(EXTRA_SNOOZE_MIN, 9),
         )
         val notification = buildNotification(alarm, intent.getStringExtra(EXTRA_SNOOZE_LABEL), intent.getStringExtra(EXTRA_STOP_LABEL))
         ServiceCompat.startForeground(this, FGS_ID, notification,
@@ -197,6 +203,7 @@ class AlarmRingingService : Service() {
         const val ACTION_LOCKED_SNOOZE = "app.daycue.alarm.LOCKED_SNOOZE"
         const val EXTRA_ALARM_ID = "alarmId"
         const val EXTRA_TITLE = "title"
+        const val EXTRA_NAME = "name"
         const val EXTRA_TIME = "time"
         const val EXTRA_TONE = "tone"
         const val EXTRA_SOURCE_URI = "sourceUri"

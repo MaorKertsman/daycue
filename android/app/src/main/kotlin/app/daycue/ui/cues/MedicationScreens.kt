@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import app.daycue.R
 import app.daycue.data.db.HistoryEventEntity
 import app.daycue.data.repo.HistoryPayload
+import app.daycue.data.repo.takenTimes
 import app.daycue.domain.config.DayCueConfig
 import app.daycue.domain.config.DayCueJson
 import app.daycue.domain.config.Medication
@@ -187,11 +188,14 @@ private fun TakenAtPicker(slot: SlotRef, dueAt: Instant, initial: Instant, onSav
 
 /** MED-5 corrections for a slot that already has an outcome: another time, skipped, or back to not confirmed. */
 @Composable
-internal fun DoseCorrectionActions(vm: CuesViewModel, slot: SlotRef, dueAt: Instant, status: DoseStatus, takenAt: Instant?, onDone: () -> Unit) {
+internal fun DoseCorrectionActions(vm: CuesViewModel, slot: SlotRef, dueAt: Instant, status: DoseStatus, takenAt: Instant?, onDone: () -> Unit, recordedAt: Instant? = null) {
     var pickingTime by remember { mutableStateOf(false) }
     if (pickingTime) {
         TakenAtPicker(slot, dueAt, initial = takenAt ?: Instant.now(), onSave = { at -> vm.correct(slot, DoseCorrection.Taken(at)); onDone() }, onCancel = { pickingTime = false })
         return
+    }
+    if (recordedAt != null) {
+        Text(stringResource(R.string.cues_med_recorded_at, instantTime(recordedAt)), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(bottom = 8.dp))
     }
     FlowRowButtons {
         SecondaryButton(stringResource(if (status == DoseStatus.Taken) R.string.cues_med_change_time else R.string.cues_med_correct_taken), { pickingTime = true })
@@ -217,7 +221,7 @@ private val MED_KINDS = setOf("Taken", "Skipped", "NotConfirmed", "Snoozed", "Di
 private val OUTCOME_KINDS = setOf("Taken", "Skipped", "NotConfirmed", "Corrected")
 
 /** What a history row asks the owner to correct: the slot, its current outcome and when it was taken. */
-private data class CorrectTarget(val slot: SlotRef, val dueAt: Instant, val status: DoseStatus, val takenAt: Instant?)
+private data class CorrectTarget(val slot: SlotRef, val dueAt: Instant, val status: DoseStatus, val takenAt: Instant?, val recordedAt: Instant? = null)
 
 private fun slotOf(r: HistoryEventEntity): SlotRef? {
     val key = r.payloadJson?.let { runCatching { DayCueJson.decodeFromString(HistoryPayload.serializer(), it).itemKey }.getOrNull() } ?: return null
@@ -265,7 +269,9 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
                 val label = cfg.medication(r.subjectId)?.label ?: stringResource(R.string.cues_med_removed)
                 val slotRef = slotOf(r)
                 val detail = detailOf(r)
-                val at = Instant.ofEpochMilli(r.occurredAtMs).atZone(zone).toLocalTime()
+                val times = takenTimes(r.kind, r.occurredAtMs, detail)
+                // Taken rows show when the dose was taken (the entered "Taken at"), not when it was recorded.
+                val at = (times?.takenAt ?: Instant.ofEpochMilli(r.occurredAtMs)).atZone(zone).toLocalTime()
                 val word = when (r.kind) {
                     "Delivered" -> stringResource(R.string.cues_hist_reminder)
                     "Corrected" -> when (detail["to"]) {
@@ -295,6 +301,7 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
                         else -> when (detail["to"]) { "Taken" -> DoseStatus.Taken; "Skipped" -> DoseStatus.Skipped; "Due" -> DoseStatus.Due; else -> DoseStatus.Upcoming }
                     }
                     val takenAtIso = if (r.kind == "Corrected") detail["takenAt"] else null
+                    val recorded = times?.takeIf { it.differs }?.recordedAt
                     DayCueRow(
                         primary = label,
                         secondary = listOfNotNull(doseText, if (r.kind == "Corrected") word else "$word ${timeText(at)}").joinToString(" · "),
@@ -302,7 +309,7 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
                         trailing = if (canCorrect) ({
                             DayCueTextButton(stringResource(R.string.cues_med_correct), {
                                 val due = slotRef!!.date.atTime(slotRef.time).atZone(zone).toInstant()
-                                correcting = CorrectTarget(slotRef, due, status, takenAtIso?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: if (r.kind == "Taken") Instant.ofEpochMilli(r.occurredAtMs) else null)
+                                correcting = CorrectTarget(slotRef, due, status, takenAtIso?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: if (r.kind == "Taken") times?.takenAt else null, recorded)
                             })
                         }) else null,
                         divider = i < list.lastIndex,
@@ -314,7 +321,7 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
     }
     correcting?.let { c ->
         DayCueBottomSheet({ correcting = null }, stringResource(R.string.cues_med_correct_title), CueType.Medication) {
-            DoseCorrectionActions(vm, c.slot, c.dueAt, c.status, c.takenAt, onDone = { correcting = null })
+            DoseCorrectionActions(vm, c.slot, c.dueAt, c.status, c.takenAt, onDone = { correcting = null }, recordedAt = c.recordedAt)
         }
     }
 }

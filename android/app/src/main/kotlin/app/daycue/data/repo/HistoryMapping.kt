@@ -46,3 +46,24 @@ object HistoryMapping {
         )
     }
 }
+
+/** When a dose was taken versus when the row was written (MED-5: "Taken at" may be earlier than the tap). */
+data class TakenTimes(val takenAt: java.time.Instant, val recordedAt: java.time.Instant) {
+    /** True when the two differ by a minute or more, so the detail view mentions "recorded". */
+    val differs: Boolean get() = kotlin.math.abs(java.time.Duration.between(takenAt, recordedAt).seconds) >= 60
+}
+
+/**
+ * Times of a `Taken` / `Corrected(to=Taken)` row. The engine puts `takenAt` in the detail; rows written before that was
+ * always recorded fall back to the row instant. Null for other kinds.
+ */
+fun takenTimes(kind: String, occurredAtMs: Long, detail: Map<String, String>): TakenTimes? {
+    if (kind != "Taken" && !(kind == "Corrected" && detail["to"] == "Taken")) return null
+    val recorded = java.time.Instant.ofEpochMilli(occurredAtMs)
+    val taken = detail["takenAt"]?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() } ?: recorded
+    return TakenTimes(taken, recorded)
+}
+
+/** The `detail` map of a stored history payload (empty when absent or unreadable). */
+fun historyDetail(payloadJson: String?): Map<String, String> =
+    payloadJson?.let { runCatching { DayCueJson.decodeFromString(HistoryPayload.serializer(), it).detail }.getOrNull() } ?: emptyMap()
