@@ -22,7 +22,6 @@ import app.daycue.scheduling.AndroidWakeScheduler
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 /**
  * Locked-boot fallback (ANDROID.md §5.4). After each reduce, the next few alarm-clock-class items
@@ -51,13 +50,15 @@ class BootSnapshotStore(private val context: Context, private val clock: Clock) 
         if (key == lastKey) return
         lastKey = key
         val view = Queries.todayView(config, state, clock, limit = 100)
-        val hhmm = DateTimeFormatter.ofPattern("HH:mm").withZone(clock.zone())
+        // Same clock formatter and language as the rest of the app (D10); shown on the alarm screen before the first unlock.
+        val locale = app.daycue.ui.util.localeOf(config.settings.language)
+        val fmt = { at: java.time.Instant -> at.atZone(clock.zone()).let { app.daycue.ui.util.clockText(it.hour, it.minute, config.settings.use24Hour, locale) } }
         val entries = view.upcoming.filter { it.at != null && (it.type == CueType.Alarm || it.type == CueType.Medication) }
             .sortedBy { it.at }.take(MAX_ENTRIES).map { u ->
                 val alarm = if (u.type == CueType.Alarm) config.alarm(u.itemKey.removePrefix("alarm:")) else null
                 BootEntry(
                     kind = if (u.type == CueType.Alarm) KIND_ALARM else KIND_MEDICATION,
-                    atMs = u.at!!.toEpochMilli(), time = hhmm.format(u.at),
+                    atMs = u.at!!.toEpochMilli(), time = fmt(u.at!!),
                     alarmId = alarm?.id, snoozeMin = alarm?.snoozeMin ?: 9, rampSec = alarm?.volumeRampSec ?: 30, vibrate = alarm?.vibrate ?: true,
                 )
             }

@@ -3,6 +3,7 @@ package app.daycue.delivery
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
+import app.daycue.ui.util.clockIsolate
 import app.daycue.ui.util.clockText
 import java.util.Locale
 
@@ -32,6 +33,18 @@ object Templates {
         val formatted = args.mapValues { (k, v) -> formatArg(k, v, zone, rtl, hour24, locale) }
         val expanded = formatted["template"]?.let { t -> mapOf("template" to substitute(t, formatted - "template")) } ?: emptyMap()
         return substitute(template, formatted + expanded).trim()
+    }
+
+    /**
+     * Resource names to try, most specific first. A real `kind` argument selects `<base>_<kind>`; a `minutes` argument of
+     * 0 / 1 / 2 then selects the `_now` / `_one` / `_two` form when the language has one (VALIDATION D13: never "in 0
+     * minutes", Hebrew "בעוד דקה" / "בעוד שתי דקות"); otherwise the plain resource is used.
+     */
+    fun candidateNames(base: String, args: Map<String, String>): List<String> {
+        val kind = args["kind"]?.lowercase()?.takeIf { it.matches(Regex("[a-z]+")) }
+        val q = when (args["minutes"]?.trim()?.toIntOrNull()) { null -> null; 0 -> "now"; 1 -> "one"; 2 -> "two"; else -> null }
+        val stems = listOfNotNull(kind?.let { "${base}_$it" }, base)
+        return stems.flatMap { s -> listOfNotNull(q?.let { "${s}_$it" }, s) }
     }
 
     private val kindKeyShape = Regex("[a-z0-9_.]+")
@@ -64,7 +77,7 @@ object Templates {
             value.length in 5..8 && value[2] == ':' -> runCatching { fmt(LocalTime.parse(value)) }.getOrNull()
             else -> null
         } ?: return value
-        return if (rtl) "\u2066$time\u2069" else time
+        return if (rtl) time.clockIsolate() else time
     }
 
     /** "Also: a, b." / "And 2 more." joiner for COL-1 utterances. */

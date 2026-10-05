@@ -392,7 +392,7 @@ fun fieldDescription(m: TodayModel): String {
     m.running.filterIsInstance<PostureRunning>().firstOrNull()?.let { p ->
         if (!p.paused && p.endsAt != null) {
             val left = Duration.between(m.now, p.endsAt).toMinutes().toInt().coerceAtLeast(0)
-            parts += stringResource(R.string.app_fd_posture, p.modeName, app.daycue.ui.util.durationDescription(left))
+            parts += if (left < 1) stringResource(R.string.app_fd_posture_now, p.modeName) else stringResource(R.string.app_fd_posture, p.modeName, app.daycue.ui.util.durationDescription(left))
         }
     }
     m.running.filterIsInstance<RoutineRunning>().firstOrNull()?.let { parts += stringResource(R.string.app_fd_routine, it.name.text()) }
@@ -401,7 +401,7 @@ fun fieldDescription(m: TodayModel): String {
     }
     m.field?.nextName?.let { name ->
         val f = m.field
-        parts += stringResource(R.string.app_fd_next, name.text(), app.daycue.ui.util.durationDescription(f.remainingMinutes))
+        parts += stringResource(R.string.app_fd_next, name.text(), app.daycue.ui.util.relativeDescription(f.remainingMinutes))
     }
     return parts.joinToString(". ")
 }

@@ -45,7 +45,7 @@
     <string name="dc_cue_routine_step_title">{step} ({index}/{count})</string>
     <string name="dc_cue_routine_step_title_alt">{step}</string>
     <string name="dc_cue_routine_step_body">עד {endsAt}</string>
-    <string name="dc_cue_routine_step_body_alt">בסיום יש להקיש על „בוצע”</string>
+    <string name="dc_cue_routine_step_body_alt">בסיום יש להקיש על „סיימתי”</string>
     <string name="dc_cue_routine_nudge_title">עדיין בשלב: {step}?</string>
     <string name="dc_cue_routine_recover_title">{routine} נעצרה בשלב: {step}</string>
     <string name="dc_cue_routine_recover_body">אפשר להמשיך, להתחיל מההתחלה או לבטל.</string>
@@ -77,15 +77,15 @@
     <!-- Notification actions -->
     <string name="dc_action_applied">מרחתי</string>
     <string name="dc_action_drank">שתיתי</string>
-    <string name="dc_action_done">בוצע</string>
+    <string name="dc_action_done">סיימתי</string>
     <string name="dc_action_got_it">הבנתי</string>
-    <string name="dc_action_not_needed">לא צריך</string>
+    <string name="dc_action_not_needed">אין צורך</string>
     <string name="dc_action_taken">לקחתי</string>
     <string name="dc_action_snooze">דחייה ב־{minutes} דק׳</string>
     <string name="dc_action_snooze_alt">דחייה</string>
     <string name="dc_action_pause">השהיה לשעה</string>
-    <string name="dc_action_switched">החלפתי</string>
-    <string name="dc_action_extend">‎+{minutes} דק׳</string>
+    <string name="dc_action_switched">עברתי</string>
+    <string name="dc_action_extend">הארכה ב־{minutes} דק׳</string>
     <string name="dc_action_skip">דילוג</string>
     <string name="dc_action_start">התחלה</string>
     <string name="dc_action_not_now">לא עכשיו</string>
@@ -94,7 +94,7 @@
     <string name="dc_action_restart">מההתחלה</string>
     <string name="dc_action_cancel">ביטול</string>
     <string name="dc_action_stop">עצירה</string>
-    <string name="dc_action_skip_today">דילוג היום</string>
+    <string name="dc_action_skip_today">דילוג להיום</string>
     <string name="dc_action_open">פתיחה</string>
 
     <!-- Short names for "וגם: ..." -->
@@ -259,10 +259,33 @@
     <string name="dc_template_step_face_cleanser">ניקוי פנים</string>
     <string name="dc_template_step_brush_teeth">צחצוח שיניים</string>
     <string name="dc_template_step_get_dressed">להתלבש</string>
-    <string name="dc_template_alarm_morning">שעון מעורר</string>
+    <string name="dc_template_alarm_morning">שעון מעורר בבוקר</string>
     <string name="dc_template_calendar_meetings">פגישות</string>
     <string name="dc_template_calendar_appointments">תורים</string>
     <string name="dc_template_calendar_workouts">אימונים</string>
     <string name="dc_template_calendar_important">חשוב</string>
     <string name="dc_template_calendar_free_time">זמן פנוי</string>
+
+    <!-- Quantity forms of {minutes} (VALIDATION D13): 0 = now, 1, 2. Picked by Templates.candidateNames. -->
+    <string name="dc_cue_calendar_title_now">{kind} עכשיו</string>
+    <string name="dc_cue_calendar_title_one">{kind} בעוד דקה</string>
+    <string name="dc_cue_calendar_title_two">{kind} בעוד שתי דקות</string>
+    <string name="dc_cue_calendar_generic_title_now">{kind} עכשיו</string>
+    <string name="dc_cue_calendar_generic_title_one">{kind} בעוד דקה</string>
+    <string name="dc_cue_calendar_generic_title_two">{kind} בעוד שתי דקות</string>
+    <string name="dc_cue_calendar_title_event_now">אירוע עכשיו</string>
+    <string name="dc_cue_calendar_title_event_one">אירוע בעוד דקה</string>
+    <string name="dc_cue_calendar_title_event_two">אירוע בעוד שתי דקות</string>
+    <string name="dc_cue_calendar_generic_title_event_now">אירוע עכשיו</string>
+    <string name="dc_cue_calendar_generic_title_event_one">אירוע בעוד דקה</string>
+    <string name="dc_cue_calendar_generic_title_event_two">אירוע בעוד שתי דקות</string>
+    <string name="dc_speech_calendar_title_now">עכשיו: {title}</string>
+    <string name="dc_speech_calendar_title_one">בעוד דקה: {title}</string>
+    <string name="dc_speech_calendar_title_two">בעוד שתי דקות: {title}</string>
+    <string name="dc_speech_calendar_generic_now">יש לך {kind} עכשיו</string>
+    <string name="dc_speech_calendar_generic_one">יש לך {kind} בעוד דקה</string>
+    <string name="dc_speech_calendar_generic_two">יש לך {kind} בעוד שתי דקות</string>
+    <string name="dc_speech_calendar_generic_event_now">יש לך אירוע עכשיו</string>
+    <string name="dc_speech_calendar_generic_event_one">יש לך אירוע בעוד דקה</string>
+    <string name="dc_speech_calendar_generic_event_two">יש לך אירוע בעוד שתי דקות</string>
 </resources>

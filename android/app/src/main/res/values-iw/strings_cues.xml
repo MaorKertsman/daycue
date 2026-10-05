@@ -243,7 +243,7 @@
     <string name="cues_runs_manual_c">שום דבר לא פועל עד שמקישים על התחלה בבקרה החיה.</string>
     <string name="cues_posture_timer_start">מתי הטיימר מתחיל</string>
     <string name="cues_timer_confirm">כשמאשרים את ההחלפה</string>
-    <string name="cues_timer_confirm_c">הטיימר של המצב הבא מתחיל כשמקישים על החלפתי. עד אז התזכורת חוזרת כמה פעמים ואז ממתינה בשקט.</string>
+    <string name="cues_timer_confirm_c">הטיימר של המצב הבא מתחיל כשמקישים על „עברתי”. עד אז התזכורת חוזרת כמה פעמים ואז ממתינה בשקט.</string>
     <string name="cues_timer_cue">בזמן התזכורת</string>
     <string name="cues_timer_cue_c">הטיימר של המצב הבא מתחיל ברגע שהתזכורת מגיעה. אישור הוא לא חובה.</string>
     <string name="cues_posture_confirm_repeat">חזרה על תזכורת ההחלפה</string>
@@ -465,7 +465,7 @@
     <string name="cues_play_next">הבא: %1$s · %2$s</string>
     <string name="cues_play_last_step">זה השלב האחרון</string>
     <string name="cues_play_back">הקודם</string>
-    <string name="cues_play_done">סיום</string>
+    <string name="cues_play_done">סיימתי</string>
     <string name="cues_play_skip">דילוג</string>
     <string name="cues_alarms_title">שעונים מעוררים</string>
     <string name="cues_alarms_empty">אין שעונים מעוררים</string>

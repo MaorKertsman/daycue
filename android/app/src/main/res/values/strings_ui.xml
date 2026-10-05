@@ -78,6 +78,9 @@
         <item quantity="other">More options (%1$d changed)</item>
     </plurals>
 
+    <!-- Hours + minutes in full words (D13). Hebrew: "ו" before a word ("ודקה"), "ו־" before a number ("ו־5 דקות"). -->
+    <string name="desc_join_word">%1$s %2$s</string>
+    <string name="desc_join_number">%1$s %2$s</string>
     <plurals name="desc_hours">
         <item quantity="one">%d hour</item>
         <item quantity="other">%d hours</item>

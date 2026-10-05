@@ -92,11 +92,13 @@ fun Field(
     modifier: Modifier = Modifier,
     overdue: Boolean = false,
     ambient: Boolean = true,
+    /** Fixed height in dp chosen by the caller (the alarm screen sizes it to the free space, VALIDATION D12); null = [fieldHeightDp]. */
+    heightDpOverride: Float? = null,
 ) {
     val colors = DayCueTheme.colors
     val reduce = LocalReduceMotion.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val heightDp = fieldHeightDp()
+    val heightDp = heightDpOverride ?: fieldHeightDp()
 
     val targetP = if (overdue) 1f else 1f - (remainingMinutes.toFloat() / horizonMinutes.coerceAtLeast(1)).coerceIn(0f, 1f)
     val due = targetP >= 1f

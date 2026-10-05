@@ -153,7 +153,7 @@ class DayCueFacade(private val c: AppContainer) {
      * [tag] `"he"` / `"en"`, or null = follow the phone. Use it in onboarding and Settings instead of calling
      * `AppCompatDelegate.setApplicationLocales` and `ConfigOp.SetLanguage` separately. Visible Activities recreate.
      */
-    suspend fun setAppLanguage(tag: String?): ApplyOutcome? = c.language.set(tag)
+    suspend fun setAppLanguage(tag: String?, fromOnboarding: Boolean = false): ApplyOutcome? = c.language.set(tag, fromOnboarding = fromOnboarding)
 
     /** `"he"` / `"en"` when the app has its own language, null when it follows the phone. */
     fun appLanguageTag(): String? = c.language.currentTag()

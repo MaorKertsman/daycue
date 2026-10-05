@@ -67,6 +67,7 @@ import app.daycue.ui.util.is24Hour
 import app.daycue.ui.util.grantScopeIsWarning
 import app.daycue.ui.util.grantScopeLines
 import app.daycue.ui.util.clockText
+import app.daycue.ui.util.clockIsolate
 import app.daycue.ui.util.friendlyDiffLines
 import app.daycue.ui.util.friendlyDiffSummary
 import app.daycue.ui.util.friendlyDiffTitle
@@ -212,7 +213,7 @@ private fun formatClockOf(ms: Long, is24: Boolean, locale: java.util.Locale): St
 }
 
 @Composable
-private fun formatClock(ms: Long): String = formatClockOf(ms, is24Hour(LocalContext.current), currentLocale()).ltr()
+private fun formatClock(ms: Long): String = formatClockOf(ms, is24Hour(LocalContext.current), currentLocale()).clockIsolate()
 
 @Composable
 private fun spotifyWord(s: app.daycue.integrations.spotify.SpotifyAvailability): String = stringResource(

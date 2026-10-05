@@ -59,8 +59,8 @@ class TextResolver(private val context: Context) {
 
     private fun fill(key: String, args: Map<String, String>, lang: Language, zone: ZoneId): String {
         val base = Templates.resourceName(key)
-        val kind = args["kind"]?.lowercase()?.takeIf { it.matches(Regex("[a-z]+")) }
-        var template = kind?.let { raw("${base}_$it", lang) } ?: raw(base, lang)
+        // Variant: `_<kind>` (session suggestion, calendar event), then the quantity form of `{minutes}` (D13: "now", one, two).
+        var template = Templates.candidateNames(base, args).firstNotNullOfOrNull { raw(it, lang) }
         if (template == null) {
             Log.w("DayCue", "missing string for text key '$key'")
             return args["phrase"] ?: args["text"] ?: args["name"] ?: key
@@ -68,7 +68,7 @@ class TextResolver(private val context: Context) {
         // `kindKey` -> localized `kind` (after variant selection, which uses only a real `kind`).
         val filled = Templates.withResolvedKind(args) { raw(it, lang) }
         if (Templates.needsAlt(template, filled)) raw("${base}_alt", lang)?.let { template = it }
-        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he, hour24 = use24Hour, locale = Locale.forLanguageTag(lang.name))
+        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he, hour24 = use24Hour, locale = localeOf(lang))
     }
 
     @SuppressLint("DiscouragedApi") // keys are data from the domain; names are kept from shrinking by res/raw/keep_engine.xml
@@ -79,9 +79,7 @@ class TextResolver(private val context: Context) {
     }
 
     companion object {
-        fun localeOf(lang: Language): Locale = when (lang) {
-            Language.he -> Locale.forLanguageTag("he-IL")
-            Language.en -> Locale.forLanguageTag("en")
-        }
+        /** The one app-language -> locale mapping ([app.daycue.ui.util.localeOf]). */
+        fun localeOf(lang: Language): Locale = app.daycue.ui.util.localeOf(lang)
     }
 }

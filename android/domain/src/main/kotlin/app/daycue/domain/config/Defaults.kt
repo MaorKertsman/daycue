@@ -1,5 +1,6 @@
 package app.daycue.domain.config
 
+import app.daycue.domain.edit.ConfigOp
 import app.daycue.domain.time.TimeWindow
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -159,6 +160,58 @@ object Defaults {
         CueProfile("profile-habit", CueType.Habit, "droplet", "single-short-soft", phrase = LocalizedText("Reminder", "תזכורת")),
         CueProfile("profile-notice", CueType.Notice, "none", "none", soundEnabled = false, vibrationEnabled = false, speechEnabled = false),
     )
+
+    /**
+     * VALIDATION D10(b): the language picked in onboarding re-localizes the first-run names the user has NOT edited.
+     * A name is "not edited" when it equals the default name for its template key in any known language ([known]:
+     * key -> every default text, e.g. English built-in + Hebrew resource); it is then renamed to [target]'s text. A name
+     * the user typed is never touched. Work days follow the same rule: only when the device region is unknown
+     * ([region] null) and they still equal the language default of [from], they become the default of [to] (region, when
+     * known, decides independent of language: PRODUCT §0 "Workdays", DOMAIN.md).
+     * Returns the ops to apply through the normal edit path (empty when nothing changes).
+     */
+    fun relocalizeOps(
+        config: DayCueConfig, target: Names, known: (String) -> Set<String>,
+        from: Language? = null, to: Language? = null, region: String? = null,
+    ): List<ConfigOp> {
+        fun isDefault(key: String, name: String) = name.trim() in (known(key) + TEMPLATE_TEXT.getValue(key)).map { it.trim() }
+        fun rename(key: String, name: String): String? = target(key).takeIf { it != name && isDefault(key, name) }
+        val ops = mutableListOf<ConfigOp>()
+        val habitKeys = mapOf(SUNSCREEN to "template.habit.sunscreen", HYDRATION to "template.habit.hydration", WATER_BOTTLE to "template.habit.water_bottle")
+        for (h in config.habits) {
+            val key = habitKeys[h.id] ?: continue
+            val n = rename(key, h.name) ?: continue
+            ops += ConfigOp.UpsertHabit(when (h) { is IntervalHabit -> h.copy(name = n); is TransitionHabit -> h.copy(name = n) })
+        }
+        val placeKeys = mapOf(HOME to "template.place.home", OFFICE to "template.place.office", GYM to "template.place.gym")
+        for (p in config.places) {
+            val key = placeKeys[p.id] ?: continue
+            rename(key, p.name)?.let { ops += ConfigOp.UpsertPlace(p.copy(name = it)) }
+        }
+        val stepKeys = mapOf("shower" to "template.step.shower", "face-cleanser" to "template.step.face_cleanser",
+            "brush-teeth" to "template.step.brush_teeth", "get-dressed" to "template.step.get_dressed")
+        config.routines.firstOrNull { it.id == MORNING_ROUTINE }?.let { r ->
+            val name = rename("template.routine.morning", r.name) ?: r.name
+            val steps = r.steps.map { s ->
+                val key = stepKeys[s.id] ?: return@map s
+                val sn = rename(key, s.name) ?: s.name
+                val phrase = if (s.phrase.isBlank()) s.phrase else rename(key, s.phrase) ?: s.phrase
+                s.copy(name = sn, phrase = phrase)
+            }
+            if (name != r.name || steps != r.steps) ops += ConfigOp.UpsertRoutine(r.copy(name = name, steps = steps))
+        }
+        config.alarms.firstOrNull { it.id == MORNING_ALARM }?.let { a -> rename("template.alarm.morning", a.name)?.let { ops += ConfigOp.UpsertAlarm(a.copy(name = it)) } }
+        val ruleKeys = mapOf("meetings" to "template.calendar.meetings", "appointments" to "template.calendar.appointments",
+            "workouts" to "template.calendar.workouts", "important" to "template.calendar.important", "free-time" to "template.calendar.free_time")
+        config.calendarRules.rules.forEachIndexed { i, rule ->
+            val key = ruleKeys[rule.id] ?: return@forEachIndexed
+            rename(key, rule.name)?.let { ops += ConfigOp.UpsertCalendarRule(rule.copy(name = it), i) }
+        }
+        if (from != null && to != null && from != to && region.isNullOrBlank() && config.settings.workDays == workDaysFor(from)) {
+            ops += ConfigOp.SetGlobalSettings(config.settings.copy(workDays = workDaysFor(to)))
+        }
+        return ops
+    }
 
     /** The first-run document. Medication list is empty by design. */
     fun config(language: Language = Language.en): DayCueConfig = config(FirstRunSeed(language))

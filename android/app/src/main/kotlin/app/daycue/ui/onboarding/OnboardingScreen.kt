@@ -96,7 +96,7 @@ class OnboardingViewModel(private val facade: DayCueFacade) : ViewModel() {
     /** Sets the app language in the config (the Activity locale is switched by the caller after this returns). */
     fun setLanguage(language: Language, then: () -> Unit) {
         viewModelScope.launch {
-            facade.setAppLanguage(if (language == Language.he) "he" else "en")
+            facade.setAppLanguage(if (language == Language.he) "he" else "en", fromOnboarding = true) // re-localizes untouched first-run names (D10b)
             then()
         }
     }

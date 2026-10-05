@@ -40,7 +40,7 @@ and `AlarmRingingService.ringing` for the alarm screen). Everything is main-safe
 | `setPlace(placeId?, duration = UntilTransition)`, `clearPlaceOverride()` | CTX-1 "I'm at <place>" / "Not at a saved place" (null). Durations as `setEnvironment` (cap 8 h); Today shows the place with source `Manual`. **unit** |
 | `medicationTaken(slot, takenAt?)` | MED-2 for today's slot; `takenAt` = "I took it at" (null = now; clamped to `[dueAt - 24 h, now]`). **unit** |
 | `correctDose(slot, DoseCorrection.Taken(at) | Skipped | Undo)` | MED-5 history correction (today and the previous day). Undo = not confirmed again, never re-cued (no implied advice). History row `Corrected` (`from`, `to`, `takenAt`). **unit** |
-| `setAppLanguage(tag?)`, `appLanguageTag()` | **The one language call** (D8): per-app locale (UI) and `settings.language` (notifications, speech) together; `"he"` / `"en"` / null = follow the phone. A language chosen in system settings reaches the config at the next start (and at once while running); a config language set by MCP or an import moves the UI. **unit** (policy) + **emu** |
+| `setAppLanguage(tag?, fromOnboarding = false)`, `appLanguageTag()` | **The one language call** (D8): `settings.language` (notifications, speech) first, then the per-app locale (UI), serialized with the start-up / system reconcile and retried on a version conflict, in the app scope (leaving the screen cannot stop it half-way). `"he"` / `"en"` / null = follow the phone. `fromOnboarding = true` also re-localizes untouched first-run names (D10b). A language chosen in system settings reaches the config at the next start (and at once while running); a config language set by MCP or an import moves the UI. **unit** (policy) + **emu** |
 | `spotify: StateFlow<SpotifyAvailability>`, `refreshSpotify()` | `available` (SDK bundled + client id), `enabled` (available + Spotify installed), `connection` (`Unavailable`, `NotInstalled`, `Idle`, `Connecting`, `Playing`, `FellBack`) and `lastFailure`. **unit** |
 | `startRoutine(activityContext, routineId, replaceCurrent)` | **Call from a visible Activity.** Starts `RoutinePlaybackService` (`mediaPlayback` FGS), which dispatches the start. Required for audible speech on Android 17 (§6). |
 | `testRoutine(activityContext, routineId, RoutineTestMode)` | RTN-8 test run, same path. |
@@ -62,6 +62,7 @@ per UX §1.4). Targets (`DeepLinks.targetFor`):
 | target | itemKey examples | Screen |
 |---|---|---|
 | `item` | `habit:sunscreen`, `habit:water-bottle` | Item detail, "Why now?" expanded |
+| `item` (D11) | `med:<id>\|<date>\|<HH:mm>`, `cal:<key>`, `posture`, `routine-prompt:<id>` | "Why now?" from the delivered cue's `why` facts: dose = schedule ("Scheduled 08:00 · Every day", "Reminder 2 of 4"; no context sources, no advice), calendar = matched rule + lead, posture = mode ended + next, routine prompt = its trigger, bottle = Leaving now / place left / scheduled departure. The dose sheet shows the same dose lines. |
 | `dose` | `med:<medId>\|<yyyy-mm-dd>\|<HH:mm>` (`ActionMapper.slot()` parses it) | Dose detail |
 | `medication` | `med:merged`, `med:policy` | Today medication section |
 | `routine` | `routine:<id>`, `routine-prompt:<id>` | Playback (pre-start / recovery state) |

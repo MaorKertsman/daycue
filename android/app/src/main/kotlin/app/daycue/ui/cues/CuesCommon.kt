@@ -155,10 +155,20 @@ internal fun stepName(id: String, name: String): String = when {
 }
 
 @Composable
-internal fun alarmName(id: String, name: String): String = when (name) {
-    "Morning alarm" -> stringResource(R.string.cues_template_morning_alarm)
-    "Alarm" -> stringResource(R.string.cues_new_alarm_name) // the English default name, shown in the UI language
-    else -> name
+internal fun alarmName(id: String, name: String): String {
+    // A default name in EITHER language (English built-in or the Hebrew first-run text) shows in the UI language (D12).
+    val ctx = LocalContext.current
+    val text = remember(ctx) { runCatching { (ctx.applicationContext as app.daycue.DayCueApplication).container.text }.getOrNull() }
+    val isMorningDefault = remember(name, text) {
+        val key = "template.alarm.morning"
+        name.trim() == app.daycue.domain.config.Defaults.TEMPLATE_TEXT[key] ||
+            app.daycue.domain.config.Language.entries.any { text?.textOrNull(key, it)?.trim() == name.trim() }
+    }
+    return when {
+        isMorningDefault -> stringResource(R.string.cues_template_morning_alarm)
+        name == "Alarm" -> stringResource(R.string.cues_new_alarm_name) // the English default name, shown in the UI language
+        else -> name
+    }
 }
 
 internal fun markFor(h: Habit): CueType = when (h) {

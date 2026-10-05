@@ -223,17 +223,55 @@ fun whyLines(info: WhyInfo?, rule: String, now: Instant, zone: ZoneId): List<Str
             }
             listOfNotNull(specific.ifBlank { null }, extra).ifEmpty { listOf(ruleText(info.rule)) }
         }
-        WhyKind.Dose -> listOf(
-            when {
-                info.at == null -> ruleText("MED-1")
-                info.notConfirmed -> stringResource(R.string.app_why_dose_open, dayAwareClock(info.at, now, zone))
-                else -> stringResource(R.string.app_why_dose, dayAwareClock(info.at, now, zone))
-            },
-        )
+        WhyKind.Dose -> doseWhyLines(info.doseTime, info.days, info.reminderNumber, info.reminderMax, info.notConfirmed)
+            .ifEmpty { listOf(ruleText("MED-1")) }
         WhyKind.Alarm -> listOf(
             if (info.at != null && info.days != null) stringResource(R.string.app_why_alarm, clockOf(info.at, zone), app.daycue.ui.cues.daysSummary(info.days))
             else ruleText("ALM-1"),
         )
+        WhyKind.Calendar -> listOfNotNull(
+            info.detail?.let { stringResource(R.string.app_why_cal_rule, it) } ?: stringResource(R.string.app_why_cal_default),
+            info.leadMin?.let { stringResource(R.string.app_why_cal_lead, durationText(it)) },
+        )
+        WhyKind.Posture -> listOf(
+            when {
+                info.detail != null && info.next != null -> stringResource(R.string.app_why_posture_next, info.detail, info.next)
+                info.detail != null -> stringResource(R.string.app_why_posture, info.detail)
+                else -> ruleText(info.rule)
+            },
+        )
+        WhyKind.RoutinePrompt -> listOf(
+            when (val t = info.routineTrigger) {
+                is app.daycue.domain.config.RoutineTrigger.Schedule -> stringResource(
+                    if (info.routineAskToStart) R.string.cues_trig_schedule_ask else R.string.cues_trig_schedule_auto,
+                    app.daycue.ui.cues.daysSummary(t.days), formatTime(t.time.hour, t.time.minute),
+                )
+                is app.daycue.domain.config.RoutineTrigger.AfterAlarm ->
+                    stringResource(R.string.cues_trig_after_alarm, info.alarmTime?.let { formatTime(it.hour, it.minute) } ?: "?")
+                else -> ruleText(info.rule)
+            }.let { trig -> info.detail?.let { stringResource(R.string.app_why_routine_prompt, it, trig) } ?: trig },
+        )
+        WhyKind.Bottle -> listOf(
+            when (info.trigger) {
+                "LeavingNow" -> stringResource(R.string.app_why_bottle_leaving)
+                "GeofenceExit" -> info.detail?.let { stringResource(R.string.app_why_bottle_left, it) } ?: stringResource(R.string.app_why_bottle_left_any)
+                "ScheduledDeparture" -> info.detail?.let { stringResource(R.string.app_why_bottle_scheduled, it) } ?: stringResource(R.string.app_why_bottle_left_any)
+                else -> ruleText(info.rule)
+            },
+        )
         WhyKind.Other -> listOf(ruleText(info.rule))
     }
 }
+
+/**
+ * Medication "Why now?" (VALIDATION D11), used by Today, the item detail and the dose sheet: the schedule and, when the
+ * reminder repeats, which reminder this is. Facts only: no dosage, timing or missed-dose guidance (MED-10).
+ */
+@Composable
+fun doseWhyLines(time: java.time.LocalTime?, days: Set<java.time.DayOfWeek>?, reminderNumber: Int?, reminderMax: Int?, notConfirmed: Boolean): List<String> =
+    listOfNotNull(
+        time?.let { stringResource(R.string.app_why_dose_sched, formatTime(it.hour, it.minute), app.daycue.ui.cues.daysSummary(days ?: app.daycue.domain.time.ALL_DAYS)) },
+        if (reminderNumber != null && reminderMax != null && reminderMax > 1) stringResource(R.string.app_why_dose_reminder, reminderNumber, reminderMax) else null,
+        if (notConfirmed) stringResource(R.string.app_why_dose_nc) else null,
+        if (time != null) stringResource(R.string.app_why_dose_never_held) else null,
+    )

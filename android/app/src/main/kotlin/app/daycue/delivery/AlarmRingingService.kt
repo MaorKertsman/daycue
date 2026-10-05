@@ -84,13 +84,16 @@ class AlarmRingingService : Service() {
             name = intent.getStringExtra(EXTRA_NAME) ?: "",
             snoozeMin = intent.getIntExtra(EXTRA_SNOOZE_MIN, 9),
         )
-        val notification = buildNotification(alarm, intent.getStringExtra(EXTRA_SNOOZE_LABEL), intent.getStringExtra(EXTRA_STOP_LABEL))
+        // D12: with DayCue on screen the alarm screen opens directly; its notification then stays in the shade without a
+        // heads-up (which covered the large time). Otherwise the full-screen intent opens the screen.
+        val direct = AlarmScreenLaunch.startDirectly(app.daycue.AppVisibility.visible, locked)
+        val notification = buildNotification(alarm, intent.getStringExtra(EXTRA_SNOOZE_LABEL), intent.getStringExtra(EXTRA_STOP_LABEL), quiet = AlarmScreenLaunch.quietNotification(direct))
         ServiceCompat.startForeground(this, FGS_ID, notification,
             if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)
         _ringing.value = alarm
         // D7: with DayCue on screen the system does not show a full-screen intent (only a heads-up), so open the alarm
         // screen directly; allowed because the app has a visible window. Otherwise the full-screen intent does it.
-        if (AlarmScreenLaunch.startDirectly(app.daycue.AppVisibility.visible, locked)) {
+        if (direct) {
             runCatching { startActivity(AlarmActivity.intent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 .onFailure { Log.w(TAG, "alarm screen could not be started directly", it) }
         }
@@ -150,7 +153,7 @@ class AlarmRingingService : Service() {
         if (f < 1f) handler.postDelayed({ ramp(startMs, durationMs) }, 500)
     }
 
-    private fun buildNotification(a: RingingAlarm, snoozeLabel: String?, stopLabel: String?): Notification {
+    private fun buildNotification(a: RingingAlarm, snoozeLabel: String?, stopLabel: String?, quiet: Boolean = false): Notification {
         val full = PendingIntent.getActivity(this, 0, AlarmActivity.intent(this), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val b = NotificationCompat.Builder(this, "alarm")
             .setSmallIcon(R.drawable.ic_stat_daycue)
@@ -162,7 +165,7 @@ class AlarmRingingService : Service() {
             // Not setSilent(): NotificationCompat implements it with a suppressive group-alert behaviour, which
             // also suppresses the full-screen intent. The "alarm" channel has no sound; the service plays audio.
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setFullScreenIntent(full, true)
+            .also { if (quiet) it.setSilent(true) else it.setFullScreenIntent(full, true) }
             .setContentIntent(full)
         val key = "alarm:${a.alarmId}"
         if (a.canSnooze) b.addAction(0, snoozeLabel ?: "Snooze", actionIntent(a, ActionKind.Snooze, key))
@@ -240,6 +243,8 @@ class AlarmRingingService : Service() {
 /** D7 decision (JVM-tested): open [AlarmActivity] ourselves only while a DayCue Activity is visible. */
 object AlarmScreenLaunch {
     fun startDirectly(appVisible: Boolean, locked: Boolean): Boolean = appVisible && !locked
+    /** The ongoing alarm notification is posted without a heads-up when the alarm screen was opened directly (D12). */
+    fun quietNotification(startedDirectly: Boolean): Boolean = startedDirectly
 }
 
 /**

@@ -80,6 +80,8 @@
         <item quantity="other">אפשרויות נוספות (%1$d שינויים)</item>
     </plurals>
 
+    <string name="desc_join_word">%1$s ו%2$s</string>
+    <string name="desc_join_number">%1$s ו־%2$s</string>
     <plurals name="desc_hours">
         <item quantity="one">שעה</item>
         <item quantity="two">שעתיים</item>

@@ -65,6 +65,7 @@ import app.daycue.ui.marks.CueMark
 import app.daycue.ui.marks.CueType
 import app.daycue.ui.theme.DayCueTheme
 import app.daycue.ui.util.clockText
+import app.daycue.ui.util.clockIsolate
 import app.daycue.ui.util.currentLocale
 import app.daycue.ui.util.is24Hour
 import app.daycue.ui.util.ltr
@@ -549,7 +550,7 @@ private fun PreviewRowView(row: CalendarPreviewRow, why: String, vm: CalendarVie
             Column(Modifier.padding(start = 16.dp).weight(1f)) {
                 // The title is untrusted text: shown as plain text only (a Text composable never links or interprets it).
                 Text(row.event.title.ifBlank { stringResource(R.string.su_prev_untitled) }, style = DayCueTheme.type.titleSmall, color = c.ink, maxLines = 3)
-                Text(time?.ltr() ?: stringResource(R.string.su_prev_all_day), style = DayCueTheme.type.bodySmall, color = c.ink2)
+                Text(time?.clockIsolate() ?: stringResource(R.string.su_prev_all_day), style = DayCueTheme.type.bodySmall, color = c.ink2)
                 val cueLine = when {
                     override is EventDecisionOverride.Never -> stringResource(R.string.su_prev_no_cue_you)
                     override is EventDecisionOverride.Always -> stringResource(R.string.su_prev_cue_you, leadsText(override.leadsMin))

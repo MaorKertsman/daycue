@@ -74,7 +74,7 @@ fun cardSpec(item: DueItem, m: TodayModel, h: CardHandlers): CardSpec {
             buildList {
                 add(act(stringResource(R.string.app_act_taken), primary = true) { vm.doseTaken(item.slot) })
                 if (!item.notConfirmed) add(act(stringResource(R.string.app_act_snooze), confirm = false) { vm.doseSnooze(item.slot) })
-            }, emptyList(), emptyList(),
+            }, emptyList(), listOf(CueAction(whyLabel, { h.why(item.key) })),
         )
         is PostureDue -> CardSpec(
             dueTitle(item), due, stringResource(R.string.app_timer_starts_on_switch),
@@ -83,28 +83,28 @@ fun cardSpec(item: DueItem, m: TodayModel, h: CardHandlers): CardSpec {
                 act(stringResource(R.string.app_act_snooze_min, durationText(item.snoozeMin)), confirm = false) { vm.posture(PostureAction.Snooze) },
                 act(stringResource(R.string.app_act_skip), confirm = false) { vm.posture(PostureAction.Skip) },
                 act(stringResource(R.string.app_act_extend5), confirm = false) { vm.posture(PostureAction.Extend5) },
-            ), emptyList(),
+            ), listOf(CueAction(whyLabel, { h.why(item.key) })),
         )
         is RoutinePromptDue -> CardSpec(
             stringResource(R.string.app_routine_prompt, item.name.text()), due, null,
             listOf(
                 act(stringResource(R.string.app_act_start), primary = true, confirm = false) { h.startRoutine(item.routineId) },
                 act(stringResource(R.string.app_act_skip_today), confirm = false) { vm.routineSkipToday(item.routineId) },
-            ), emptyList(), emptyList(),
+            ), emptyList(), listOf(CueAction(whyLabel, { h.why(item.key) })),
         )
         is CalendarDue -> CardSpec(
             dueTitle(item), due, null,
             listOf(
                 act(stringResource(R.string.app_act_got_it), primary = true) { vm.calendarAck(item.cueId) },
                 act(stringResource(R.string.app_act_snooze_min, durationText(5)), confirm = false) { vm.calendarSnooze(item.cueId) },
-            ), emptyList(), emptyList(),
+            ), emptyList(), listOf(CueAction(whyLabel, { h.why(item.key) })),
         )
         is SessionPromptDue -> CardSpec(
             dueTitle(item), due, null,
             listOf(
                 act(stringResource(R.string.app_act_start), primary = true, confirm = false) { vm.sessionAnswer(item.placeId, SessionAnswer.Start, item.cueId) },
                 act(stringResource(R.string.app_act_not_now), confirm = false) { vm.sessionAnswer(item.placeId, SessionAnswer.NotNow, item.cueId) },
-            ), emptyList(), emptyList(),
+            ), emptyList(), listOf(CueAction(whyLabel, { h.why(item.key) })),
         )
     }
 }

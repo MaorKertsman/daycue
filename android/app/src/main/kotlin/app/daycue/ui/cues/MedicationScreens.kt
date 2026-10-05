@@ -163,6 +163,18 @@ private fun DoseSheet(vm: CuesViewModel, d: DoseView, onDismiss: () -> Unit) {
             // Taken / Skipped / Not confirmed: correcting goes through the same MED-5 path as the history entry.
             DoseCorrectionActions(vm, d.slot, d.dueAt, d.status, d.takenAt, onDone = onDismiss)
         }
+        // "Why now?" (VALIDATION D11): the schedule and the reminder number; facts only, no advice (MED-10).
+        val cfg by vm.config.collectAsState()
+        val engine by vm.engine.collectAsState()
+        val med = cfg?.medication(d.slot.medicationId)
+        val cue = engine?.delivery?.visible?.get("med:${d.slot.key}")?.cue
+        val repeating = (med?.repeat?.maxRepeats ?: 0) > 0
+        val whyLines = app.daycue.ui.today.doseWhyLines(
+            d.slot.time, med?.days, reminderNumber = if (cue != null && repeating) cue.repeatIndex + 1 else null,
+            reminderMax = if (repeating) med!!.repeat.maxRepeats + 1 else null, notConfirmed = d.status == DoseStatus.NotConfirmed,
+        )
+        var whyOpen by remember { mutableStateOf(false) }
+        app.daycue.ui.components.WhyNow(whyLines.firstOrNull().orEmpty(), whyLines.drop(1), whyOpen, { whyOpen = !whyOpen }, Modifier.padding(top = 8.dp))
         Text(stringResource(R.string.cues_med_disclaimer), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 12.dp))
     }
 }

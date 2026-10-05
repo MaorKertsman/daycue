@@ -170,24 +170,33 @@ internal object MedicationModule {
             if (s != s0) ms = ms.copy(slots = ms.slots + (k to s))
         }
         run.st = run.st.copy(medication = ms)
+        // A merged notice whose doses were all dropped (older than two days) or resolved must not linger (VALIDATION D9).
+        closeMergedIfResolved(run)
+        ms = run.st.medication
 
-        // MED-7 / MED-8 merged recovery cue.
-        if (run.recovery && ms.mergedCue == null && run.once.add("med-recovery")) {
+        // MED-7 / MED-8 / MED-11 merged recovery cue. An existing merged notice never blocks recovery (VALIDATION D9): it
+        // is replaced by one notice for its own still-unconfirmed doses plus the newly skipped ones.
+        if (run.recovery && run.once.add("med-recovery")) {
             val catchUpFrom = now.minus(java.time.Duration.ofHours(CATCH_UP_HOURS))
+            val oldMerged = ms.mergedCue?.cueId
             val candidates = ms.slots.values.filter { s ->
                 val m = run.config.medication(s.medicationId)!!
                 val today = slotDay(run, m, s) == medDay(run, m)
+                val inOldMerged = oldMerged != null && s.mergedCueId == oldMerged
                 s.status == SlotStatus.Due && s.noCueReason == null && !s.dueAt.isBefore(catchUpFrom) && when {
                     // Reboot: every due dose of today (its notification is gone), except a snooze still running (§0: snooze survives reboot).
                     today && run.isReboot -> s.snoozedUntil?.isAfter(now) != true
-                    today -> s.cue == null && s.snoozedUntil == null
+                    today -> (s.cue == null && s.snoozedUntil == null) || inOldMerged
                     // MED-11 (owner decision 2026-10-05): earlier-day doses that the clock jump / power-off skipped without ever
                     // cueing them are counted in the same merged notice (they stay Not confirmed; nothing per dose).
-                    else -> s.cue == null && s.mergedCueId == null
+                    else -> (s.cue == null && s.mergedCueId == null) || inOldMerged
                 }
             }
             val earlierDay = candidates.any { s -> slotDay(run, run.config.medication(s.medicationId)!!, s) != medDay(run, run.config.medication(s.medicationId)!!) }
-            if (candidates.size >= 2 || (candidates.size == 1 && earlierDay)) { proposeMerged(run, candidates); return }
+            val sameAsShown = oldMerged != null && candidates.map { it.key }.toSet() == ms.slots.values.filter { it.mergedCueId == oldMerged && it.status == SlotStatus.Due }.map { it.key }.toSet()
+            if (sameAsShown && !run.isReboot) {
+                // Nothing new was skipped (e.g. a small clock correction): leave the notice as it is, no re-alert.
+            } else if (candidates.size >= 2 || (candidates.size == 1 && (earlierDay || oldMerged != null))) { proposeMerged(run, candidates); return }
             if (candidates.size == 1 && run.isReboot) {
                 val s = candidates.first()
                 proposeSlot(run, run.config.medication(s.medicationId)!!, s, null, 0, "MED-8")
@@ -254,7 +263,9 @@ internal object MedicationModule {
             repeatIndex = repeat, lockScreen = lock(m), publicTitle = Text("cue.medication.generic.title"),
             // SPK-4: never the label unless speakLabel.
             speech = if (m.speakLabel) Text("speech.medication.label", mapOf("label" to m.label)) else Text("speech.medication.generic"),
-            shortName = Text("short.medication"), silent = silent, profileId = m.cueProfileId, ongoing = true,
+            shortName = Text("short.medication"), silent = silent, profileId = m.cueProfileId,
+            // MED-2 / GEN-1: the dose notification can be swiped away; that never confirms it (the slot stays Due, repeats go on).
+            ongoing = false,
             commit = { st, id ->
                 val cur = st.medication.slots[s.key] ?: s
                 val c = if (repeat == 0) ActiveCue(id, now, now) else (cur.cue ?: ActiveCue(id, now, now)).copy(lastDeliveredAt = now, repeatsDone = repeat)
@@ -274,9 +285,13 @@ internal object MedicationModule {
             why = WhyNow(if (run.isReboot) "MED-8" else "MED-7", "why.medication.merged", mapOf("slots" to slots.joinToString(",") { it.key })),
             lockScreen = LockScreenVisibility.Private, publicTitle = Text("cue.medication.generic.title"),
             speech = Text("speech.medication.merged", mapOf("count" to slots.size.toString())), shortName = Text("short.medication"),
-            silent = first.quietHours == MedicationQuietHours.DeliverSilently && run.quietUntil() != null, ongoing = true,
+            silent = first.quietHours == MedicationQuietHours.DeliverSilently && run.quietUntil() != null, ongoing = false,
             commit = { st, id ->
                 var ms = st.medication
+                // Doses of a replaced merged notice that it no longer counts (outside 48 h) are released from it.
+                val old = ms.mergedCue?.cueId
+                val keys = slots.map { it.key }.toSet()
+                if (old != null) ms = ms.copy(slots = ms.slots.mapValues { (k, s) -> if (s.mergedCueId == old && k !in keys) s.copy(mergedCueId = null) else s })
                 for (s in slots) {
                     val cur = ms.slots[s.key] ?: continue
                     ms = ms.copy(slots = ms.slots + (s.key to cur.copy(mergedCueId = id, cue = cur.cue?.copy(exhausted = true) ?: ActiveCue(id, now, now, exhausted = true), snoozedUntil = null)))
@@ -285,7 +300,7 @@ internal object MedicationModule {
             },
         ))
         // Individual notifications are replaced by the merged one (never one per slot).
-        slots.forEach { s -> s.cue?.let { run.dismiss(slotKey(s), it.cueId, "merged") } }
+        slots.forEach { s -> s.cue?.takeIf { it.cueId != s.mergedCueId }?.let { run.dismiss(slotKey(s), it.cueId, "merged") } }
     }
 
     @Suppress("unused") private fun unused(i: Instant) = i

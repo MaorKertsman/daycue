@@ -67,7 +67,8 @@ class AndroidEffectSink(
         val lang = config.settings.language
         val alarm = config.alarm(e.alarmId)
         val time = alarm?.time?.toString() ?: ""
-        val name = alarm?.name ?: ""
+        // A default name ("Morning alarm" / its Hebrew twin) is shown in the current language (D12).
+        val name = alarm?.let { localizedAlarmName(it.id, it.name, lang) } ?: ""
         val title = text.app(if (e.isTest) "alarm.test.title" else "alarm.ringing.title", lang, mapOf("time" to time, "name" to name))
         val (tone, uri) = when (val s = e.source) {
             is AlarmSource.LocalTone -> s.toneId to null
@@ -76,7 +77,8 @@ class AndroidEffectSink(
         val intent = Intent()
             .putExtra(AlarmRingingService.EXTRA_ALARM_ID, e.alarmId)
             .putExtra(AlarmRingingService.EXTRA_TITLE, title)
-            .putExtra(AlarmRingingService.EXTRA_TIME, Templates.formatArg("time", time, ZoneId.systemDefault(), rtl = false, hour24 = text.use24Hour, locale = java.util.Locale.forLanguageTag(lang.name)))
+            // Plain clock text in the app language (the screen isolates it); same formatter as every other time (D10).
+            .putExtra(AlarmRingingService.EXTRA_TIME, Templates.formatArg("time", time, ZoneId.systemDefault(), rtl = false, hour24 = config.settings.use24Hour, locale = TextResolver.localeOf(lang)))
             .putExtra(AlarmRingingService.EXTRA_NAME, name)
             .putExtra(AlarmRingingService.EXTRA_TONE, tone)
             .putExtra(AlarmRingingService.EXTRA_SOURCE_URI, uri)
@@ -89,6 +91,14 @@ class AndroidEffectSink(
             .putExtra(AlarmRingingService.EXTRA_SNOOZE_LABEL, text.resolve(Text("action.snooze", mapOf("minutes" to (alarm?.snoozeMin ?: 9).toString())), lang))
             .putExtra(AlarmRingingService.EXTRA_STOP_LABEL, text.resolve(Text("action.stop"), lang))
         AlarmRingingService.start(context, intent)
+    }
+
+    /** The alarm's name, or the [lang] default when the stored name is the untouched default in any language. */
+    private fun localizedAlarmName(id: String, stored: String, lang: app.daycue.domain.config.Language): String {
+        if (id != app.daycue.domain.config.Defaults.MORNING_ALARM) return stored
+        val key = "template.alarm.morning"
+        val defaults = app.daycue.domain.config.Language.entries.mapNotNull { text.textOrNull(key, it) } + app.daycue.domain.config.Defaults.TEMPLATE_TEXT.getValue(key)
+        return if (stored.trim() in defaults.map(String::trim)) text.textOrNull(key, lang) ?: stored else stored
     }
 
     companion object { private const val TAG = "DayCue" }

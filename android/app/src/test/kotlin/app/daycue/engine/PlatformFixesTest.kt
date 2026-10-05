@@ -81,6 +81,34 @@ class PlatformFixesTest {
         assertFalse(AlarmScreenLaunch.startDirectly(appVisible = true, locked = true))
     }
 
+    @Test
+    fun `D12 alarm screen - the illustration flexes within bounds, is dropped when there is no room, no heads-up in the foreground`() {
+        assertNull(app.daycue.ui.alarm.AlarmLayout.fieldHeightDp(40f)) // font 2.0 on a small screen: dropped, not a strip
+        assertNull(app.daycue.ui.alarm.AlarmLayout.fieldHeightDp(119f))
+        assertEquals(120f, app.daycue.ui.alarm.AlarmLayout.fieldHeightDp(120f))
+        assertEquals(200f, app.daycue.ui.alarm.AlarmLayout.fieldHeightDp(200f))
+        assertEquals(300f, app.daycue.ui.alarm.AlarmLayout.fieldHeightDp(900f)) // capped: no giant plane
+        assertTrue(AlarmScreenLaunch.quietNotification(AlarmScreenLaunch.startDirectly(appVisible = true, locked = false)))
+        assertFalse(AlarmScreenLaunch.quietNotification(AlarmScreenLaunch.startDirectly(appVisible = false, locked = false)))
+    }
+
+    /** VALIDATION D10(c) / DOMAIN.md: device region decides; the language only when the device has no region. */
+    @Test
+    fun `D10c work days from the device region, independent of the UI language`() {
+        val sunThu = setOf(DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY)
+        val monFri = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        // (per-app tag, device tag) -> work days
+        val table = listOf(
+            Triple("he", "he-IL", sunThu), Triple("en", "en-IL", sunThu), Triple("he", "en-IL", sunThu),
+            Triple("he", "he-US", monFri), Triple("he", "en-US", monFri), Triple("en", "en-US", monFri),
+            Triple("he", "he", sunThu), Triple(null, "he", sunThu), Triple(null, "en", monFri),
+        )
+        for ((perApp, device, want) in table) {
+            val c = Defaults.config(LanguagePolicy.seed(perApp, device, true) { _, _ -> null })
+            assertEquals("$perApp / $device", want, c.settings.workDays)
+        }
+    }
+
     // ---- D8 / first run -------------------------------------------------------------------------
 
     @Test

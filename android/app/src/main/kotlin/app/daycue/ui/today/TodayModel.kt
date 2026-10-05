@@ -170,7 +170,7 @@ data class NextItem(
 )
 
 /** What "Why now?" says about an item, from the domain's own reason data (rule id + facts) and the item's config. */
-enum class WhyKind { Interval, Dose, Alarm, Other }
+enum class WhyKind { Interval, Dose, Alarm, Calendar, Posture, RoutinePrompt, Bottle, Other }
 
 data class WhyInfo(
     val rule: String,
@@ -187,6 +187,23 @@ data class WhyInfo(
     /** Shown for an item that is due now (not for a Next row). */
     val due: Boolean = false,
     val days: Set<java.time.DayOfWeek>? = null,
+    /** Dose (D11): the scheduled local time; [days] = the medication's days. Schedule facts only, never advice (MED-10). */
+    val doseTime: java.time.LocalTime? = null,
+    /** Dose: 1 = first reminder, 2.. = repeats (MED-4); null when nothing was delivered. [reminderMax] = 1 + maxRepeats. */
+    val reminderNumber: Int? = null,
+    val reminderMax: Int? = null,
+    /** Calendar: the matched rule's name (blank = the default reminder); posture: the mode that ended; routine: its name; bottle: the place left. */
+    val detail: String? = null,
+    /** Posture: the next mode's name. */
+    val next: String? = null,
+    /** Calendar: minutes before the start. */
+    val leadMin: Int? = null,
+    /** Bottle: `LeavingNow`, `GeofenceExit`, `ScheduledDeparture` or `repeat` (domain fact `trigger`). */
+    val trigger: String? = null,
+    /** Routine prompt: the routine's trigger, for "asks at 07:00 on work days". */
+    val routineTrigger: app.daycue.domain.config.RoutineTrigger? = null,
+    val routineAskToStart: Boolean = true,
+    val alarmTime: java.time.LocalTime? = null,
 )
 
 data class FieldModel(
@@ -401,7 +418,7 @@ object TodayMapper {
             val habit = if (u.itemKey.startsWith("habit:")) config.habit(u.itemKey.removePrefix("habit:")) as? IntervalHabit else null
             out[u.itemKey] = when {
                 habit != null -> WhyInfo(u.rule, WhyKind.Interval, habit.kind, habit.intervalMin, conditionOfHabit(habit), instant(u.facts["lastAck"]), at = u.at)
-                u.itemKey.startsWith("med:") -> WhyInfo(u.rule, WhyKind.Dose, at = u.at)
+                u.itemKey.startsWith("med:") -> doseWhy(u.itemKey, config, state, u.rule, at = u.at, notConfirmed = false, due = false)
                 u.itemKey.startsWith("alarm:") -> {
                     val a = config.alarm(u.itemKey.removePrefix("alarm:"))
                     WhyInfo(u.rule, WhyKind.Alarm, at = u.at, days = a?.let { it.days ?: config.settings.workDays })
@@ -421,13 +438,51 @@ object TodayMapper {
                             condition = conditionOfHabit(habit), lastAck = d.lastAck ?: instant(cue?.facts?.get("lastAck")),
                             repeat = cue?.reason?.endsWith(".repeat") == true || cue?.rule == "GEN-4",
                         )
+                    } else if (d.bottle && cue != null) {
+                        val place = cue.facts["place"]?.let { pid -> config.place(pid)?.name }
+                        out[d.key] = WhyInfo(cue.rule, WhyKind.Bottle, due = true, detail = place, trigger = cue.facts["trigger"])
                     } else cue?.let { out[d.key] = WhyInfo(it.rule) }
                 }
-                is DoseDue -> out[d.key] = WhyInfo("MED-1", WhyKind.Dose, at = d.dueAt, notConfirmed = d.notConfirmed, due = true)
+                is DoseDue -> out[d.key] = doseWhy(d.key, config, state, "MED-1", at = d.dueAt, notConfirmed = d.notConfirmed, due = true)
+                is CalendarDue -> state.delivery.visible[d.key]?.cue?.why?.let { w ->
+                    val ruleName = w.facts["rule"]?.takeIf { it.isNotBlank() }?.let { id -> config.calendarRules.rules.firstOrNull { it.id == id }?.name ?: id }
+                    out[d.key] = WhyInfo(w.rule, WhyKind.Calendar, due = true, detail = ruleName, leadMin = w.facts["leadMin"]?.toIntOrNull())
+                }
+                is PostureDue -> state.delivery.visible[d.key]?.cue?.why?.let { w ->
+                    val modes = config.postureCycle.modes
+                    val lang = config.settings.language
+                    out[d.key] = WhyInfo(w.rule, WhyKind.Posture, due = true,
+                        detail = modes.firstOrNull { it.id == w.facts["mode"] }?.name?.get(lang),
+                        next = modes.firstOrNull { it.id == w.facts["next"] }?.name?.get(lang))
+                }
+                is RoutinePromptDue -> {
+                    val r = config.routine(d.routineId)
+                    val rule = state.delivery.visible[d.key]?.cue?.why?.rule ?: "RTN-9"
+                    out[d.key] = WhyInfo(rule, WhyKind.RoutinePrompt, due = true, detail = r?.name, routineTrigger = r?.trigger,
+                        routineAskToStart = r?.effectiveStartMode == app.daycue.domain.config.RoutineStartMode.AskToStart,
+                        alarmTime = (r?.trigger as? app.daycue.domain.config.RoutineTrigger.AfterAlarm)?.let { config.alarm(it.alarmId)?.time })
+                }
                 else -> state.delivery.visible[d.key]?.cue?.why?.let { out[d.key] = WhyInfo(it.rule) }
             }
         }
         return out
+    }
+
+    /**
+     * Dose "Why now?" (VALIDATION D11): the schedule only. "Scheduled 08:00, every day", and the reminder number when
+     * the cue repeats (MED-4). [key] = `med:<id>|<date>|<HH:mm>`.
+     */
+    private fun doseWhy(key: String, config: DayCueConfig, state: EngineState, rule: String, at: Instant?, notConfirmed: Boolean, due: Boolean): WhyInfo {
+        val parts = key.removePrefix("med:").split('|')
+        val m = parts.getOrNull(0)?.let { config.medication(it) }
+        val time = parts.getOrNull(2)?.let { runCatching { java.time.LocalTime.parse(it) }.getOrNull() }
+        val cue = state.delivery.visible[key]?.cue
+        val repeating = (m?.repeat?.maxRepeats ?: 0) > 0
+        return WhyInfo(
+            rule, WhyKind.Dose, at = at, notConfirmed = notConfirmed, due = due, doseTime = time, days = m?.days,
+            reminderNumber = if (cue != null && repeating) cue.repeatIndex + 1 else null,
+            reminderMax = if (repeating) (m?.repeat?.maxRepeats ?: 0) + 1 else null,
+        )
     }
 
     private fun conditionOfHabit(habit: IntervalHabit): ConditionText? = if (habit.condition.isAny) null else {

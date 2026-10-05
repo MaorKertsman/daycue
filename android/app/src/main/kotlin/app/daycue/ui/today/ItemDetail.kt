@@ -137,7 +137,8 @@ fun ItemDetailScreen(
             )
         }
         Spacer(Modifier.height(8.dp))
-        buildList {
+        // Medication follows its schedule only (MED-3): the context sources would wrongly suggest they matter.
+        if (whyInfo?.kind != WhyKind.Dose) buildList {
             val ctx = model.context
             add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_place), placeText(ctx.place), sourceText(ctx.placeSource).orEmpty()))
             add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_environment), environmentText(ctx.environment), sourceText(ctx.environmentSource).orEmpty()))

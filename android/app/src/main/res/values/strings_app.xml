@@ -121,7 +121,7 @@
     <string name="app_act_done">Done</string>
     <string name="app_act_got_it">Got it</string>
     <string name="app_act_not_needed">Not needed</string>
-    <string name="app_act_taken">Taken</string>
+    <string name="app_act_taken">I took it</string>
     <string name="app_act_snooze">Snooze</string>
     <string name="app_act_snooze_min">Snooze %1$s</string>
     <string name="app_act_switched">Switched</string>
@@ -179,7 +179,9 @@
     <string name="app_fd_posture">%1$s, %2$s left</string>
     <string name="app_fd_routine">Routine: %1$s</string>
     <string name="app_fd_due">Now: %1$s</string>
-    <string name="app_fd_next">Next: %1$s in %2$s</string>
+    <string name="app_fd_next">Next: %1$s %2$s</string>
+    <string name="app_in_now">now</string>
+    <string name="app_fd_posture_now">%1$s, ending now</string>
 
     <!-- Item detail -->
     <string name="app_detail_title">Details</string>
@@ -352,9 +354,22 @@
     <string name="app_why_last_done">last done %1$s</string>
     <string name="app_why_snoozed">You snoozed it, so it came back.</string>
     <string name="app_why_stretch">The conditions you chose just started, so the first reminder is here.</string>
-    <string name="app_why_dose">Scheduled for %1$s. Medication reminders are never held back by quiet hours or context.</string>
-    <string name="app_why_dose_open">Scheduled for %1$s and not confirmed yet. Medication reminders are never held back by quiet hours or context.</string>
     <string name="app_why_alarm">Rings at %1$s on %2$s.</string>
+    <!-- Why now? for medication, calendar, posture, routine prompts and the bottle (VALIDATION D11). Facts, never advice. -->
+    <string name="app_why_dose_sched">Scheduled %1$s · %2$s</string>
+    <string name="app_why_dose_reminder">Reminder %1$d of %2$d</string>
+    <string name="app_why_dose_nc">Not confirmed yet.</string>
+    <string name="app_why_dose_never_held">Medication reminders are never held back by quiet hours or context.</string>
+    <string name="app_why_cal_rule">Matched the calendar rule “%1$s”.</string>
+    <string name="app_why_cal_default">A calendar event with the default reminder.</string>
+    <string name="app_why_cal_lead">Reminds %1$s before the start.</string>
+    <string name="app_why_posture">The %1$s time is over.</string>
+    <string name="app_why_posture_next">The %1$s time is over. Next: %2$s.</string>
+    <string name="app_why_routine_prompt">%1$s: %2$s</string>
+    <string name="app_why_bottle_leaving">You tapped Leaving now.</string>
+    <string name="app_why_bottle_left">You left %1$s.</string>
+    <string name="app_why_bottle_left_any">You left a saved place.</string>
+    <string name="app_why_bottle_scheduled">Your scheduled departure from %1$s.</string>
     <string name="app_rd_section_optional">Optional</string>
 
     <!-- Onboarding: places step -->

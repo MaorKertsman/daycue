@@ -408,7 +408,7 @@ object DiffText {
         if (t == "false") return lex.s(R.string.diff_off, emptyArray())
         ENUMS[t]?.let { return lex.s(it, emptyArray()) }
         if (t.toLongOrNull() != null || t.toDoubleOrNull() != null) return t.ltr()
-        timeOf(t)?.let { return timeText(it, env).ltr() }
+        timeOf(t)?.let { return timeText(it, env).clockIsolate() }
         if (env.hebrew || t.length > 30) return null
         return humanize(t)
     }
@@ -425,11 +425,11 @@ object DiffText {
             K.DaysN -> t.toIntOrNull()?.let { s(R.string.diff_days_n, it) }
             K.Int -> t.toLongOrNull()?.let { it.toString().ltr() }
             K.Text -> t
-            K.Time -> timeOf(t)?.let { timeText(it, env).ltr() }
+            K.Time -> timeOf(t)?.let { timeText(it, env).clockIsolate() }
             K.Window -> windowText(parseJson(t), env)
             K.Windows -> windows(parseJson(t), lex, env)
             K.Days -> days(parseJson(t), lex, env)
-            K.Times -> list(parseJson(t), lex) { timeOf(it)?.let { x -> timeText(x, env) } }?.ltr()
+            K.Times -> list(parseJson(t), lex) { timeOf(it)?.let { x -> timeText(x, env) } }?.clockIsolate()
             K.IntList -> {
                 val j = parseJson(t) as? JsonArray
                 j?.mapNotNull { it.prim()?.toIntOrNull() }?.let { l -> s(R.string.diff_dur_min_list, l.joinToString(", ")) }?.ltrIfNumbers()
@@ -544,7 +544,7 @@ fun friendlyDiffSummary(summary: String): String {
 }
 
 /** Convenience for non-composable callers (view models): friendly lines from a [Context]. */
-fun friendlyDiffLines(context: Context, lines: List<String>, locale: Locale = Locale.getDefault()): List<String> =
+fun friendlyDiffLines(context: Context, lines: List<String>, locale: Locale = context.resources.configuration.locales[0]): List<String> =
     DiffText.lines(lines, DiffLex { id, args -> context.getString(id, *args) }, DiffEnv(locale, is24Hour(context)))
 
 /** A [DiffEnv] that resolves item ids and step positions from [cfg] (the config the diff is shown against), when known. */

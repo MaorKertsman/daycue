@@ -59,7 +59,8 @@ import app.daycue.ui.components.PrimaryButton
 import app.daycue.ui.components.SecondaryButton
 import app.daycue.ui.theme.DayCueSpacing
 import app.daycue.ui.theme.DayCueTheme
-import app.daycue.ui.util.ltr
+import app.daycue.ui.util.clockIsolate
+import androidx.compose.ui.layout.SubcomposeLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -128,48 +129,91 @@ fun AlarmContent(alarm: RingingAlarm, music: AlarmMusicState, onStop: () -> Unit
     val name = alarmName(alarm.alarmId, alarm.name).ifBlank { alarm.title }
     val snoozeLabel = stringResource(R.string.app_alarm_snooze_for, durationText(alarm.snoozeMin))
     val fieldDescription = stringResource(R.string.app_alarm_field_desc, name)
-    BoxWithConstraints(Modifier.fillMaxSize().background(c.paper)) {
-        val screenHeight = maxHeight
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            // Three groups spread over the full screen: time and name up top, the Field in the upper middle, the two
-            // controls anchored to the lower third. At large text the page scrolls and Stop stays reachable.
-            Column(
-                Modifier.widthIn(max = DayCueSpacing.contentMaxWidth).fillMaxWidth().heightIn(min = screenHeight)
-                    .statusBarsPadding().navigationBarsPadding().padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = DayCueSpacing.gutter), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(Modifier.height(24.dp))
-                    Text(
-                        alarm.time.ltr(),
-                        style = DayCueTheme.type.display.copy(fontSize = if (fontScale >= 1.5f) 56.sp else 88.sp, lineHeight = if (fontScale >= 1.5f) 64.sp else 96.sp),
-                        color = c.ink, textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(name, style = DayCueTheme.type.title.copy(fontSize = 26.sp, lineHeight = 34.sp), color = c.ink, textAlign = TextAlign.Center)
-                    if (alarm.isTest) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.app_alarm_test), style = DayCueTheme.type.label, color = c.ink2)
+    Box(Modifier.fillMaxSize().background(c.paper), contentAlignment = Alignment.TopCenter) {
+        // VALIDATION D12. Three groups: time + name at the top, the Field in the space left between them and the controls,
+        // the controls anchored to the bottom. The Field takes what is left within [AlarmLayout] bounds and is dropped
+        // entirely when too little is left (never squashed into a strip); the upper part scrolls if even the text does not
+        // fit, so Stop is always on screen.
+        Column(
+            Modifier.widthIn(max = DayCueSpacing.contentMaxWidth).fillMaxSize()
+                .statusBarsPadding().navigationBarsPadding().padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val avail = maxHeight
+                val scroll = rememberScrollState()
+                SubcomposeLayout(Modifier.fillMaxWidth().verticalScroll(scroll)) { cs ->
+                    val loose = cs.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+                    val top = subcompose("top") {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = DayCueSpacing.gutter), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(Modifier.height(if (fontScale >= 1.5f) 8.dp else 24.dp))
+                            Text(
+                                alarmTimeText(alarm.time),
+                                style = DayCueTheme.type.display.copy(fontSize = if (fontScale >= 1.5f) 56.sp else 88.sp, lineHeight = if (fontScale >= 1.5f) 64.sp else 96.sp),
+                                color = c.ink, textAlign = TextAlign.Center,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(name, style = DayCueTheme.type.title.copy(fontSize = 26.sp, lineHeight = 34.sp), color = c.ink, textAlign = TextAlign.Center)
+                            if (alarm.isTest) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(stringResource(R.string.app_alarm_test), style = DayCueTheme.type.label, color = c.ink2)
+                            }
+                            MusicNote(music, onRecover)
+                        }
+                    }.single().measure(loose)
+                    val availPx = avail.roundToPx()
+                    val gap = AlarmLayout.GAP_DP.dp.roundToPx()
+                    val roomDp = (availPx - top.height - 2 * gap).toDp().value
+                    val fieldDp = AlarmLayout.fieldHeightDp(roomDp)
+                    val field = fieldDp?.let { h ->
+                        subcompose("field") {
+                            // The plane with the alarm disc arrived on it (due, with the seed dot), edge to edge.
+                            Field(
+                                context = FieldContext.Home, active = FieldActive.None, nextCue = CueType.Alarm,
+                                remainingMinutes = 0, horizonMinutes = 1, description = fieldDescription, overdue = true,
+                                heightDpOverride = h,
+                            )
+                        }.single().measure(loose)
                     }
-                    MusicNote(music, onRecover)
-                }
-                // The Field, edge to edge: the plane with the alarm disc arrived on it (due, with the seed dot).
-                Field(
-                    context = FieldContext.Home, active = FieldActive.None, nextCue = CueType.Alarm,
-                    remainingMinutes = 0, horizonMinutes = 1, description = fieldDescription, overdue = true,
-                    modifier = Modifier.padding(vertical = 24.dp),
-                )
-                Column(Modifier.fillMaxWidth().padding(horizontal = DayCueSpacing.gutter), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    if (alarm.canSnooze) {
-                        // Snooze: a pill, outlined. Stop: a slab, filled. Different shapes, both well over 72dp.
-                        AlarmButton(snoozeLabel, onSnooze, RoundedCornerShape(50), Color.Transparent, c.ink, c.outlineStrong)
+                    val height = maxOf(availPx, top.height + (field?.let { it.height + 2 * gap } ?: 0))
+                    layout(cs.maxWidth, height) {
+                        top.place((cs.maxWidth - top.width) / 2, 0)
+                        // Sits just above the controls (one gap), any spare space goes between the name and the plane.
+                        field?.place(0, height - field.height - gap)
                     }
-                    AlarmButton(stringResource(R.string.dc_action_stop), onStop, DayCueShapes.plane, c.ink, c.paper, null)
                 }
+            }
+            Column(Modifier.fillMaxWidth().padding(horizontal = DayCueSpacing.gutter).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (alarm.canSnooze) {
+                    // Snooze: a pill, outlined. Stop: a slab, filled. Different shapes, both well over 72dp.
+                    AlarmButton(snoozeLabel, onSnooze, RoundedCornerShape(50), Color.Transparent, c.ink, c.outlineStrong)
+                }
+                AlarmButton(stringResource(R.string.dc_action_stop), onStop, DayCueShapes.plane, c.ink, c.paper, null)
             }
         }
     }
+}
+
+/** The big clock: digits at display size, a 12-hour day-period marker ("AM", "אחה״צ") smaller on the same line. */
+private fun alarmTimeText(time: String): androidx.compose.ui.text.AnnotatedString {
+    val isolated = time.clockIsolate()
+    val sp = isolated.lastIndexOf(' ')
+    if (sp < 0) return androidx.compose.ui.text.AnnotatedString(isolated)
+    return androidx.compose.ui.text.buildAnnotatedString {
+        append(isolated)
+        addStyle(androidx.compose.ui.text.SpanStyle(fontSize = androidx.compose.ui.unit.TextUnit(0.4f, androidx.compose.ui.unit.TextUnitType.Em)), sp, isolated.length - 1)
+    }
+}
+
+/** Alarm screen sizing (VALIDATION D12), pure so it is unit-tested. */
+object AlarmLayout {
+    /** Below this the illustration is dropped, not squashed. */
+    const val FIELD_MIN_DP = 120f
+    const val FIELD_MAX_DP = 300f
+    const val GAP_DP = 16f
+
+    /** The Field height for [roomDp] of free space, or null = leave it out. */
+    fun fieldHeightDp(roomDp: Float): Float? = if (roomDp < FIELD_MIN_DP) null else roomDp.coerceAtMost(FIELD_MAX_DP)
 }
 
 @Composable

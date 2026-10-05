@@ -86,7 +86,7 @@
     <string name="dc_action_done">Done</string>
     <string name="dc_action_got_it">Got it</string>
     <string name="dc_action_not_needed">Not needed</string>
-    <string name="dc_action_taken">Taken</string>
+    <string name="dc_action_taken">I took it</string>
     <string name="dc_action_snooze">Snooze {minutes} min</string>
     <string name="dc_action_snooze_alt">Snooze</string>
     <string name="dc_action_pause">Pause 1 h</string>
@@ -271,4 +271,27 @@
     <string name="dc_template_calendar_workouts">Workouts</string>
     <string name="dc_template_calendar_important">Important</string>
     <string name="dc_template_calendar_free_time">Free time</string>
+
+    <!-- Quantity forms of {minutes} (VALIDATION D13): 0 = now, 1, 2. Picked by Templates.candidateNames. -->
+    <string name="dc_cue_calendar_title_now">{kind} now</string>
+    <string name="dc_cue_calendar_title_one">{kind} in 1 min</string>
+    <string name="dc_cue_calendar_title_two">{kind} in 2 min</string>
+    <string name="dc_cue_calendar_generic_title_now">{kind} now</string>
+    <string name="dc_cue_calendar_generic_title_one">{kind} in 1 min</string>
+    <string name="dc_cue_calendar_generic_title_two">{kind} in 2 min</string>
+    <string name="dc_cue_calendar_title_event_now">Event now</string>
+    <string name="dc_cue_calendar_title_event_one">Event in 1 min</string>
+    <string name="dc_cue_calendar_title_event_two">Event in 2 min</string>
+    <string name="dc_cue_calendar_generic_title_event_now">Event now</string>
+    <string name="dc_cue_calendar_generic_title_event_one">Event in 1 min</string>
+    <string name="dc_cue_calendar_generic_title_event_two">Event in 2 min</string>
+    <string name="dc_speech_calendar_title_now">You have {title} now</string>
+    <string name="dc_speech_calendar_title_one">You have {title} in 1 minute</string>
+    <string name="dc_speech_calendar_title_two">You have {title} in 2 minutes</string>
+    <string name="dc_speech_calendar_generic_now">You have a {kind} now</string>
+    <string name="dc_speech_calendar_generic_one">You have a {kind} in 1 minute</string>
+    <string name="dc_speech_calendar_generic_two">You have a {kind} in 2 minutes</string>
+    <string name="dc_speech_calendar_generic_event_now">You have an event now</string>
+    <string name="dc_speech_calendar_generic_event_one">You have an event in 1 minute</string>
+    <string name="dc_speech_calendar_generic_event_two">You have an event in 2 minutes</string>
 </resources>

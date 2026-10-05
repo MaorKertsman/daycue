@@ -124,6 +124,65 @@ class NotificationRecoveryTest {
         assertTrue(s.delivered.none { it.itemKey.startsWith("med:a|") }, "never one per dose")
     }
 
+    /**
+     * VALIDATION D9: a merged cue recorded from a reboot must not block MED-11. Each forward jump of a day or more updates
+     * the single merged notice (replaces it, same notification key) with the current count; nothing per dose, no "missed".
+     */
+    @Test
+    fun `D9 MED-11 after a reboot merged cue - repeated clock jumps update ONE merged notice, never silent, never per dose`() {
+        val s = Scenario(start = "11:00").apply {
+            apply(ConfigOp.UpsertMedication(med("a", "11:34")), ConfigOp.UpsertMedication(med("b", "11:35")))
+            advanceTo("11:40")
+        }
+        val boot = s.medDeliveries(s.reboot(offMinutes = 2))
+        assertEquals(listOf("med:merged"), boot.map { it.itemKey })
+        assertEquals("2", boot.single().title.args["count"])
+        val bootId = s.state.medication.mergedCue!!.cueId
+
+        // +1 day 2 h: yesterday's two (still in the merged notice) + today's two never cued = 4, one notice.
+        s.clock.instant = s.clock.instant.plus(Duration.ofHours(26))
+        val j1 = s.medDeliveries(s.send(Event.TimeChanged))
+        assertEquals(listOf("med:merged"), j1.map { it.itemKey }, "one merged notice, not one per dose")
+        assertEquals("4", j1.single().title.args["count"])
+        assertFalse(j1.single().silent)
+        val id1 = s.state.medication.mergedCue!!.cueId
+        assertTrue(id1 != bootId, "the stale merged notice is replaced")
+        assertEquals(id1, s.state.delivery.visible["med:merged"]!!.cueId)
+        assertEquals(1, s.state.delivery.visible.keys.count { it.startsWith("med:") }, "single medication notification")
+
+        // The user clears notifications, then +2 days: the day-1 doses fall out of 48 h; day 2 (never cued) + day 3 = 4.
+        s.send(Event.CueDismissed(id1))
+        s.clock.instant = s.clock.instant.plus(Duration.ofDays(2))
+        val j2 = s.medDeliveries(s.send(Event.TimeChanged))
+        assertEquals(listOf("med:merged"), j2.map { it.itemKey })
+        assertEquals("4", j2.single().title.args["count"])
+        // And again +2 days.
+        s.clock.instant = s.clock.instant.plus(Duration.ofDays(2))
+        val j3 = s.medDeliveries(s.send(Event.TimeChanged))
+        assertEquals(listOf("med:merged"), j3.map { it.itemKey })
+        assertEquals("4", j3.single().title.args["count"])
+        assertEquals(1, s.state.delivery.visible.keys.count { it.startsWith("med:") })
+        // A small clock correction with nothing new does not re-alert the same notice.
+        s.clock.instant = s.clock.instant.plus(Duration.ofMinutes(1))
+        assertTrue(s.medDeliveries(s.send(Event.TimeChanged)).isEmpty(), "same set: no re-alert")
+        assertTrue(s.delivered.filter { it.type == CueType.Medication }.all { it.itemKey == "med:merged" || it.deliveredAt.isBefore(s.t("11:41")) },
+            "after the first cues, only merged notices")
+        assertTrue(s.delivered.none { c -> (c.title.args.values + c.title.key + c.body.key).any { it.contains("missed", ignoreCase = true) } })
+    }
+
+    /** MED-2 / GEN-1 (VALIDATION row 9): the dose notification is dismissible, and dismissing it confirms nothing. */
+    @Test
+    fun `dose notification is dismissible and a dismissal keeps the dose Due`() {
+        val s = Scenario(start = "09:55").apply { apply(ConfigOp.UpsertMedication(med("a", "10:00"))); advanceTo("10:01") }
+        val cue = s.deliveredFor("med:a|2026-10-05|10:00").single()
+        assertFalse(cue.ongoing, "not an ongoing notification")
+        s.send(Event.CueDismissed(cue.id))
+        val slot = s.state.medication.slots.values.single { it.medicationId == "a" && it.date == s.date }
+        assertEquals(SlotStatus.Due, slot.status)
+        assertTrue(s.history(HistoryKind.Dismissed).any { it.itemKey == "med:a|2026-10-05|10:00" })
+        assertTrue(s.history(HistoryKind.Taken).isEmpty())
+    }
+
     @Test
     fun `MED-11 doses older than 48 hours are not counted`() {
         val s = Scenario(start = "07:00").apply { apply(ConfigOp.UpsertMedication(med("a", "08:00"))) }
