@@ -4,6 +4,9 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +90,7 @@ fun PlacesScreen(onBack: () -> Unit, push: (String) -> Unit) {
         Hint(stringResource(R.string.su_places_intro))
         val cfg = ui.config
         when {
-            cfg == null -> repeat(3) { SkeletonRow() }
+            cfg == null -> repeat(3) { SkeletonRow(mark = true) }
             ui.places.isEmpty() -> {
                 Gap(16)
                 StateBlock(
@@ -112,11 +115,11 @@ fun PlacesScreen(onBack: () -> Unit, push: (String) -> Unit) {
                         secondary = detail,
                         leading = { PlaneSquare(place.typicalEnvironment, place.active) },
                         trailing = { GlyphIcon(Glyph.Chevron, c.ink2) },
-                        onClick = { push(SetupRoutes.PLACE + place.id) },
+                        onClick = { push(SetupRoutes.withName(SetupRoutes.PLACE, place.id, place.name)) },
                     )
                 }
-                Gap(16)
-                PrimaryButton(stringResource(R.string.su_place_add), { push(SetupRoutes.PLACE + SetupRoutes.NEW) }, Modifier.fillMaxWidth())
+                // "Add" in a populated list is a text button at the end of the list (REVIEW-2 S4).
+                DayCueTextButton(stringResource(R.string.su_place_add), { push(SetupRoutes.PLACE + SetupRoutes.NEW) })
             }
         }
 
@@ -138,9 +141,6 @@ fun PlacesScreen(onBack: () -> Unit, push: (String) -> Unit) {
             )
         }
         SettingRow(stringResource(R.string.su_context_settings), stringResource(R.string.su_context_settings_hint), { push(SetupRoutes.CONTEXT) })
-        Gap(8)
-        Para(stringResource(R.string.su_wrong_context_title))
-        Hint(stringResource(R.string.su_wrong_context_body))
     }
 
     if (pauseSheet) {
@@ -165,15 +165,28 @@ private fun pauseOptions(): List<Pair<String, OverrideDuration>> = listOf(
     stringResource(R.string.su_pause_until_resumed) to OverrideDuration.UntilChanged,
 )
 
+/**
+ * A placeholder row. It stays invisible for the first 150ms so local data that arrives on the next frame never flashes a
+ * skeleton (UX 2), and it has a mark slot only where the real rows do (REVIEW-2 C13).
+ */
 @Composable
-internal fun SkeletonRow() {
+internal fun SkeletonRow(mark: Boolean = false) {
     val c = DayCueTheme.colors
-    Row(Modifier.fillMaxWidth().height(64.dp).padding(vertical = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Box(Modifier.size(28.dp).background(c.sunk, RoundedCornerShape(6.dp)))
-        Box(Modifier.padding(start = 16.dp).weight(1f).height(16.dp).background(c.sunk, RoundedCornerShape(4.dp)))
+    var show by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(150); show = true }
+    Box(Modifier.fillMaxWidth().height(64.dp)) {
+        if (show) Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            if (mark) {
+                Box(Modifier.size(28.dp).background(c.sunk, RoundedCornerShape(6.dp)))
+                Box(Modifier.padding(start = 16.dp).weight(1f).height(16.dp).background(c.sunk, RoundedCornerShape(4.dp)))
+            } else {
+                Box(Modifier.weight(1f).height(16.dp).background(c.sunk, RoundedCornerShape(4.dp)))
+            }
+        }
     }
 }
 
+/** The place's tone square; a place with no location yet is an outlined, hatched "unknown" square (REVIEW-2 C17). */
 @Composable
 private fun PlaneSquare(env: TypicalEnvironment, active: Boolean) {
     val c = DayCueTheme.colors
@@ -182,7 +195,27 @@ private fun PlaneSquare(env: TypicalEnvironment, active: Boolean) {
         TypicalEnvironment.Outdoor -> c.planeOutdoors
         TypicalEnvironment.Mixed -> c.planeWork
     }
-    Box(Modifier.size(28.dp).background(if (active) tone else c.sunk, RoundedCornerShape(6.dp)))
+    val shape = RoundedCornerShape(6.dp)
+    if (active) {
+        Box(Modifier.size(28.dp).background(tone, shape))
+    } else {
+        val line = c.ink2
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(shape)
+                .background(c.paper)
+                .drawBehind {
+                    val step = 7.dp.toPx()
+                    var x = -size.height
+                    while (x < size.width) {
+                        drawLine(line.copy(alpha = 0.45f), androidx.compose.ui.geometry.Offset(x, size.height), androidx.compose.ui.geometry.Offset(x + size.height, 0f), strokeWidth = 1.dp.toPx())
+                        x += step
+                    }
+                }
+                .border(1.dp, line, shape),
+        )
+    }
 }
 
 @Composable
@@ -220,10 +253,10 @@ fun LocationAccessSection(vm: PlacesViewModel, access: app.daycue.integrations.l
                     stringResource(if (approximate) R.string.su_perm_precise_title else R.string.su_perm_fg_title),
                     style = DayCueTheme.type.titleSmall, color = c.ink,
                 )
-                Para(stringResource(if (approximate) R.string.su_perm_precise_why else R.string.su_perm_fg_why))
-                Hint(stringResource(R.string.su_perm_fg_without))
-                Gap(8)
-                PrimaryButton(
+                Hint(stringResource(R.string.su_perm_off_line))
+                Gap(4)
+                // The places screen's primary is "Add place"; allowing location is the secondary action here.
+                SecondaryButton(
                     stringResource(R.string.su_perm_allow),
                     { launcher.launch(vm.nextPermissionPermissions().toTypedArray()) },
                     Modifier.fillMaxWidth(),
@@ -232,73 +265,53 @@ fun LocationAccessSection(vm: PlacesViewModel, access: app.daycue.integrations.l
                     FieldNote(stringResource(R.string.su_perm_denied_hint), error = false)
                     DayCueTextButton(stringResource(R.string.su_open_app_settings), { context.startActivitySafely(vm.fixIntent(LocationFix.AppSettings)) })
                 }
+                LearnMore(stringResource(if (approximate) R.string.su_perm_precise_why else R.string.su_perm_fg_why) + "\n\n" + stringResource(R.string.su_perm_fg_without))
             }
         }
         LocationPermissionStep.Background -> {
             val option = vm.backgroundOptionLabel()
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(stringResource(R.string.su_perm_bg_title), style = DayCueTheme.type.titleSmall, color = c.ink)
-                Para(stringResource(R.string.su_perm_bg_why))
-                if (option != null) Hint(stringResource(R.string.su_perm_bg_how, option))
                 Hint(stringResource(R.string.su_perm_bg_without))
-                Gap(8)
-                PrimaryButton(
+                Gap(4)
+                SecondaryButton(
                     stringResource(R.string.su_perm_bg_allow),
                     { launcher.launch(vm.nextPermissionPermissions().toTypedArray()) },
                     Modifier.fillMaxWidth(),
                 )
                 DayCueTextButton(stringResource(R.string.su_open_app_settings), { context.startActivitySafely(vm.fixIntent(LocationFix.AppSettings)) })
+                LearnMore(stringResource(R.string.su_perm_bg_why) + (if (option != null) "\n\n" + stringResource(R.string.su_perm_bg_how, option) else ""))
             }
         }
         LocationPermissionStep.Done -> {
             DayCueRow(
                 primary = stringResource(R.string.su_perm_done_title),
-                secondary = stringResource(R.string.su_perm_done_body),
                 leading = { GlyphIcon(Glyph.Check, c.ink) },
             )
         }
     }
 
-    // What degrades right now, in words.
+    // What degrades right now is already said above; only the fix actions remain (REVIEW-2 C8: no second list).
     val notes = access.degradations.filter { it != LocationDegradation.NoActivityRecognition }
-    if (notes.isNotEmpty() && (hasActivePlaces || step != LocationPermissionStep.Done)) {
-        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Text(stringResource(R.string.su_degraded_title), style = DayCueTheme.type.label, color = c.ink2)
-            notes.forEach { d ->
-                Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.padding(top = 10.dp).size(4.dp).background(c.ink2, androidx.compose.foundation.shape.CircleShape))
-                    Text(stringResource(degradationText(d)), style = DayCueTheme.type.bodySmall, color = c.ink, modifier = Modifier.weight(1f))
-                }
-            }
-            if (LocationDegradation.LocationServicesOff in notes) {
-                DayCueTextButton(stringResource(R.string.su_open_location_settings), { context.startActivitySafely(vm.fixIntent(LocationFix.LocationSettings)) })
-            }
-            if (LocationDegradation.NoPlayServices in notes) {
-                DayCueTextButton(stringResource(R.string.su_open_play_services), { context.startActivitySafely(vm.fixIntent(LocationFix.PlayServices)) })
-            }
-        }
+    if (LocationDegradation.LocationServicesOff in notes) {
+        DayCueTextButton(stringResource(R.string.su_open_location_settings), { context.startActivitySafely(vm.fixIntent(LocationFix.LocationSettings)) })
     }
-    Hint(stringResource(R.string.su_manual_still_works))
+    if (LocationDegradation.NoPlayServices in notes) {
+        DayCueTextButton(stringResource(R.string.su_open_play_services), { context.startActivitySafely(vm.fixIntent(LocationFix.PlayServices)) })
+    }
 
     // Optional: physical activity (on-foot = outdoors away from saved places).
     if (vm.activityPermissions().isNotEmpty()) {
-        Gap(8)
         if (access.activityRecognition) {
             DayCueRow(
                 primary = stringResource(R.string.su_perm_activity_on),
-                secondary = stringResource(R.string.su_perm_activity_on_body),
                 leading = { GlyphIcon(Glyph.Check, c.ink) },
             )
         } else {
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(stringResource(R.string.su_perm_activity_title), style = DayCueTheme.type.titleSmall, color = c.ink)
                 Hint(stringResource(R.string.su_perm_activity_why))
-                Hint(stringResource(R.string.su_perm_activity_without))
-                SecondaryButton(
-                    stringResource(R.string.su_perm_allow),
-                    { launcher.launch(vm.activityPermissions().toTypedArray()) },
-                    Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
+                DayCueTextButton(stringResource(R.string.su_perm_allow), { launcher.launch(vm.activityPermissions().toTypedArray()) })
             }
         }
     }
@@ -316,7 +329,7 @@ private fun degradationText(d: LocationDegradation): Int = when (d) {
 // ---- Place editor ------------------------------------------------------------------------------------------
 
 @Composable
-fun PlaceEditorScreen(placeId: String, onBack: () -> Unit) {
+fun PlaceEditorScreen(placeId: String, onBack: () -> Unit, nameHint: String? = null) {
     val vm: PlacesViewModel = viewModel()
     val ui by vm.ui.collectAsStateWithLifecycle()
     val fixState by vm.lastFix.collectAsStateWithLifecycle()
@@ -331,7 +344,7 @@ fun PlaceEditorScreen(placeId: String, onBack: () -> Unit) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshAccess() }
 
     if (cfg == null) {
-        SetupFrame(stringResource(R.string.su_place_title), onBack) { repeat(4) { SkeletonRow() } }
+        SetupFrame(if (isNew) stringResource(R.string.su_place_new) else nameHint ?: stringResource(R.string.su_place_title), onBack) { repeat(4) { SkeletonRow() } }
         return
     }
     val existing = if (isNew) null else ui.places.firstOrNull { it.id == placeId }
@@ -384,7 +397,8 @@ fun PlaceEditorScreen(placeId: String, onBack: () -> Unit) {
 
     val nameIssue = nameProblem(name).takeIf { name.isNotEmpty() || saveErrorRes != null }
 
-    SetupFrame(stringResource(if (isNew) R.string.su_place_new else R.string.su_place_title), onBack) {
+    SetupFrame(if (isNew) stringResource(R.string.su_place_new) else existing?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.su_place_title), onBack) {
+        // ---- Simple tier: name, where, radius, indoors or outdoors, work here.
         DayCueTextField(
             value = name,
             onValueChange = { name = it; if (isNew) draftNew = draftNew.copy(name = it.trim()) },
@@ -394,52 +408,22 @@ fun PlaceEditorScreen(placeId: String, onBack: () -> Unit) {
                 NameProblem.TooLong -> stringResource(R.string.su_err_name_long, PLACE_NAME_MAX)
                 null -> null
             },
-            helper = stringResource(R.string.su_place_name_hint),
         )
-
-        SectionHeader(stringResource(R.string.su_place_where_header))
-        Para(stringResource(if (place.active) R.string.su_place_where_set else R.string.su_place_where_unset))
+        Gap(8)
+        val useCurrent: @Composable (Modifier) -> Unit = { m ->
+            val label = stringResource(if (locating) R.string.su_locating else R.string.su_use_current)
+            // One primary per screen: on a new place "Add place" is it; on a saved place the primary is the missing location.
+            if (!isNew && !place.active) PrimaryButton(label, { vm.useCurrentLocation() }, m, enabled = !locating)
+            else SecondaryButton(label, { vm.useCurrentLocation() }, m, enabled = !locating)
+        }
+        useCurrent(Modifier.fillMaxWidth())
         Gap(4)
-        SecondaryButton(
-            stringResource(if (locating) R.string.su_locating else R.string.su_use_current),
-            { vm.useCurrentLocation() },
-            Modifier.fillMaxWidth(),
-            enabled = !locating,
+        Text(
+            stringResource(if (place.active) R.string.su_loc_saved else R.string.su_loc_not_set),
+            style = DayCueTheme.type.bodySmall, color = c.ink2,
         )
         FixResult(fixState, place.radiusM, ui.access?.nextStep, vm)
 
-        Gap(12)
-        Text(stringResource(R.string.su_coords_title), style = DayCueTheme.type.titleSmall, color = c.ink)
-        Hint(stringResource(R.string.su_coords_hint))
-        DayCueTextField(
-            latText, { latText = it; coordError = null }, stringResource(R.string.su_coords_lat),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        )
-        Gap(8)
-        DayCueTextField(
-            lngText, { lngText = it; coordError = null }, stringResource(R.string.su_coords_lng),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            error = coordError?.let { stringResource(it) },
-        )
-        Gap(8)
-        SecondaryButton(stringResource(R.string.su_coords_set), {
-            when (val parsed = parseCoordinates(latText, lngText)) {
-                is CoordinateParse.Ok -> {
-                    coordError = null
-                    if (isNew) draftNew = draftNew.copy(center = parsed.point)
-                    else existing?.let { scope.launch { vm.setLocation(it.id, parsed.point) } }
-                    latText = ""; lngText = ""
-                }
-                CoordinateParse.Empty -> coordError = R.string.su_coords_empty
-                CoordinateParse.BadLatitude -> coordError = R.string.su_coords_bad_lat
-                CoordinateParse.BadLongitude -> coordError = R.string.su_coords_bad_lng
-            }
-        }, Modifier.fillMaxWidth())
-        Gap(8)
-        Text(stringResource(R.string.su_map_title), style = DayCueTheme.type.titleSmall, color = c.ink)
-        Hint(stringResource(R.string.su_map_not_included))
-
-        SectionHeader(stringResource(R.string.su_radius_header))
         StepperRow(
             label = stringResource(R.string.su_radius_label),
             valueText = stringResource(R.string.su_radius_m, place.radiusM),
@@ -448,49 +432,73 @@ fun PlaceEditorScreen(placeId: String, onBack: () -> Unit) {
             onIncrease = { update { it.copy(radiusM = stepRadius(it.radiusM, true)) } },
             canDecrease = place.radiusM > PLACE_RADIUS_MIN,
             canIncrease = place.radiusM < PLACE_RADIUS_MAX,
-            hint = stringResource(R.string.su_radius_hint, PLACE_RADIUS_MIN, PLACE_RADIUS_MAX),
         )
-
         SettingRow(stringResource(R.string.su_env_label), envWord(place.typicalEnvironment), { envSheet = true })
-        if (place.typicalEnvironment == TypicalEnvironment.Mixed) Hint(stringResource(R.string.su_env_mixed_hint))
-
-        SectionHeader(stringResource(R.string.su_place_work_header))
         SwitchRow(
-            stringResource(R.string.su_allow_working), SessionKind.Working in place.allowedActivities,
+            stringResource(R.string.su_work_here), SessionKind.Working in place.allowedActivities,
             { on -> update { it.copy(allowedActivities = if (on) it.allowedActivities + SessionKind.Working else it.allowedActivities - SessionKind.Working) } },
-            secondary = stringResource(R.string.su_allow_working_hint),
         )
-        SwitchRow(
-            stringResource(R.string.su_allow_studying), SessionKind.Studying in place.allowedActivities,
-            { on -> update { it.copy(allowedActivities = if (on) it.allowedActivities + SessionKind.Studying else it.allowedActivities - SessionKind.Studying) } },
-            secondary = stringResource(R.string.su_allow_studying_hint),
-        )
-        SettingRow(stringResource(R.string.su_session_start), sessionStartWord(place.sessionStart), { sessionSheet = true })
 
-        SectionHeader(stringResource(R.string.su_place_more_header))
-        SwitchRow(
-            stringResource(R.string.su_bottle_on_leave), place.bottleReminderOnLeave,
-            { on -> update { it.copy(bottleReminderOnLeave = on) } },
-            secondary = stringResource(R.string.su_bottle_on_leave_hint),
-        )
-        val routines = cfg.routines
-        if (routines.isNotEmpty()) {
+        // ---- More options: coordinates, studying, session start, bottle, routines.
+        MoreOptionsRow(advanced, { advanced = !advanced })
+        if (advanced) {
             Gap(8)
-            Text(stringResource(R.string.su_routines_here), style = DayCueTheme.type.titleSmall, color = c.ink)
-            Hint(stringResource(R.string.su_routines_here_hint))
-            routines.forEach { r ->
-                SwitchRow(
-                    r.name, r.id in place.allowedRoutines,
-                    { on -> update { it.copy(allowedRoutines = if (on) it.allowedRoutines + r.id else it.allowedRoutines - r.id) } },
+            Text(stringResource(R.string.su_coords_title), style = DayCueTheme.type.titleSmall, color = c.ink)
+            Hint(stringResource(R.string.su_coords_hint))
+            DayCueTextField(
+                latText, { latText = it; coordError = null }, stringResource(R.string.su_coords_lat),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+            Gap(8)
+            DayCueTextField(
+                lngText, { lngText = it; coordError = null }, stringResource(R.string.su_coords_lng),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                error = coordError?.let { stringResource(it) },
+            )
+            DayCueTextButton(stringResource(R.string.su_coords_set), {
+                when (val parsed = parseCoordinates(latText, lngText)) {
+                    is CoordinateParse.Ok -> {
+                        coordError = null
+                        if (isNew) draftNew = draftNew.copy(center = parsed.point)
+                        else existing?.let { scope.launch { vm.setLocation(it.id, parsed.point) } }
+                        latText = ""; lngText = ""
+                    }
+                    CoordinateParse.Empty -> coordError = R.string.su_coords_empty
+                    CoordinateParse.BadLatitude -> coordError = R.string.su_coords_bad_lat
+                    CoordinateParse.BadLongitude -> coordError = R.string.su_coords_bad_lng
+                }
+            })
+            Hint(stringResource(R.string.su_map_not_included))
+
+            Gap(8)
+            SwitchRow(
+                stringResource(R.string.su_allow_studying), SessionKind.Studying in place.allowedActivities,
+                { on -> update { it.copy(allowedActivities = if (on) it.allowedActivities + SessionKind.Studying else it.allowedActivities - SessionKind.Studying) } },
+            )
+            SettingRow(stringResource(R.string.su_session_start), sessionStartWord(place.sessionStart), { sessionSheet = true })
+            SwitchRow(
+                stringResource(R.string.su_bottle_on_leave), place.bottleReminderOnLeave,
+                { on -> update { it.copy(bottleReminderOnLeave = on) } },
+                secondary = stringResource(R.string.su_bottle_on_leave_hint),
+            )
+            val routines = cfg.routines
+            if (routines.isNotEmpty()) {
+                Gap(8)
+                Text(stringResource(R.string.su_routines_here), style = DayCueTheme.type.titleSmall, color = c.ink)
+                routines.forEach { r ->
+                    SwitchRow(
+                        r.name, r.id in place.allowedRoutines,
+                        { on -> update { it.copy(allowedRoutines = if (on) it.allowedRoutines + r.id else it.allowedRoutines - r.id) } },
+                    )
+                }
+            }
+            if (SessionKind.Working in place.allowedActivities && SessionKind.Studying in place.allowedActivities) {
+                SettingRow(
+                    stringResource(R.string.su_default_kind),
+                    stringResource(if (place.defaultSessionKind == SessionKind.Working) R.string.su_kind_working else R.string.su_kind_studying),
+                    { update { it.copy(defaultSessionKind = if (it.defaultSessionKind == SessionKind.Working) SessionKind.Studying else SessionKind.Working) } },
                 )
             }
-        }
-        if (SessionKind.Working in place.allowedActivities && SessionKind.Studying in place.allowedActivities) {
-            SettingRow(
-                stringResource(R.string.su_default_kind),
-                stringResource(if (place.defaultSessionKind == SessionKind.Working) R.string.su_kind_working else R.string.su_kind_studying),
-                { update { it.copy(defaultSessionKind = if (it.defaultSessionKind == SessionKind.Working) SessionKind.Studying else SessionKind.Working) } },
-            )
         }
 
         saveErrorRes?.let { FieldNote(stringResource(it)) }
@@ -513,8 +521,7 @@ fun PlaceEditorScreen(placeId: String, onBack: () -> Unit) {
             )
             if (!place.active) Hint(stringResource(R.string.su_place_add_inactive_hint))
         } else {
-            DestructiveButton(stringResource(R.string.su_place_delete), { confirmDelete = true }, Modifier.fillMaxWidth())
-            Hint(stringResource(R.string.su_place_delete_hint))
+            DayCueTextButton(stringResource(R.string.su_place_delete), { confirmDelete = true }, color = c.error.ink)
         }
     }
 
@@ -601,10 +608,9 @@ private fun FixResult(state: CurrentLocationResult?, radiusM: Int, nextStep: Loc
                 AccuracyVerdict.TooCoarse -> {
                     FieldNote(stringResource(R.string.su_fix_coarse, meters))
                     if (!state.precise) {
-                        SecondaryButton(
+                        DayCueTextButton(
                             stringResource(R.string.su_perm_allow_precise),
                             { launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
-                            Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -612,10 +618,9 @@ private fun FixResult(state: CurrentLocationResult?, radiusM: Int, nextStep: Loc
         }
         CurrentLocationResult.NoPermission -> {
             FieldNote(stringResource(R.string.su_fix_no_permission))
-            SecondaryButton(
+            DayCueTextButton(
                 stringResource(R.string.su_perm_allow),
                 { launcher.launch(vm.nextPermissionPermissions().toTypedArray()) },
-                Modifier.fillMaxWidth(),
             )
         }
         CurrentLocationResult.LocationOff -> {
@@ -657,9 +662,7 @@ fun ContextSettingsScreen(onBack: () -> Unit) {
                 errorRes = if (r is EditResult.Invalid) friendlyError(r.errors.first()) else null
             }
         }
-        Hint(stringResource(R.string.su_ctx_intro))
-
-        SectionHeader(stringResource(R.string.su_ctx_sessions_header))
+        SectionHeader(stringResource(R.string.su_ctx_sessions_header), topPadding = 8.dp)
         MinutesStepper(R.string.su_ctx_sustained, s.sustainedActiveToStartMin, 1, 30, R.string.su_ctx_sustained_hint) { v -> saveSession { it.copy(sustainedActiveToStartMin = v) } }
         MinutesStepper(R.string.su_ctx_idle, s.idleToPauseMin, 2, 60, R.string.su_ctx_idle_hint) { v -> saveSession { it.copy(idleToPauseMin = v) } }
         MinutesStepper(R.string.su_ctx_locked, s.lockedToPauseMin, 0, 30, R.string.su_ctx_locked_hint) { v -> saveSession { it.copy(lockedToPauseMin = v) } }
@@ -691,7 +694,6 @@ fun ContextSettingsScreen(onBack: () -> Unit) {
             { on -> saveSession { it.copy(meetingKeepsSessionActive = on) } },
             secondary = stringResource(R.string.su_ctx_meeting_keeps_hint),
         )
-        Hint(stringResource(R.string.su_ctx_start_per_place))
 
         SectionHeader(stringResource(R.string.su_ctx_places_header))
         MinutesStepper(R.string.su_ctx_enter, rules.placeEnterDwellMin, 1, 15, R.string.su_ctx_enter_hint) { v -> saveContext { it.copy(placeEnterDwellMin = v) } }

@@ -230,8 +230,20 @@ data class CalendarState(
 )
 
 // ---- Delivery (§8) ----
+/**
+ * A notification the engine believes is on screen. [cue] is the last delivered content (null in states written
+ * before 2026-10-05): it lets the engine re-post the notification quietly when the platform lost it (reboot,
+ * force stop, notification reset), so state and reality agree (VALIDATION D1, GEN-7).
+ */
 @Serializable
-data class VisibleCue(val cueId: String, val notificationKey: String, val itemKey: String, val type: app.daycue.domain.config.CueType, val deliveredAt: Instant)
+data class VisibleCue(
+    val cueId: String,
+    val notificationKey: String,
+    val itemKey: String,
+    val type: app.daycue.domain.config.CueType,
+    val deliveredAt: Instant,
+    val cue: Cue? = null,
+)
 
 @Serializable
 data class DeliveryState(

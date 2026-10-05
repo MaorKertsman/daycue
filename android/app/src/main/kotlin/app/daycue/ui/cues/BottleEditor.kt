@@ -67,14 +67,15 @@ internal fun BottleEditor(vm: CuesViewModel, cfg: DayCueConfig, h: TransitionHab
     val changed = listOf(h.cooldownPerPlaceMin != def.cooldownPerPlaceMin, h.dedupWindowMin != def.dedupWindowMin, h.repeat != def.repeat)
 
     CuesScreen(
-        title = habitName(h), onBack = onBack,
+        title = habitName(h), onBack = onBack, mark = CueType.Bottle,
         trailing = { DayCueSwitch(h.enabled, { vm.edit(ConfigOp.SetHabitEnabled(h.id, it)) }, Modifier.semantics { contentDescription = hName }) },
     ) {
         if (pausedText != null) {
             DayCueRow(primary = pausedText, trailing = { DayCueTextButton(stringResource(R.string.cues_resume), { vm.dispatch(Event.Resume(PauseTarget.Habit(h.id))) }) })
         }
-        val placeSummary = if (h.placeIds.isEmpty()) stringResource(R.string.cues_bottle_places_default)
-        else h.placeIds.mapNotNull { id -> cfg.place(id)?.let { placeName(it) } }.joinToString(", ")
+        // Name the places ("Home, Office"); an empty selection means every place marked for the bottle reminder.
+        val shownPlaces = if (h.placeIds.isEmpty()) cfg.places else cfg.places.filter { it.id in h.placeIds }
+        val placeSummary = if (shownPlaces.isEmpty()) stringResource(R.string.cues_bottle_no_places) else shownPlaces.map { placeName(it) }.joinToString(", ")
         SettingRow(stringResource(R.string.cues_bottle_places), placeSummary, { sheet = "places" })
         FieldErrors(errors, "$path.placeIds")
 
@@ -104,7 +105,7 @@ internal fun BottleEditor(vm: CuesViewModel, cfg: DayCueConfig, h: TransitionHab
 
         Spacer(Modifier.height(8.dp))
         PhraseRow(h.phrase, Defaults.waterBottle().phrase?.get(lang).orEmpty(), lang, { sheet = "phrase" })
-        SettingRow(stringResource(R.string.cues_sound_voice), stringResource(R.string.cues_sound_voice_value), { onOpenCueProfile(vm.profileId(domainCueType(h), h.cueProfileId)) })
+        SettingRow(stringResource(R.string.cues_sound_voice), soundSummary(cfg, domainCueType(h), h.cueProfileId), { onOpenCueProfile(vm.profileId(domainCueType(h), h.cueProfileId)) })
         Spacer(Modifier.height(16.dp))
         CuePreviewButton(CueType.Bottle, stringResource(R.string.cues_test_cue), { vm.testReminder(domainCueType(h)) })
         DayCueTextButton(stringResource(R.string.cues_pause), { sheet = "pause" })

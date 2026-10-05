@@ -133,9 +133,16 @@ object ContextEngine {
         cs.envOverride?.let { o ->
             if (!now.isBefore(o.expiresAt)) cs = cs.copy(envOverride = null)
         }
+        cs.placeOverride?.let { o ->
+            val gone = o.value.kind == PlaceKind.Saved && config.place(o.value.placeId!!) == null
+            if (!now.isBefore(o.expiresAt) || gone) cs = cs.copy(placeOverride = null)
+        }
         cs = advancePlace(cs, config, now, notes)
         cs.envOverride?.let { o -> // UntilTransition ends at the next meaningful transition (CTX-3)
             if (o.untilTransition && cs.lastTransitionAt != null && cs.lastTransitionAt!!.isAfter(o.setAt)) cs = cs.copy(envOverride = null)
+        }
+        cs.placeOverride?.let { o -> // same for the manual place: the next automatic meaningful transition ends it
+            if (o.untilTransition && cs.lastTransitionAt != null && cs.lastTransitionAt!!.isAfter(o.setAt)) cs = cs.copy(placeOverride = null)
         }
         cs = advanceEnv(cs, config, now)
         cs = advanceSession(cs, config, now, zone, meetingInProgress, notes)
@@ -179,7 +186,7 @@ object ContextEngine {
     private fun rawEnv(cs: ContextState, config: DayCueConfig, now: Instant): Raw {
         val r = config.contextRules
         if (cs.detectionPause != null) return Raw(Environment.Unknown, Confidence.Low, cs.detectionPause.setAt, ContextSource.DetectionPaused, 0)
-        val p = cs.place
+        val p = cs.effectivePlace
         if (p.value.kind == PlaceKind.Saved) {
             val place = config.place(p.value.placeId!!)
             when (place?.typicalEnvironment) {
@@ -278,7 +285,7 @@ object ContextEngine {
             // end conditions (WRK-4 / WRK-7)
             val endReason = when {
                 s.status != SessionStatus.Active && !now.isBefore(s.statusSince.plusMin(r.pausedToEndMin)) -> "WRK-4 paused >= pausedToEnd"
-                s.placeId != null && cs.place.value.kind != PlaceKind.Unknown && cs.place.value != PlaceValue.saved(s.placeId) -> "WRK-4 left place"
+                s.placeId != null && cs.effectivePlace.value.kind != PlaceKind.Unknown && cs.effectivePlace.value != PlaceValue.saved(s.placeId) -> "WRK-4 left place"
                 !s.manual && !permitted(config, now, zone) -> "WRK-4 end of permitted hours"
                 s.capAt != null && !now.isBefore(s.capAt) -> "WRK-4 cap"
                 else -> null
@@ -287,7 +294,7 @@ object ContextEngine {
             cs = cs.copy(session = s)
         }
         if (cs.session == null && cs.detectionPause == null) {
-            val pv = cs.place.value
+            val pv = cs.effectivePlace.value
             val place = pv.placeId?.let { config.place(it) }
             // WRK-1 / WRK-6
             if (pv.kind == PlaceKind.Saved && place != null && place.sessionStart != SessionStart.Off &&
@@ -319,7 +326,9 @@ object ContextEngine {
 
     fun infer(cs: ContextState, config: DayCueConfig, now: Instant, routineRunning: Boolean, meetingKey: String?, meetingEnd: Instant?): InferredContext {
         val paused = cs.detectionPause != null
+        val po = cs.placeOverride
         val place = when {
+            po != null -> Dim(po.value, Confidence.High, ContextSource.Manual, po.setAt) // CTX-1: manual beats everything
             paused -> Dim(PlaceValue.UNKNOWN, Confidence.Low, ContextSource.DetectionPaused, cs.detectionPause!!.setAt)
             cs.place.value.kind == PlaceKind.Unknown -> Dim(PlaceValue.UNKNOWN, Confidence.Low, ContextSource.None, cs.place.since)
             else -> Dim(cs.place.value, Confidence.High, ContextSource.Geofence, cs.place.since)
@@ -368,6 +377,7 @@ object ContextEngine {
         onFootHoldEnd(cs, r)?.let { out += it to false }
         cs.onFootSince?.let { out += it.plusMin(maxOf(r.outdoorEnterDwellMin, r.onFootSustainMin)) to true }
         cs.envOverride?.let { out += it.expiresAt to false }
+        cs.placeOverride?.let { out += it.expiresAt to false }
         cs.detectionPause?.until?.let { out += it to false }
         val c = cs.companion
         c.expiresAt?.let { out += it to false }

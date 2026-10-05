@@ -23,7 +23,7 @@ internal object BottleModule {
 
     /** BTL-1: the dependable path. */
     fun leavingNow(run: Run) {
-        val pv = run.st.context.place.value
+        val pv = run.st.context.effectivePlace.value
         val placeId = pv.placeId.takeIf { pv.kind == PlaceKind.Saved }
         run.history("context", HistoryKind.ContextChanged, "BTL-1", detail = mapOf("departure" to (placeId ?: "unknown")))
         for (h in run.config.transitionHabits) {
@@ -90,7 +90,7 @@ internal object BottleModule {
             val date = TimeMath.localDate(now, run.zone)
             val occ = TimeMath.resolveLocal(date, d.time, run.zone)
             if (date.dayOfWeek in d.days && !now.isBefore(occ) && s.firedDepartures[sk] != date) {
-                val here = run.st.context.place.value.let { it.kind == PlaceKind.Saved && it.placeId == d.placeId }
+                val here = run.st.context.effectivePlace.value.let { it.kind == PlaceKind.Saved && it.placeId == d.placeId }
                 s = s.copy(firedDepartures = s.firedDepartures + (sk to date))
                 if (here && now.isBefore(occ.plusMin(30))) s = s.copy(pending = PendingDeparture(d.placeId, "ScheduledDeparture", now, loud = false))
             }

@@ -67,6 +67,8 @@ import app.daycue.ui.util.durationSecondsText
 import app.daycue.ui.util.durationText
 import java.time.LocalTime
 
+private val ROUTINE_KINDS = setOf("RoutineStarted", "RoutineCompleted", "RoutineCanceled")
+
 private fun Routine.totalSec(): Int = steps.sumOf { it.durationSec * it.repeat }
 
 private fun minutesCeil(sec: Int) = (sec + 59) / 60
@@ -123,23 +125,21 @@ internal fun RoutineListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Str
             DayCueTextButton(stringResource(R.string.cues_routines_new), ::createBlank)
         } else {
             cfg.routines.forEach { r ->
+                val scheduled = r.trigger != RoutineTrigger.Manual
                 ToggleNavRow(
-                    cue = CueType.Routine, state = if (r.enabled) CueState.Scheduled else null,
+                    cue = CueType.Routine, state = if (r.enabled && scheduled) CueState.Scheduled else null,
                     title = routineName(r.id, r.name),
                     summary = "${triggerText(r, cfg)} · ${durationText(maxOf(1, minutesCeil(r.totalSec())))}",
-                    status = if (!r.enabled && r.trigger != RoutineTrigger.Manual) stringResource(R.string.cues_off) else null,
+                    status = null,
                     checked = r.enabled, onCheckedChange = { vm.edit(ConfigOp.UpsertRoutine(r.copy(enabled = it))) },
                     onClick = { push("routine/${r.id}") },
-                    extra = {
-                        Row {
-                            DayCueTextButton(stringResource(R.string.cues_start), { requestStart(r) })
-                            DayCueTextButton(stringResource(R.string.cues_more), { menu = r })
-                        }
-                    },
+                    showSwitch = scheduled,
+                    extra = { DayCueTextButton(stringResource(R.string.cues_start), { requestStart(r) }) },
+                    overflow = { menu = r },
                 )
             }
             Spacer(Modifier.height(8.dp))
-            PrimaryButton(stringResource(R.string.cues_routines_new), ::createBlank, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.cues_routines_new), ::createBlank)
             if (cfg.routine(Defaults.MORNING_ROUTINE) == null) {
                 DayCueTextButton(stringResource(R.string.cues_routines_from_template), { vm.edit(ConfigOp.UpsertRoutine(Defaults.morningRoutine()), CuesMessage(R.string.cues_added)) })
             }
@@ -214,8 +214,8 @@ internal fun RoutineEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Un
     val changed = listOf(r.recovery != def, r.startMode != null)
 
     CuesScreen(
-        routineName(r.id, r.name), onBack,
-        trailing = { DayCueSwitch(r.enabled, { save(r.copy(enabled = it)) }, Modifier.semantics { contentDescription = r.name }) },
+        routineName(r.id, r.name), onBack, mark = CueType.Routine,
+        trailing = { if (r.trigger != RoutineTrigger.Manual) DayCueSwitch(r.enabled, { save(r.copy(enabled = it)) }, Modifier.semantics { contentDescription = r.name }) },
     ) {
         if (running != null) Text(stringResource(R.string.cues_changes_next_time), style = DayCueTheme.type.label, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(vertical = 8.dp))
         CommitTextField(routineName(r.id, r.name), { save(r.copy(name = it.take(40))) }, stringResource(R.string.cues_name))
@@ -247,14 +247,15 @@ internal fun RoutineEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Un
 
         SettingRow(stringResource(R.string.cues_timing), timingLabel(r.timing), { sheet = "timing" })
         Spacer(Modifier.height(8.dp))
-        PrimaryButton(stringResource(R.string.cues_start_now), {
+        if (running != null) PrimaryButton(stringResource(R.string.cues_open_running_routine), { push("routine/${r.id}/play") }, Modifier.fillMaxWidth())
+        else PrimaryButton(stringResource(R.string.cues_start_now), {
             if (engine?.routine?.run != null && engine?.routine?.run?.routineId != r.id) sheet = "replace"
             else { vm.facade.startRoutine(context.findActivity() ?: context, r.id, false); push("routine/${r.id}/play") }
         }, Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton(stringResource(R.string.cues_test_normal), { vm.facade.testRoutine(context.findActivity() ?: context, r.id, RoutineTestMode.X1); push("routine/${r.id}/play") }, compact = true)
-            SecondaryButton(stringResource(R.string.cues_test_fast), { vm.facade.testRoutine(context.findActivity() ?: context, r.id, RoutineTestMode.Fast); push("routine/${r.id}/play") }, compact = true)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            DayCueTextButton(stringResource(R.string.cues_test_normal), { vm.facade.testRoutine(context.findActivity() ?: context, r.id, RoutineTestMode.X1); push("routine/${r.id}/play") })
+            DayCueTextButton(stringResource(R.string.cues_test_fast), { vm.facade.testRoutine(context.findActivity() ?: context, r.id, RoutineTestMode.Fast); push("routine/${r.id}/play") })
         }
         Text(stringResource(R.string.cues_test_note), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 4.dp))
 
@@ -265,7 +266,7 @@ internal fun RoutineEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Un
                 SettingRow(stringResource(R.string.cues_start_prompt), stringResource(if (r.effectiveStartMode == RoutineStartMode.AskToStart) R.string.cues_start_ask else R.string.cues_start_auto), { sheet = "trigger" }, changed = changed[1])
             }
         }
-        RecentActivity(vm, "routine", r.id)
+        RecentActivity(vm, "routine", r.id, onlyKinds = ROUTINE_KINDS)
         Spacer(Modifier.height(16.dp))
         DestructiveButton(stringResource(R.string.cues_routine_delete), {
             vm.edit(ConfigOp.DeleteRoutine(r.id), CuesMessage(R.string.cues_deleted_named, listOf(r.name))); onBack()
@@ -467,6 +468,6 @@ private fun StepSheet(
         )
         NumberRow(stringResource(R.string.cues_step_repeat), s.repeat, 1, 10, { s = s.copy(repeat = it) }, valueText = s.repeat.toString())
         SwitchRow(stringResource(R.string.cues_step_optional_label), s.optional, { s = s.copy(optional = it) }, secondary = stringResource(R.string.cues_step_optional_c))
-        SettingRow(stringResource(R.string.cues_sound_voice), stringResource(R.string.cues_sound_voice_value), { onOpenCueProfile(vm.profileId(app.daycue.domain.config.CueType.RoutineStep, s.cueProfileId)) })
+        SettingRow(stringResource(R.string.cues_sound_voice), vm.config.value?.let { soundSummary(it, app.daycue.domain.config.CueType.RoutineStep, s.cueProfileId) } ?: stringResource(R.string.cues_sound_voice), { onOpenCueProfile(vm.profileId(app.daycue.domain.config.CueType.RoutineStep, s.cueProfileId)) })
     }
 }

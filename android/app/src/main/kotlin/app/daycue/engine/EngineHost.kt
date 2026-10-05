@@ -3,7 +3,7 @@ package app.daycue.engine
 import app.daycue.domain.Clock
 import app.daycue.domain.config.DayCueConfig
 import app.daycue.domain.config.Defaults
-import app.daycue.domain.config.Language
+import app.daycue.domain.config.FirstRunSeed
 import app.daycue.domain.edit.ApplyResult
 import app.daycue.domain.edit.ConfigEditor
 import app.daycue.domain.edit.ConfigOp
@@ -52,7 +52,8 @@ class EngineHost(
     private val sink: EffectSink,
     private val bootSnapshot: BootSnapshotWriter = NoopBootSnapshot,
     private val log: HostLog,
-    private val defaultLanguage: () -> Language = { Language.en },
+    /** First-run seed (language, region work days, 24-hour clock, localized template names), read once when no config exists. */
+    private val firstRun: () -> FirstRunSeed = { FirstRunSeed() },
 ) {
     private val mutex = Mutex()
     private var config: DayCueConfig? = null
@@ -87,9 +88,9 @@ class EngineHost(
     // ---------------------------------------------------------------------------------------------
 
     private suspend fun loadLocked(): HostSnapshot {
-        val c = config ?: (store.loadConfig() ?: Defaults.config(defaultLanguage()).also {
+        val c = config ?: (store.loadConfig() ?: Defaults.config(firstRun()).also {
             store.seedConfig(it, clock.now())
-            log.info("seeded first-run config (language=${it.settings.language})")
+            log.info("seeded first-run config (language=${it.settings.language}, workDays=${it.settings.workDays.size}, 24h=${it.settings.use24Hour})")
         }).also { config = it }
         val s = state ?: (store.loadState() ?: EngineState()).also { state = it }
         return HostSnapshot(c, s).also { _snapshot.value = it }

@@ -35,6 +35,7 @@ import app.daycue.domain.config.CalendarReminderSupplementPolicy
 import app.daycue.domain.config.CalendarRule
 import app.daycue.domain.config.EventAvailability
 import app.daycue.domain.config.EventDecisionOverride
+import app.daycue.domain.config.Language
 import app.daycue.domain.config.LocalizedText
 import app.daycue.domain.config.OverrideScope
 import app.daycue.domain.config.TentativeHandling
@@ -131,7 +132,7 @@ fun CalendarScreen(onBack: () -> Unit, push: (String) -> Unit) {
                 DayCueTextButton(stringResource(if (syncing) R.string.su_syncing else R.string.su_sync_now), { vm.refresh() }, enabled = !syncing)
             },
         )
-        Hint(stringResource(R.string.su_cal_latency_note))
+        LearnMore(stringResource(R.string.su_cal_latency_note))
 
         SectionHeader(stringResource(R.string.su_cal_calendars_header))
         val list = calendars
@@ -148,10 +149,8 @@ fun CalendarScreen(onBack: () -> Unit, push: (String) -> Unit) {
                 )
             }
         }
-        Hint(stringResource(R.string.su_cal_hidden_note))
 
         SectionHeader(stringResource(R.string.su_cal_rules_header))
-        Hint(stringResource(R.string.su_cal_rules_intro))
         val rules = config.calendarRules.rules
         if (rules.isEmpty()) {
             StateBlock(StateBlockKind.Empty, stringResource(R.string.su_cal_rules_empty), body = stringResource(R.string.su_cal_rules_empty_body))
@@ -171,7 +170,7 @@ fun CalendarScreen(onBack: () -> Unit, push: (String) -> Unit) {
                         DayCueRow(
                             primary = rule.name,
                             secondary = ruleSummary(rule),
-                            onClick = { push(SetupRoutes.CALENDAR_RULE + rule.id) },
+                            onClick = { push(SetupRoutes.withName(SetupRoutes.CALENDAR_RULE, rule.id, rule.name)) },
                             divider = false,
                         )
                     }
@@ -179,10 +178,8 @@ fun CalendarScreen(onBack: () -> Unit, push: (String) -> Unit) {
                 }
             }
         }
-        Gap(8)
         DayCueTextButton(stringResource(R.string.su_rule_add), { push(SetupRoutes.CALENDAR_RULE + SetupRoutes.NEW) })
 
-        SectionHeader(stringResource(R.string.su_cal_preview_header))
         SettingRow(stringResource(R.string.su_cal_preview), stringResource(R.string.su_cal_preview_hint), { push(SetupRoutes.CALENDAR_PREVIEW) })
 
         // More options: policies with a consequence sentence each.
@@ -326,7 +323,11 @@ private fun ruleSummary(rule: CalendarRule): String {
 
 /** "10, 60 min" with the digits kept left to right inside Hebrew text. */
 @Composable
-internal fun leadsText(leads: List<Int>): String = stringResource(R.string.su_minutes_list, leads.joinToString(", ").ltr())
+internal fun leadsText(leads: List<Int>): String {
+    val parts = leads.map { it.toString().ltr() }
+    val joined = if (parts.size <= 1) parts.joinToString("") else stringResource(R.string.su_leads_and, parts.dropLast(1).joinToString(", "), parts.last())
+    return stringResource(R.string.su_minutes_list, joined)
+}
 
 @Composable
 private fun ageHours(at: Instant?): Int = at?.let { Duration.between(it, Instant.now()).toHours().toInt().coerceAtLeast(1) } ?: 0
@@ -374,13 +375,13 @@ private fun CalendarModeSheet(choice: CalendarChoice, onDismiss: () -> Unit, onS
 // ---- Rule editor --------------------------------------------------------------------------------------------
 
 @Composable
-fun CalendarRuleScreen(ruleId: String, onBack: () -> Unit) {
+fun CalendarRuleScreen(ruleId: String, onBack: () -> Unit, nameHint: String? = null) {
     val vm: CalendarViewModel = viewModel()
     val cfg by vm.config.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val isNew = ruleId == SetupRoutes.NEW
     val rule = cfg?.calendarRules?.rules?.firstOrNull { it.id == ruleId }
-    if (cfg == null) { SetupFrame(stringResource(R.string.su_rule_title), onBack) { repeat(3) { SkeletonRow() } }; return }
+    if (cfg == null) { SetupFrame(if (isNew) stringResource(R.string.su_rule_new) else nameHint ?: stringResource(R.string.su_rule_title), onBack) { repeat(3) { SkeletonRow() } }; return }
     if (!isNew && rule == null) {
         SetupFrame(stringResource(R.string.su_rule_title), onBack) { StateBlock(StateBlockKind.Error, stringResource(R.string.su_rule_missing), actionLabel = stringResource(R.string.su_back), onAction = onBack) }
         return
@@ -399,8 +400,7 @@ fun CalendarRuleScreen(ruleId: String, onBack: () -> Unit) {
     var error by remember { mutableStateOf<Int?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    SetupFrame(stringResource(if (isNew) R.string.su_rule_new else R.string.su_rule_title), onBack) {
-        Hint(stringResource(R.string.su_rule_intro))
+    SetupFrame(if (isNew) stringResource(R.string.su_rule_new) else rule?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.su_rule_title), onBack) {
         DayCueTextField(name, { name = it; error = null }, stringResource(R.string.su_rule_name))
         SectionHeader(stringResource(R.string.su_rule_when_header))
         Hint(stringResource(R.string.su_rule_when_hint))
@@ -448,8 +448,7 @@ fun CalendarRuleScreen(ruleId: String, onBack: () -> Unit) {
             }
         }, Modifier.fillMaxWidth())
         if (!isNew) {
-            Gap(8)
-            DestructiveButton(stringResource(R.string.su_rule_delete), { confirmDelete = true }, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.su_rule_delete), { confirmDelete = true }, color = DayCueTheme.colors.error.ink)
         }
     }
     if (confirmDelete && rule != null) {
@@ -483,8 +482,10 @@ fun CalendarPreviewScreen(onBack: () -> Unit) {
     var scopeFor by remember { mutableStateOf<Pair<CalendarPreviewRow, Boolean>?>(null) } // row to "always?"
     val c = DayCueTheme.colors
 
+    val uiLang = if (currentLocale().language.let { it == "iw" || it == "he" }) Language.he else Language.en
+    val zone = remember { ZoneId.systemDefault() }
+    val locale = currentLocale()
     SetupFrame(stringResource(R.string.su_prev_title), onBack) {
-        Hint(stringResource(R.string.su_prev_intro, cfg?.calendarRules?.syncHorizonDays ?: 7))
         val config = cfg
         val list = rows
         val maxAge = config?.calendarRules?.maxCacheAgeHours ?: 24
@@ -494,9 +495,18 @@ fun CalendarPreviewScreen(onBack: () -> Unit) {
         }
         when {
             !permission -> StateBlock(StateBlockKind.Empty, stringResource(R.string.su_cal_perm_title), body = stringResource(R.string.su_cal_perm_without))
-            config == null || list == null -> repeat(3) { SkeletonRow() }
+            config == null || list == null -> repeat(3) { SkeletonRow(mark = true) }
             list.isEmpty() -> StateBlock(StateBlockKind.Empty, stringResource(R.string.su_prev_empty), body = stringResource(R.string.su_prev_empty_body))
-            else -> list.forEach { row -> PreviewRowView(row, vm, onAsk = { always -> scopeFor = row to always }) }
+            else -> {
+                // Events grouped under day headers, not a date in every row (REVIEW-2 C18).
+                val byDay = list.groupBy { it.event.start.atZone(zone).toLocalDate() }
+                byDay.forEach { (day, dayRows) ->
+                    SectionHeader(remember(day, locale) { dayHeader(day, locale) })
+                    dayRows.forEach { row ->
+                        PreviewRowView(row, vm.why(row, uiLang), vm, onAsk = { always -> scopeFor = row to always })
+                    }
+                }
+            }
         }
         Hint(stringResource(R.string.su_prev_untrusted))
     }
@@ -515,29 +525,31 @@ fun CalendarPreviewScreen(onBack: () -> Unit) {
     }
 }
 
+/** "Mon, 5 Oct" in the app language, from the locale's own skeleton. */
+private fun dayHeader(day: java.time.LocalDate, locale: java.util.Locale): String {
+    val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEdMMM")
+    return DateTimeFormatter.ofPattern(pattern, locale).format(day)
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun PreviewRowView(row: CalendarPreviewRow, vm: CalendarViewModel, onAsk: (always: Boolean) -> Unit) {
+private fun PreviewRowView(row: CalendarPreviewRow, why: String, vm: CalendarViewModel, onAsk: (always: Boolean) -> Unit) {
     val c = DayCueTheme.colors
     val locale = currentLocale()
     val is24 = is24Hour(LocalContext.current)
     val zone = remember { ZoneId.systemDefault() }
     val start = row.event.start.atZone(zone)
-    val whenText = remember(row, locale, is24) {
-        val date = DateTimeFormatter.ofPattern("EEE d MMM", locale).format(start)
-        val time = if (row.event.allDay) null else clockText(start.hour, start.minute, is24, locale)
-        date to time
-    }
+    val time = remember(row, locale, is24) { if (row.event.allDay) null else clockText(start.hour, start.minute, is24, locale) }
     val series = row.event.seriesId != null
     val override = row.instanceOverride ?: row.seriesOverride
     val overrideScope = if (row.instanceOverride != null) OverrideScope.Instance else OverrideScope.Series
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.Top) {
             CueMark(CueType.Calendar, state = if (row.decision.cue) null else app.daycue.ui.marks.CueState.Paused)
             Column(Modifier.padding(start = 16.dp).weight(1f)) {
                 // The title is untrusted text: shown as plain text only (a Text composable never links or interprets it).
                 Text(row.event.title.ifBlank { stringResource(R.string.su_prev_untitled) }, style = DayCueTheme.type.titleSmall, color = c.ink, maxLines = 3)
-                val whenLine = if (whenText.second != null) "${whenText.first} · ${whenText.second!!.ltr()}" else "${whenText.first} · ${stringResource(R.string.su_prev_all_day)}"
-                Text(whenLine, style = DayCueTheme.type.bodySmall, color = c.ink2)
+                Text(time?.ltr() ?: stringResource(R.string.su_prev_all_day), style = DayCueTheme.type.bodySmall, color = c.ink2)
                 val cueLine = when {
                     override is EventDecisionOverride.Never -> stringResource(R.string.su_prev_no_cue_you)
                     override is EventDecisionOverride.Always -> stringResource(R.string.su_prev_cue_you, leadsText(override.leadsMin))
@@ -545,23 +557,25 @@ private fun PreviewRowView(row: CalendarPreviewRow, vm: CalendarViewModel, onAsk
                     else -> stringResource(R.string.su_prev_no_cue)
                 }
                 Text(cueLine, style = DayCueTheme.type.bodySmall, color = c.calendar.ink)
-                // Why matched: the engine's own localized sentence (rule name inside is the owner's text).
-                Text(row.why, style = DayCueTheme.type.bodySmall, color = c.ink2)
+                // Why matched: the engine's sentence, resolved in the app language (not the config language).
+                Text(why, style = DayCueTheme.type.bodySmall, color = c.ink2)
                 row.calendarName?.let { Text(it, style = DayCueTheme.type.labelSmall, color = c.ink2) }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (override != null) {
-                DayCueTextButton(stringResource(R.string.su_prev_clear), { vm.clear(row, overrideScope) })
-            } else {
-                if (row.decision.cue) {
-                    DayCueTextButton(stringResource(R.string.su_prev_never), { if (series) onAsk(false) else vm.never(row, OverrideScope.Instance) })
-                } else {
-                    DayCueTextButton(stringResource(R.string.su_prev_always), { if (series) onAsk(true) else vm.always(row, OverrideScope.Instance) })
+                // Actions wrap as whole phrases, never inside a word, and line up with the row text.
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (override != null) {
+                        DayCueTextButton(stringResource(R.string.su_prev_clear), { vm.clear(row, overrideScope) })
+                    } else {
+                        if (row.decision.cue) {
+                            DayCueTextButton(stringResource(R.string.su_prev_never), { if (series) onAsk(false) else vm.never(row, OverrideScope.Instance) })
+                        } else {
+                            DayCueTextButton(stringResource(R.string.su_prev_always), { if (series) onAsk(true) else vm.always(row, OverrideScope.Instance) })
+                        }
+                        DayCueTextButton(stringResource(R.string.su_prev_never_calendar), { vm.neverForCalendar(row.event.calendarId) })
+                    }
                 }
-                DayCueTextButton(stringResource(R.string.su_prev_never_calendar), { vm.neverForCalendar(row.event.calendarId) })
             }
         }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(1.dp).background(c.outline))
     }
 }
+

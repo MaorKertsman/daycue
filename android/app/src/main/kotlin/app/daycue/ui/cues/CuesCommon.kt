@@ -58,6 +58,8 @@ import app.daycue.domain.config.LocalizedText
 import app.daycue.domain.config.Place
 import app.daycue.domain.edit.ValidationError
 import app.daycue.ui.components.DayCueTextField
+import app.daycue.ui.components.DayCueTopBar
+import app.daycue.ui.marks.CueMark
 import app.daycue.ui.components.Glyph
 import app.daycue.ui.components.GlyphIcon
 import app.daycue.ui.components.Stepper
@@ -67,7 +69,6 @@ import app.daycue.ui.theme.DayCueSpacing
 import app.daycue.ui.theme.DayCueTheme
 import app.daycue.ui.util.currentLocale
 import app.daycue.ui.util.formatTime
-import app.daycue.ui.util.ltr
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -118,7 +119,7 @@ internal fun daysSummary(days: Set<DayOfWeek>): String {
     val start = flags.indexOf(true)
     val end = flags.lastIndexOf(true)
     val contiguous = (start..end).all { flags[it] }
-    fun short(d: DayOfWeek) = d.getDisplayName(TextStyle.SHORT, locale)
+    fun short(d: DayOfWeek) = d.getDisplayName(TextStyle.SHORT, locale).removePrefix("יום ").trim()
     return if (contiguous && end - start >= 2) "${short(ordered[start])}–${short(ordered[end])}"
     else ordered.filter { it in days }.joinToString(", ") { short(it) }
 }
@@ -134,28 +135,31 @@ internal fun habitName(h: Habit): String = when {
 
 @Composable
 internal fun placeName(p: Place): String = when {
-    p.id == "home" && p.name == "Home" -> stringResource(R.string.cues_place_home)
-    p.id == "office" && p.name == "Office" -> stringResource(R.string.cues_place_office)
-    p.id == "gym" && p.name == "Gym" -> stringResource(R.string.cues_place_gym)
+    p.name == "Home" -> stringResource(R.string.cues_place_home)
+    p.name == "Office" -> stringResource(R.string.cues_place_office)
+    p.name == "Gym" -> stringResource(R.string.cues_place_gym)
     else -> p.name
 }
 
 @Composable
 internal fun routineName(id: String, name: String): String =
-    if (id == "morning-routine" && name == "Morning routine") stringResource(R.string.cues_template_morning_routine) else name
+    if (name == "Morning routine") stringResource(R.string.cues_template_morning_routine) else name
 
 @Composable
 internal fun stepName(id: String, name: String): String = when {
-    id == "shower" && name == "Shower" -> stringResource(R.string.cues_step_shower)
-    id == "face-cleanser" && name == "Face cleanser" -> stringResource(R.string.cues_step_face_cleanser)
-    id == "brush-teeth" && name == "Brush teeth" -> stringResource(R.string.cues_step_brush_teeth)
-    id == "get-dressed" && name == "Get dressed" -> stringResource(R.string.cues_step_get_dressed)
+    name == "Shower" -> stringResource(R.string.cues_step_shower)
+    name == "Face cleanser" -> stringResource(R.string.cues_step_face_cleanser)
+    name == "Brush teeth" -> stringResource(R.string.cues_step_brush_teeth)
+    name == "Get dressed" -> stringResource(R.string.cues_step_get_dressed)
     else -> name
 }
 
 @Composable
-internal fun alarmName(id: String, name: String): String =
-    if (id == "morning-alarm" && name == "Morning alarm") stringResource(R.string.cues_template_morning_alarm) else name
+internal fun alarmName(id: String, name: String): String = when (name) {
+    "Morning alarm" -> stringResource(R.string.cues_template_morning_alarm)
+    "Alarm" -> stringResource(R.string.cues_new_alarm_name) // the English default name, shown in the UI language
+    else -> name
+}
 
 internal fun markFor(h: Habit): CueType = when (h) {
     is IntervalHabit -> when (h.kind) {
@@ -190,11 +194,33 @@ internal fun conditionText(c: ContextCondition, places: List<Place>): String {
     return parts.joinToString(" · ")
 }
 
+/** "Bright chime · speaks" for the cue profile an item uses; the row opens Sounds in Setup. */
+@Composable
+internal fun soundSummary(cfg: app.daycue.domain.config.DayCueConfig, type: app.daycue.domain.config.CueType, explicit: String?): String {
+    val p = cfg.profileFor(type, explicit) ?: return stringResource(R.string.cues_sound_voice)
+    val sound = if (!p.soundEnabled) stringResource(R.string.su_sound_none) else stringResource(
+        when (p.soundId) {
+            "soft-bell" -> R.string.su_sound_soft_bell
+            "wood-tap" -> R.string.su_sound_wood_tap
+            "two-note-rise" -> R.string.su_sound_two_note_rise
+            "pop" -> R.string.su_sound_pop
+            "bright-chime" -> R.string.su_sound_bright_chime
+            "low-marimba" -> R.string.su_sound_low_marimba
+            "droplet" -> R.string.su_sound_droplet
+            "morning" -> R.string.su_sound_morning
+            "alarm-source" -> R.string.su_sound_alarm_source
+            else -> R.string.su_sound_none
+        },
+    )
+    val speak = stringResource(if (p.speechEnabled) R.string.su_speaks else R.string.su_silent_speech)
+    return "$sound · $speak"
+}
+
 // ---- Layout ---------------------------------------------------------------------------------
 
 /**
- * Standard Cues screen: back button + title + optional trailing control, one vertical scroll with the host's
- * bottom padding, content column limited to 560dp (VISUAL.md).
+ * Standard Cues screen: the shared [DayCueTopBar] (serif title, back, optional cue mark and one trailing control),
+ * one vertical scroll with the host's bottom padding, content column limited to 560dp (VISUAL.md).
  */
 @Composable
 internal fun CuesScreen(
@@ -202,23 +228,17 @@ internal fun CuesScreen(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    mark: CueType? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = DayCueTheme.colors
-    Column(modifier.fillMaxSize().background(c.paper).statusBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp).heightIn(min = 48.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (onBack != null) BackButton(onBack) else Spacer(Modifier.width(16.dp))
-            Text(
-                title,
-                style = DayCueTheme.type.title,
-                color = c.ink,
-                modifier = Modifier.weight(1f).padding(end = 8.dp).semantics { heading() },
-            )
-            trailing?.invoke(this)
-        }
+    Column(modifier.fillMaxSize().background(c.paper)) {
+        DayCueTopBar(
+            title = title,
+            onBack = onBack,
+            mark = mark?.let { m -> { CueMark(m, size = 28.dp) } },
+            actions = { trailing?.invoke(this) },
+        )
         Column(
             Modifier
                 .weight(1f)
@@ -236,20 +256,6 @@ internal fun CuesScreen(
                 Spacer(Modifier.height(LocalCuesBottomPadding.current))
             }
         }
-    }
-}
-
-@Composable
-internal fun BackButton(onBack: () -> Unit) {
-    val description = stringResource(R.string.cues_back)
-    Box(
-        Modifier
-            .size(48.dp)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = onBack)
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        GlyphIcon(Glyph.Chevron, DayCueTheme.colors.ink, Modifier.graphicsLayer { scaleX = -1f })
     }
 }
 
@@ -340,12 +346,29 @@ internal fun NumberRow(
 
 internal fun LocalDate.isoText(): String = toString()
 
+/** Medium date in the device locale ("Oct 5, 2026" / "5 באוק׳ 2026"); never bidi-isolated, so Hebrew keeps its order. */
 @Composable
 internal fun dateText(d: LocalDate): String {
     val locale: Locale = currentLocale()
-    val f = java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)
-    return d.format(f).ltrIfLatin()
+    return d.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
 }
 
-/** Dates mix digits and month names; isolate them only when they would otherwise reorder inside Hebrew text. */
-private fun String.ltrIfLatin(): String = if (any { it in '0'..'9' }) ltr() else this
+/** Day header with weekday from the locale skeleton: "Mon, Oct 5" / "יום ב׳, 5 באוק׳". */
+@Composable
+internal fun dayHeaderText(d: LocalDate): String = dayHeaderText(d, currentLocale())
+
+internal fun dayHeaderText(d: LocalDate, locale: Locale): String {
+    val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEdMMM")
+    return d.format(java.time.format.DateTimeFormatter.ofPattern(pattern, locale))
+}
+
+/** Localized display name of a zone ("Israel Time" / "שעון ישראל"), never the raw id. */
+internal fun zoneDisplayName(zone: ZoneId, locale: Locale): String =
+    zone.getDisplayName(TextStyle.FULL, locale).ifBlank { zone.id }
+
+@Composable
+internal fun zoneName(zone: ZoneId): String = zoneDisplayName(zone, currentLocale())
+
+/** "+5 min" with the sign and digits isolated left-to-right so Hebrew never renders "5+". */
+@Composable
+internal fun plusMinutes(n: Int): String = stringResource(R.string.cues_plus_min, n)

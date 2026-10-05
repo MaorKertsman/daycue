@@ -125,23 +125,29 @@ private fun CuesRoute(
     onOpenCueProfile: (String?) -> Unit,
     onOpenCalendar: () -> Unit,
 ) {
+    // A route with a missing id segment falls back to the home list instead of crashing (parts[1] used to throw).
     val parts = route.split("/")
+    val arg = routeArg(route)
     when (parts[0]) {
         "home" -> CuesHome(vm, push, onOpenCalendar)
-        "habit" -> HabitEditorScreen(vm, parts[1], pop, onOpenCueProfile)
-        "posture" -> if (parts.getOrNull(1) == "live") PostureLiveScreen(vm, pop, push) else PostureEditorScreen(vm, pop, push, onOpenCueProfile)
+        "habit" -> if (arg != null) HabitEditorScreen(vm, arg, pop, onOpenCueProfile) else CuesHome(vm, push, onOpenCalendar)
+        "posture" -> if (arg == "live") PostureLiveScreen(vm, pop, push) else PostureEditorScreen(vm, pop, push, onOpenCueProfile)
         "meds" -> MedicationListScreen(vm, pop, push)
-        "med" -> when (parts[1]) {
+        "med" -> when (arg) {
+            null -> MedicationListScreen(vm, pop, push)
             "history" -> MedicationHistoryScreen(vm, pop)
-            else -> MedicationEditorScreen(vm, parts[1], pop, onOpenCueProfile)
+            else -> MedicationEditorScreen(vm, arg, pop, onOpenCueProfile)
         }
         "routines" -> RoutineListScreen(vm, pop, push)
-        "routine" -> if (parts.getOrNull(2) == "play") RoutinePlaybackScreen(vm, parts[1], pop) else RoutineEditorScreen(vm, parts[1], pop, push, onOpenCueProfile)
+        "routine" -> if (arg == null) RoutineListScreen(vm, pop, push) else if (parts.getOrNull(2) == "play") RoutinePlaybackScreen(vm, arg, pop) else RoutineEditorScreen(vm, arg, pop, push, onOpenCueProfile)
         "alarms" -> AlarmListScreen(vm, pop, push)
-        "alarm" -> AlarmEditorScreen(vm, parts[1], pop, push)
+        "alarm" -> if (arg != null) AlarmEditorScreen(vm, arg, pop, push) else AlarmListScreen(vm, pop, push)
         else -> CuesHome(vm, push, onOpenCalendar)
     }
 }
+
+/** The id segment of a route ("habit/hydration" -> "hydration"), or null when it is missing or blank. */
+internal fun routeArg(route: String): String? = route.split("/").getOrNull(1)?.takeIf { it.isNotBlank() }
 
 /** Maps a deep-link item key to the route stack above "home", or null when nothing matches. */
 internal fun resolveStartItem(raw: String, cfg: DayCueConfig): List<String>? {

@@ -144,5 +144,23 @@ class RelayFacade(private val c: AppContainer) {
 
     suspend fun decline(commandId: String): RelayClient.DecisionResult = relay.client.decide(commandId, accept = false)
 
+    // ---- paired Windows companions -----------------------------------------------------------------------
+
+    private val companionDirectory = app.daycue.integrations.relay.CompanionDirectory {
+        relayCredentialsForUi()?.let { (url, token) -> HttpRelayApi(url, token) }
+    }
+
+    /** Paired desktop companions as of the last [refreshCompanions] (labels unverified; compare [PairedCompanion.fingerprint]). */
+    val companions: StateFlow<List<app.daycue.integrations.relay.PairedCompanion>> get() = companionDirectory.companions
+
+    /** Re-read the list from the relay (`GET /v1/phone/activity`). */
+    suspend fun refreshCompanions(): app.daycue.integrations.relay.CompanionListResult = companionDirectory.refresh()
+
+    /**
+     * Unpair (revoke) one companion. Needs the relay endpoint `DELETE /v1/phone/companions/:id`, which the relay does not
+     * have yet: until it does the result is `NotSupportedByRelay` and the UI should say "Unpair it on the PC".
+     */
+    suspend fun revokeCompanion(companionId: String): app.daycue.integrations.relay.CompanionRevokeResult = companionDirectory.revoke(companionId)
+
     private fun relayCredentialsForUi(): Pair<String, String>? = relay.credentialsForCalls()
 }

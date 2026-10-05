@@ -15,6 +15,8 @@ import app.daycue.domain.config.SessionKind
 import app.daycue.domain.edit.ConfigOp
 import app.daycue.domain.edit.Preview
 import app.daycue.domain.engine.AlarmAction
+import app.daycue.domain.engine.DoseCorrection
+import app.daycue.domain.engine.SlotRef
 import app.daycue.domain.engine.EngineState
 import app.daycue.domain.engine.Event
 import app.daycue.domain.engine.OverrideDuration
@@ -127,6 +129,42 @@ class DayCueFacade(private val c: AppContainer) {
     suspend fun resumeAutoDetection() = dispatch(Event.ResumeAutoDetection)
     /** BTL-1 "Leaving now" (tile, widget, Today chip). */
     suspend fun leavingNow() = dispatch(Event.LeavingNow)
+
+    /**
+     * CTX-1 "I'm at <place>" ([placeId]) or "Not at a saved place" (null = Elsewhere): corrects a wrong automatic place.
+     * Same durations as the environment override (cap `environmentOverrideCapMin`, 8 h): `UntilTransition` (default, ends
+     * at the next automatic place change), `UntilChanged`, `For(min)`, `RestOfToday`. Today shows the place as Manual.
+     */
+    suspend fun setPlace(placeId: String?, duration: OverrideDuration = OverrideDuration.UntilTransition) = dispatch(Event.OverridePlace(placeId, duration))
+    suspend fun clearPlaceOverride() = dispatch(Event.ClearPlaceOverride)
+
+    // ---- Medication (PRODUCT §7; no advice anywhere, MED-10) -------------------------------------
+
+    /** MED-2 Taken for a slot of today; [takenAt] = "I took it at ..." (null = now; future is clamped to now). */
+    suspend fun medicationTaken(slot: SlotRef, takenAt: java.time.Instant? = null) = dispatch(Event.MedicationTaken(slot, null, takenAt))
+
+    /** MED-5 history correction: change the taken time, mark skipped, or undo (back to not confirmed, no new cue). */
+    suspend fun correctDose(slot: SlotRef, correction: DoseCorrection) = dispatch(Event.MedicationCorrect(slot, correction))
+
+    // ---- Language (VALIDATION D8) ---------------------------------------------------------------
+
+    /**
+     * The ONE call that sets the app language: per-app locale (UI) **and** `settings.language` (notifications, speech).
+     * [tag] `"he"` / `"en"`, or null = follow the phone. Use it in onboarding and Settings instead of calling
+     * `AppCompatDelegate.setApplicationLocales` and `ConfigOp.SetLanguage` separately. Visible Activities recreate.
+     */
+    suspend fun setAppLanguage(tag: String?): ApplyOutcome? = c.language.set(tag)
+
+    /** `"he"` / `"en"` when the app has its own language, null when it follows the phone. */
+    fun appLanguageTag(): String? = c.language.currentTag()
+
+    // ---- Spotify (APP_API §11) -----------------------------------------------------------------
+
+    /** Whether the Spotify alarm source is in this build (`available`), usable here (`enabled`) and its connection state. */
+    val spotify: StateFlow<app.daycue.integrations.spotify.SpotifyAvailability> get() = c.spotify.availability
+
+    /** Re-check "Spotify installed" (call from onResume of the alarm editor / Integrations). */
+    fun refreshSpotify() = c.spotify.refreshAvailability()
 
     // ---- Routines and alarms ------------------------------------------------------------------
 

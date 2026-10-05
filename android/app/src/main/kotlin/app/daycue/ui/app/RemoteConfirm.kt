@@ -42,6 +42,8 @@ import app.daycue.ui.components.SecondaryButton
 import app.daycue.ui.theme.DayCueShapes
 import app.daycue.ui.theme.DayCueSpacing
 import app.daycue.ui.theme.DayCueTheme
+import app.daycue.ui.util.friendlyDiffLines
+import androidx.compose.ui.draw.drawBehind
 import kotlinx.coroutines.launch
 
 /**
@@ -82,11 +84,11 @@ fun RemoteConfirmRoot(remote: RelayFacade, activity: Activity, focusCommand: Str
             )
         }
         grantList.forEachIndexed { i, g ->
-            val scopeNames = g.scopes.map { scopeLabel(it) }.joinToString(", ")
-            ApprovalBlock(
+                        ApprovalBlock(
                 title = stringResource(R.string.dc_remote_grant_title),
                 from = g.label,
-                lines = listOf(stringResource(R.string.dc_remote_grant_body, g.label, scopeNames)),
+                lines = g.scopes.map { scopeLabel(it) },
+                note = stringResource(R.string.app_remote_grant_note), friendly = false,
                 onHintTap = { hint = holdHint },
                 onDecline = { scope.launch { remote.declineGrant(g.id) } },
                 onApprove = { scope.launch { if (remote.approveGrant(g.id) != GrantDecisionResult.Done) hint = failed } },
@@ -110,6 +112,8 @@ private fun scopeLabel(scope: String): String = when (scope) {
 private fun ApprovalBlock(
     title: String, from: String, lines: List<String>,
     onHintTap: () -> Unit, onDecline: () -> Unit, onApprove: () -> Unit, divider: Boolean,
+    note: String? = null,
+    friendly: Boolean = true,
 ) {
     val c = DayCueTheme.colors
     var busy by remember { mutableStateOf(false) }
@@ -118,12 +122,15 @@ private fun ApprovalBlock(
         // The client's own label is shown as unverified text (RELAY.md 4.6).
         Text(stringResource(R.string.dc_remote_from, from.take(60)), style = DayCueTheme.type.bodySmall, color = c.ink2)
         Spacer(Modifier.height(8.dp))
-        lines.take(20).forEach { line ->
+        // Readable text only (never raw JSON), and never truncated: the screen scrolls instead.
+        val shown = if (friendly) friendlyDiffLines(lines) else lines
+        shown.forEach { line ->
             Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.padding(top = 10.dp).size(4.dp).background(c.ink2, CircleShape))
-                Text(line, style = DayCueTheme.type.body, color = c.ink, maxLines = 6, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(line, style = DayCueTheme.type.body, color = c.ink, modifier = Modifier.weight(1f))
             }
         }
+        if (note != null) Text(note, style = DayCueTheme.type.bodySmall, color = c.ink2, modifier = Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(DayCueSpacing.inRow))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             HoldToApprove(stringResource(R.string.dc_remote_hold_to_approve), enabled = !busy, onTap = onHintTap) {
@@ -135,19 +142,36 @@ private fun ApprovalBlock(
     if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(c.outline))
 }
 
-/** A primary-looking button that approves only on press and hold; a plain tap explains how. */
+/**
+ * A primary-looking button that approves only on press and hold; a plain tap explains how. While pressed a lighter
+ * fill sweeps across the button over the long-press time, so the hold has visible feedback (the approval itself
+ * still fires from `onLongClick`, which TalkBack exposes as a custom action).
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HoldToApprove(label: String, enabled: Boolean, onTap: () -> Unit, onApprove: () -> Unit) {
     val c = DayCueTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val holdMs = androidx.compose.ui.platform.LocalViewConfiguration.current.longPressTimeoutMillis.toInt()
+    val fill by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed && enabled) 1f else 0f,
+        animationSpec = if (pressed) androidx.compose.animation.core.tween(holdMs, easing = androidx.compose.animation.core.LinearEasing) else androidx.compose.animation.core.snap(),
+        label = "hold",
+    )
     Box(
         Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = DayCueSpacing.buttonHeight)
             .clip(DayCueShapes.button)
-            .background(if (!enabled) c.outline else if (pressed) c.ink2 else c.ink)
+            .background(if (!enabled) c.outline else c.ink)
+            .drawBehind {
+                if (fill > 0f) {
+                    val w = size.width * fill
+                    val left = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) size.width - w else 0f
+                    drawRect(c.paper.copy(alpha = 0.28f), topLeft = androidx.compose.ui.geometry.Offset(left, 0f), size = androidx.compose.ui.geometry.Size(w, size.height))
+                }
+            }
             .combinedClickable(
                 interactionSource = interaction, indication = null, enabled = enabled, role = Role.Button,
                 onClick = onTap, onLongClickLabel = label, onLongClick = onApprove,

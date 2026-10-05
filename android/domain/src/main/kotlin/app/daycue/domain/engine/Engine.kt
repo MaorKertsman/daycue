@@ -8,6 +8,7 @@ import app.daycue.domain.context.ContextEngine
 import app.daycue.domain.context.DetectionPause
 import app.daycue.domain.context.EnvOverride
 import app.daycue.domain.context.PlaceKind
+import app.daycue.domain.context.PlaceOverride
 import app.daycue.domain.context.PlaceTrack
 import app.daycue.domain.context.PlaceValue
 import app.daycue.domain.context.Session
@@ -62,6 +63,7 @@ object Engine {
         }
         CalendarModule.meetingWakes(run)
 
+        dropSupersededReposts(run)
         val chosen = chooseWake(run)
         run.st = run.st.copy(
             lastEvaluatedAt = run.now, lastElapsedRealtimeMs = run.elapsedMs, lastZone = run.zone, configVersion = config.version,
@@ -98,6 +100,46 @@ object Engine {
         run.st = run.st.copy(context = cs.copy(geofenceKnown = false, rawInside = emptyMap(), rawExitAt = emptyMap(),
             place = if (cs.place.value.kind == PlaceKind.Unknown) cs.place else PlaceTrack(PlaceValue.UNKNOWN, run.now)))
         run.history("engine", HistoryKind.ContextChanged, "GEN-7", detail = mapOf("reboot" to "true"))
+        // Notifications never survive a reboot (VALIDATION D1): everything the state lists as visible is gone.
+        lostNotifications(run, run.st.delivery.visible.keys.toList(), reboot = true)
+    }
+
+    /**
+     * The platform no longer shows these notifications (reboot, force stop, notification reset) while the state still lists
+     * them as visible. Re-post each one quietly with its last content and the same cue id, so its buttons keep working and
+     * nothing alerts twice (GEN-7). On a reboot, medication notifications are instead re-delivered by MED-8 (one merged cue
+     * for two or more of today's due doses, a normal re-delivery for one), so the merged state is reset here.
+     * A visible entry without stored content (state from an older build) is dropped from the visible set.
+     */
+    /** A quiet re-post followed in the same reduce by a new delivery or a dismissal of that notification is pointless: drop it. */
+    private fun dropSupersededReposts(run: Run) {
+        for ((key, deliver, row) in run.reposts) {
+            val idx = run.effects.indexOf(deliver)
+            val later = run.effects.drop(idx + 1).any { (it is Effect.Deliver && it.cue.notificationKey == key) || (it is Effect.DismissCue && it.notificationKey == key) }
+            if (later) { run.effects.remove(deliver); run.effects.remove(row) }
+        }
+    }
+
+    internal fun lostNotifications(run: Run, keys: Collection<String>, reboot: Boolean) {
+        if (keys.isEmpty()) return
+        var vis = run.st.delivery.visible
+        for (k in keys) {
+            val v = vis[k] ?: continue
+            val cue = v.cue
+            if ((reboot && v.type == CueType.Medication) || cue == null) {
+                vis = vis - k
+                continue
+            }
+            val deliver = Effect.Deliver(cue.copy(silent = true, soundId = null, vibrationId = null, speech = null, groupKey = null, groupLead = true, fullScreen = false))
+            val row = Effect.RecordHistory(HistoryEntry(run.now, v.itemKey, HistoryKind.Reposted, "GEN-7", v.cueId, mapOf("reason" to if (reboot) "reboot" else "not_shown")))
+            run.effects += deliver; run.effects += row
+            run.reposts += Triple(k, deliver, row)
+        }
+        run.st = run.st.copy(delivery = run.st.delivery.copy(visible = vis))
+        if (reboot) {
+            val ms = run.st.medication
+            run.st = run.st.copy(medication = ms.copy(mergedCue = null, slots = ms.slots.mapValues { (_, s) -> if (s.mergedCueId == null) s else s.copy(mergedCueId = null) }))
+        }
     }
 
     internal fun advanceContext(run: Run) {
@@ -131,10 +173,26 @@ object Engine {
                 run.history("context", HistoryKind.ContextChanged, "CTX-1", detail = mapOf("override" to ev.value.name, "until" to exp.toString()))
             }
             Event.ClearEnvironmentOverride -> run.st = run.st.copy(context = cs.copy(envOverride = null))
+            is Event.OverridePlace -> {
+                val value = if (ev.placeId == null) PlaceValue.ELSEWHERE else PlaceValue.saved(ev.placeId)
+                if (ev.placeId != null && run.config.place(ev.placeId) == null) {
+                    run.history("context", HistoryKind.ContextChanged, "CTX-1", detail = mapOf("placeOverride" to "ignored", "reason" to "unknown_place"))
+                } else {
+                    val cap = run.config.contextRules.environmentOverrideCapMin
+                    val exp = ContextEngine.overrideExpiry(ev.duration, now, cap, run.zone, run.config)
+                    run.st = run.st.copy(context = cs.copy(placeOverride = PlaceOverride(value, now, exp, ev.duration == OverrideDuration.UntilTransition)))
+                    run.history("context", HistoryKind.ContextChanged, "CTX-1", detail = mapOf("placeOverride" to value.toString(), "until" to exp.toString()))
+                }
+            }
+            Event.ClearPlaceOverride -> if (cs.placeOverride != null) {
+                run.st = run.st.copy(context = cs.copy(placeOverride = null))
+                run.history("context", HistoryKind.ContextChanged, "CTX-1", detail = mapOf("placeOverride" to "cleared"))
+            }
+            is Event.NotificationsObserved -> lostNotifications(run, run.st.delivery.visible.keys - ev.shown, reboot = false)
             is Event.StartSession -> {
                 val capMin = run.config.contextRules.sessions.manualSessionCapMin
                 val cap = ContextEngine.overrideExpiry(ev.duration, now, capMin, run.zone, run.config)
-                val placeId = cs.place.value.takeIf { it.kind == PlaceKind.Saved }?.placeId
+                val placeId = cs.effectivePlace.value.takeIf { it.kind == PlaceKind.Saved }?.placeId
                 run.st = run.st.copy(context = cs.copy(session = Session(ev.kind, placeId, manual = true, startedAt = now, statusSince = now, capAt = cap)))
                 run.history("session", HistoryKind.SessionStarted, "WRK-7", detail = mapOf("kind" to ev.kind.name, "manual" to "true"))
             }
@@ -165,7 +223,7 @@ object Engine {
                 run.history(pauseKey(ev.target), HistoryKind.Resumed, "SUN-10")
             }
             is Event.BottleAck -> BottleModule.ack(run, ev)
-            is Event.MedicationTaken, is Event.MedicationSnooze, is Event.MedicationSkip -> MedicationModule.handle(run, ev)
+            is Event.MedicationTaken, is Event.MedicationSnooze, is Event.MedicationSkip, is Event.MedicationCorrect -> MedicationModule.handle(run, ev)
             is Event.PostureControl -> PostureModule.handle(run, ev)
             is Event.RoutineControl -> RoutineModule.handle(run, ev)
             is Event.AlarmControl -> AlarmModule.handle(run, ev)

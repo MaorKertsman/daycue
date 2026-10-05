@@ -181,11 +181,9 @@ fun SoundsScreen(onBack: () -> Unit, push: (String) -> Unit) {
     val cfg by vm.config.collectAsStateWithLifecycle()
     val c = DayCueTheme.colors
     SetupFrame(stringResource(R.string.su_sounds_title), onBack) {
-        Hint(stringResource(R.string.su_sounds_intro))
         val config = cfg
-        if (config == null) { repeat(4) { SkeletonRow() }; return@SetupFrame }
-        SectionHeader(stringResource(R.string.su_profiles_header))
-        Hint(stringResource(R.string.su_profiles_hint))
+        if (config == null) { repeat(4) { SkeletonRow(mark = true) }; return@SetupFrame }
+        SectionHeader(stringResource(R.string.su_profiles_header), topPadding = 8.dp)
         config.cueProfiles.sortedBy { it.type.priority }.forEach { p ->
             DayCueRow(
                 primary = stringResource(p.type.nameRes()),
@@ -195,9 +193,8 @@ fun SoundsScreen(onBack: () -> Unit, push: (String) -> Unit) {
                 onClick = { push(SetupRoutes.PROFILE + p.id) },
             )
         }
-        SectionHeader(stringResource(R.string.su_voice_header))
+        SectionHeader(stringResource(R.string.su_sounds_more_header))
         SettingRow(stringResource(R.string.su_speech_title), stringResource(if (config.settings.speech.enabled) R.string.su_speech_on else R.string.su_speech_off), { push(SetupRoutes.SPEECH) })
-        SectionHeader(stringResource(R.string.su_quiet_header))
         SettingRow(stringResource(R.string.su_quiet_title), quietSummary(config.settings.quietHours), { push(SetupRoutes.QUIET) })
     }
 }
@@ -253,16 +250,8 @@ fun ProfileScreen(profileId: String, onBack: () -> Unit) {
     }
 
     SetupFrame(stringResource(profile.type.nameRes()), onBack) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (markType != null) { CueMark(markType); androidx.compose.foundation.layout.Spacer(Modifier.padding(end = 12.dp)) }
-            Hint(stringResource(R.string.su_priority_line, profile.type.priority, 9))
-        }
-        Hint(stringResource(R.string.su_priority_explain))
-
         // Preview plays what a real cue would: sound, vibration and phrase (GEN-10).
-        Gap(8)
-        CuePreviewButton(markType ?: MarkType.Alarm, stringResource(R.string.su_preview), { vm.preview(profile.id) })
-        Hint(stringResource(R.string.su_preview_hint))
+        DayCueTextButton(stringResource(R.string.su_preview), { vm.preview(profile.id) })
 
         SectionHeader(stringResource(R.string.su_sound_header))
         if (profile.type.isAlarm()) {
@@ -290,7 +279,6 @@ fun ProfileScreen(profileId: String, onBack: () -> Unit) {
             DayCueTextField(phraseEn, { phraseEn = it }, stringResource(R.string.su_phrase_en), error = if (phraseEn.length > 200) stringResource(R.string.su_err_length) else null)
             Gap(8)
             DayCueTextField(phraseHe, { phraseHe = it }, stringResource(R.string.su_phrase_he), error = if (phraseHe.length > 200) stringResource(R.string.su_err_length) else null)
-            Hint(stringResource(R.string.su_phrase_hint))
             SettingRow(stringResource(R.string.su_profile_language), langWord(profile.language), { langSheet = true })
             if (voiceMissing) {
                 StateBlock(
@@ -303,12 +291,9 @@ fun ProfileScreen(profileId: String, onBack: () -> Unit) {
             }
         }
 
-        SectionHeader(stringResource(R.string.su_channel_header))
-        Para(stringResource(R.string.su_channel_explain))
-        SecondaryButton(stringResource(R.string.su_channel_open), { context.startActivitySafely(vm.channelSettingsIntent(profile)) }, Modifier.fillMaxWidth())
-        Hint(stringResource(R.string.su_channel_hint))
-
         Gap(8)
+        DayCueTextButton(stringResource(R.string.su_channel_open), { context.startActivitySafely(vm.channelSettingsIntent(profile)) })
+        LearnMore(stringResource(R.string.su_channel_explain))
         DayCueTextButton(stringResource(R.string.su_profile_reset_action), { vm.resetProfile(profile.id); phraseEn = ""; phraseHe = "" })
     }
 
@@ -372,16 +357,17 @@ fun SpeechScreen(onBack: () -> Unit) {
         if (config == null) { repeat(4) { SkeletonRow() }; return@SetupFrame }
         val s = config.settings.speech
         fun save(change: (app.daycue.domain.config.SpeechSettings) -> app.daycue.domain.config.SpeechSettings) { scope.launch { vm.saveSpeech(change(s)) } }
-        Hint(stringResource(R.string.su_speech_intro))
-        SwitchRow(stringResource(R.string.su_speech_switch), s.enabled, { on -> save { it.copy(enabled = on) } }, secondary = stringResource(R.string.su_speech_switch_hint))
+        SwitchRow(stringResource(R.string.su_speech_switch), s.enabled, { on -> save { it.copy(enabled = on) } }, secondary = stringResource(if (s.enabled) R.string.su_speech_state_on else R.string.su_speech_state_off))
 
         SectionHeader(stringResource(R.string.su_voices_header))
         voiceBlock(Language.en, voices.en, voices.voicesEn.size, vm, onChoose = { voiceSheet = Language.en }, onInstall = { context.startActivitySafely(vm.installVoiceIntent()) })
         voiceBlock(Language.he, voices.he, voices.voicesHe.size, vm, onChoose = { voiceSheet = Language.he }, onInstall = { context.startActivitySafely(vm.installVoiceIntent()) })
         if (voices.he == VoiceAvailability.MissingData) {
-            Para(stringResource(R.string.su_voice_install_steps))
+            LearnMore(stringResource(R.string.su_voice_install_steps), label = stringResource(R.string.su_how_to_install))
         }
-        if (voices.engine != null) Hint(stringResource(R.string.su_voice_engine, voices.engine ?: ""))
+        // The speech engine is shown by its name ("Google Speech Services"), never its package id (REVIEW-2 C3).
+        val engineLabel = remember(voices.engine) { engineLabel(context, voices.engine) }
+        if (engineLabel != null) Hint(stringResource(R.string.su_voice_engine, engineLabel))
 
         StepperRow(
             label = stringResource(R.string.su_rate),
@@ -403,7 +389,6 @@ fun SpeechScreen(onBack: () -> Unit) {
         )
 
         SectionHeader(stringResource(R.string.su_collision_header))
-        Hint(stringResource(R.string.su_collision_intro))
         val col = config.settings.collision
         fun saveCol(change: (app.daycue.domain.config.CollisionSettings) -> app.daycue.domain.config.CollisionSettings) { scope.launch { vm.saveCollision(change(col)) } }
         MinutesStepper(R.string.su_col_merge, col.mergeWindowMin, 0, 10, R.string.su_col_merge_hint) { v -> saveCol { it.copy(mergeWindowMin = v) } }
@@ -532,11 +517,11 @@ fun QuietScreen(onBack: () -> Unit) {
         if (config == null) { repeat(3) { SkeletonRow() }; return@SetupFrame }
         val q = config.settings.quietHours
         fun save(change: (app.daycue.domain.config.QuietHours) -> app.daycue.domain.config.QuietHours) { scope.launch { vm.saveQuiet(change(q)) } }
-        Hint(stringResource(R.string.su_quiet_intro))
         SwitchRow(stringResource(R.string.su_quiet_switch), q.enabled, { on -> save { it.copy(enabled = on) } })
         if (q.enabled) {
             q.windows.forEachIndexed { index, qw ->
-                SectionHeader(stringResource(R.string.su_quiet_window, index + 1))
+                // "Window 1" only appears once there is more than one window.
+                if (q.windows.size > 1) SectionHeader(stringResource(R.string.su_quiet_window, index + 1))
                 TimeWindowField(
                     qw.window.start.hour * 60 + qw.window.start.minute, qw.window.end.hour * 60 + qw.window.end.minute,
                     { picker = Triple(index, true, qw.window.start.hour * 60 + qw.window.start.minute) },
@@ -580,4 +565,12 @@ fun QuietScreen(onBack: () -> Unit) {
             }, { picker = null })
         }
     }
+}
+
+/** The speech engine's own label from its package (null if it cannot be resolved or would just repeat the id). */
+internal fun engineLabel(context: android.content.Context, pkg: String?): String? {
+    if (pkg.isNullOrBlank()) return null
+    val pm = context.packageManager
+    return runCatching { pm.getApplicationInfo(pkg, 0).loadLabel(pm).toString() }.getOrNull()
+        ?.takeIf { it.isNotBlank() && it != pkg && !it.contains('.') }
 }

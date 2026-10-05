@@ -23,7 +23,7 @@ import java.time.Instant
 /** Calendar access, selection, rules and the upcoming-events preview. Titles in the preview are untrusted data. */
 class CalendarViewModel(app: Application) : SetupViewModel(app) {
 
-    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), facade.snapshot.value?.config)
     val lastSync: StateFlow<CalendarSyncResult?> = facade.calendar.lastSync
 
     /** When the cached events were last refreshed (engine state), for the stale banner. */
@@ -38,6 +38,12 @@ class CalendarViewModel(app: Application) : SetupViewModel(app) {
     val preview: StateFlow<List<CalendarPreviewRow>?> = facade.calendar.preview()
         .map<List<CalendarPreviewRow>, List<CalendarPreviewRow>?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The engine's "why matched" sentence in the language the UI is shown in (not the config language). */
+    fun why(row: CalendarPreviewRow, language: app.daycue.domain.config.Language): String {
+        val cfg = config.value ?: return row.why
+        return facade.calendar.whyText(cfg, row.decision, language)
+    }
 
     val permissionName: String get() = facade.calendar.permission
 

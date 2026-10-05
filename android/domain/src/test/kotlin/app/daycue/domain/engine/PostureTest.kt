@@ -59,19 +59,72 @@ class PostureTest {
     }
 
     @Test
-    fun `POS-6 long interruption follows longInterruption policy`() {
+    fun `POS-6 long automatic freeze follows longInterruption policy`() {
         val reset = scenario()
         reset.advanceTo("09:40")
         reset.send(Event.PostureControl(PostureAction.Switched, reset.cues().last().id)) // standing from 09:40
-        reset.at("09:50", Event.PostureControl(PostureAction.Pause))
-        reset.at("10:30", Event.PostureControl(PostureAction.Resume))
+        reset.at("09:50", Event.EndSession) // automatic freeze (POS-2)
+        assertEquals(PosturePhase.Frozen, reset.p.phase)
+        reset.at("10:30", Event.StartSession(SessionKind.Working))
         assertEquals("sitting", reset.p.modeId, "ResetToFirst")
         assertEquals(reset.t("11:00"), reset.p.modeEndsAt)
 
         val cont = scenario { it.copy(longInterruption = PostureInterruptionPolicy.ContinueRemaining) }
-        cont.at("09:10", Event.PostureControl(PostureAction.Pause))
-        cont.at("10:10", Event.PostureControl(PostureAction.Resume))
+        cont.at("09:10", Event.EndSession)
+        cont.at("10:10", Event.StartSession(SessionKind.Working))
         assertEquals(cont.t("10:30"), cont.p.modeEndsAt)
+    }
+
+    @Test
+    fun `POS-4 acceptance 3 - a manual pause longer than shortInterruption keeps position and remaining time`() {
+        val s = scenario()
+        s.advanceTo("09:40")
+        s.send(Event.PostureControl(PostureAction.Switched, s.cues().last().id)) // standing from 09:40, ends 10:10
+        s.at("09:50", Event.PostureControl(PostureAction.Pause))
+        s.at("11:20", Event.PostureControl(PostureAction.Resume)) // 90 min later
+        assertEquals(PosturePhase.Running, s.p.phase)
+        assertEquals("standing", s.p.modeId, "manual pause never resets to the first mode")
+        assertEquals(s.t("11:40"), s.p.modeEndsAt, "the 20 minutes that were left")
+    }
+
+    @Test
+    fun `manual resume while the cycle may not run becomes a freeze that starts at the resume`() {
+        val s = scenario()
+        s.at("09:10", Event.PostureControl(PostureAction.Pause))
+        s.at("09:15", Event.EndSession)
+        s.at("10:00", Event.PostureControl(PostureAction.Resume)) // no session: frozen from 10:00
+        assertEquals(PosturePhase.Frozen, s.p.phase)
+        s.at("10:10", Event.StartSession(SessionKind.Working)) // 10 min freeze: short, continue
+        assertEquals("sitting", s.p.modeId)
+        assertEquals(s.t("10:30"), s.p.modeEndsAt)
+    }
+
+    @Test
+    fun `Extend when the mode is already overdue counts from now (it must not stay overdue)`() {
+        // Overdue while a meeting defers the cue (DeferCue), then +10 in-app at 09:50.
+        val s = scenario()
+        s.send(Event.CalendarSynced(listOf(CalendarEvent("m", calendarId = "c", start = s.t("09:20"), end = s.t("10:00"), otherAttendees = 1)), s.now))
+        s.advanceTo("09:50")
+        assertEquals(PosturePhase.Running, s.p.phase)
+        assertTrue(s.p.modeEndsAt!!.isBefore(s.now), "overdue (cue deferred by the meeting)")
+        s.send(Event.PostureControl(PostureAction.Extend10))
+        assertEquals(s.t("10:00"), s.p.modeEndsAt, "now + 10, not 09:30 + 10")
+        // Not overdue: an Extend before the end still adds to the planned end.
+        val t = scenario()
+        t.at("09:20", Event.PostureControl(PostureAction.Extend5))
+        assertEquals(t.t("09:35"), t.p.modeEndsAt)
+    }
+
+    @Test
+    fun `mode end is armed as one Exact wake at modeEndsAt and a late wake still cues at once`() {
+        val s = scenario()
+        assertEquals(s.t("09:30"), s.state.nextWakeAt)
+        assertEquals(WakePrecision.Exact, s.state.nextWakePrecision)
+        // The OS delivers the wake 7 minutes late (emulator suspended, VALIDATION posture note): the first reduce cues.
+        s.clock.advance(Duration.between(s.now, s.t("09:37")))
+        s.send(Event.Tick)
+        assertEquals(listOf(s.t("09:37")), s.cues().map { it.deliveredAt })
+        assertEquals(PosturePhase.SwitchPending, s.p.phase)
     }
 
     @Test

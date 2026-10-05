@@ -27,23 +27,27 @@ data class HistoryExport(
 @Serializable
 data class BackupFile(
     val format: String = FORMAT,
-    val formatVersion: Int = 1,
+    val formatVersion: Int = CURRENT_FORMAT_VERSION,
     val exportedAt: String,
     val config: JsonElement,
     val history: List<HistoryExport>? = null,
 ) {
-    companion object { const val FORMAT = "daycue-backup" }
+    companion object { const val FORMAT = "daycue-backup"; const val CURRENT_FORMAT_VERSION = 1 }
 }
 
 sealed interface ImportParse {
     data class Ok(val config: DayCueConfig, val hadHistory: Boolean) : ImportParse
     /**
      * UX §3.16 "This file isn't a DayCue setup". [reason] is a code: `not_json_object`, `missing_config`, `unknown_format`,
-     * `missing_schema_version`, `unsupported_content` (written by a newer version: a type this build does not know),
-     * `invalid_document`.
+     * `missing_schema_version`, `unknown_format_version` (backup wrapper without a valid `formatVersion`),
+     * `unsupported_content` (written by a newer version: a type this build does not know), `invalid_document`.
      */
     data class NotDayCue(val reason: String) : ImportParse
-    data class UnsupportedSchema(val schemaVersion: Int) : ImportParse
+    /**
+     * Written by a newer DayCue: `config.schemaVersion` newer than this build, or (D4) the backup `formatVersion` newer
+     * than [BackupFile.CURRENT_FORMAT_VERSION] ([formatVersion] set). Nothing is imported in either case.
+     */
+    data class UnsupportedSchema(val schemaVersion: Int, val formatVersion: Int? = null) : ImportParse
 }
 
 /**
@@ -78,14 +82,21 @@ object ConfigTransfer {
 
     fun parse(text: String): ImportParse {
         val root = runCatching { DayCueJson.parseToJsonElement(text) as? JsonObject }.getOrNull() ?: return ImportParse.NotDayCue("not_json_object")
+        val wrapped = root["format"]?.jsonPrimitive?.contentOrNull == BackupFile.FORMAT
         val (doc, hadHistory) = when {
-            root["format"]?.jsonPrimitive?.contentOrNull == BackupFile.FORMAT ->
-                ((root["config"] as? JsonObject) ?: return ImportParse.NotDayCue("missing_config")) to (root["history"] != null)
+            wrapped -> ((root["config"] as? JsonObject) ?: return ImportParse.NotDayCue("missing_config")) to (root["history"] != null)
             root.containsKey("schemaVersion") && root.containsKey("settings") -> root to false
             else -> return ImportParse.NotDayCue("unknown_format")
         }
         val schema = doc["schemaVersion"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: return ImportParse.NotDayCue("missing_schema_version")
         if (schema > DayCueConfig.CURRENT_SCHEMA_VERSION) return ImportParse.UnsupportedSchema(schema)
+        // D4: the backup wrapper has its own version. Missing / not a positive integer = not a file we understand;
+        // newer than this build = written by a newer DayCue (same typed result as a newer schema, with formatVersion set).
+        if (wrapped) {
+            val fv = runCatching { root["formatVersion"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() }.getOrNull()
+            if (fv == null || fv < 1) return ImportParse.NotDayCue("unknown_format_version")
+            if (fv > BackupFile.CURRENT_FORMAT_VERSION) return ImportParse.UnsupportedSchema(schema, formatVersion = fv)
+        }
         // A whole-document decode can still throw (an unknown sealed subtype from a newer app version, or a malformed
         // value): kotlinx closed polymorphism, DOMAIN.md section 4. Report it cleanly; never echo file content.
         val config = try {

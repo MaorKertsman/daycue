@@ -29,6 +29,8 @@ import app.daycue.ui.components.DayCueTextButton
 import app.daycue.ui.components.Glyph
 import app.daycue.ui.components.GlyphIcon
 import app.daycue.ui.components.SecondaryButton
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
 import app.daycue.ui.theme.DayCueTheme
 
 sealed interface TodaySheet {
@@ -128,58 +130,89 @@ fun TodaySheets(sheet: TodaySheet, m: TodayModel, vm: TodayViewModel, nav: Today
     }
 }
 
+/** Which dimension the context sheet is choosing a value for. */
+private enum class ContextPick { Environment, Activity }
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ContextSheetBody(m: TodayModel, vm: TodayViewModel, onDismiss: () -> Unit, onPause: () -> Unit, onAdjustPlaces: () -> Unit) {
     val c = m.context
+    var pick by remember { mutableStateOf<ContextPick?>(null) }
     var duration by remember { mutableStateOf(DurationChoice.UntilChange) }
     val ink2 = DayCueTheme.colors.ink2
+    val override = c.envOverride
+    val session = c.session
+
+    val choosing = pick
+    if (choosing != null) {
+        // A radio list for one dimension; picking applies it right away and returns to the overview.
+        Column {
+            val rows: List<Triple<Int, Boolean, () -> Unit>> = when (choosing) {
+                ContextPick.Environment -> listOf(
+                    Triple(R.string.app_choice_auto, override == null) { vm.clearEnvironment() },
+                    Triple(R.string.app_quick_indoors, override?.value == Environment.Indoor) { vm.setEnvironment(Environment.Indoor, duration.forEnvironment()) },
+                    Triple(R.string.app_quick_outdoors, override?.value == Environment.Outdoor) { vm.setEnvironment(Environment.Outdoor, duration.forEnvironment()) },
+                )
+                ContextPick.Activity -> listOf(
+                    Triple(R.string.app_choice_auto, session == null) { vm.endSession() },
+                    Triple(R.string.app_session_working, session?.kind == SessionKind.Working) { vm.startSession(SessionKind.Working, duration.forSession()) },
+                    Triple(R.string.app_session_studying, session?.kind == SessionKind.Studying) { vm.startSession(SessionKind.Studying, duration.forSession()) },
+                )
+            }
+            rows.forEachIndexed { i, (label, selected, apply) ->
+                DayCueRow(
+                    primary = stringResource(label), role = Role.RadioButton,
+                    onClick = { if (!selected) apply(); pick = null },
+                    trailing = { if (selected) GlyphIcon(Glyph.Check, DayCueTheme.colors.ink) },
+                    divider = i < rows.lastIndex,
+                    semanticsExtra = { this.selected = selected },
+                )
+            }
+            DayCueTextButton(stringResource(R.string.app_back), { pick = null })
+        }
+        return
+    }
+
     Column {
-        // Place: read-only (the facade has no place override), with its source.
+        // Place: shown with its source; the facade has no place override, so there is no Change here.
         DayCueRow(
             primary = stringResource(R.string.app_ctx_place),
-            secondary = listOfNotNull(placeText(c.place), sourceDetail(c.placeSource, c.placeSince, m.zone)).joinToString(" · "),
+            secondary = listOfNotNull(placeText(c.place), sourceAgo(c.placeSource, c.placeSince, m.now)).joinToString(" · "),
+        )
+        DayCueRow(
+            primary = stringResource(R.string.app_ctx_environment),
+            secondary = listOfNotNull(environmentText(c.environment), sourceAgo(c.environmentSource, c.environmentSince, m.now)).joinToString(" · "),
+            trailing = { DayCueTextButton(stringResource(R.string.app_ctx_change), { pick = ContextPick.Environment }) },
+        )
+        DayCueRow(
+            primary = stringResource(R.string.app_ctx_activity),
+            secondary = listOfNotNull(
+                activityText(c.activity, session != null) ?: stringResource(R.string.app_act_none),
+                sourceAgo(c.activitySource, c.activitySince, m.now),
+            ).joinToString(" · "),
+            trailing = { DayCueTextButton(stringResource(R.string.app_ctx_change), { pick = ContextPick.Activity }) },
             divider = false,
         )
-        Text(stringResource(R.string.app_ctx_for), style = DayCueTheme.type.label, color = ink2, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            DurationChoice.entries.forEach { d ->
-                SecondaryButton(stringResource(d.labelRes), { duration = d }, compact = true, selected = duration == d)
+
+        // "Keep my choice for" only matters once the owner has set something by hand.
+        if (override != null || session != null) {
+            Text(stringResource(R.string.app_ctx_for), style = DayCueTheme.type.label, color = ink2, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DurationChoice.entries.forEach { d ->
+                    SecondaryButton(stringResource(d.labelRes), {
+                        duration = d
+                        if (override != null) vm.setEnvironment(override.value, d.forEnvironment())
+                        else if (session != null) vm.startSession(session.kind, d.forSession())
+                    }, compact = true, selected = duration == d)
+                }
             }
         }
 
-        Text(stringResource(R.string.app_ctx_environment), style = DayCueTheme.type.label, color = ink2, modifier = Modifier.padding(top = 16.dp))
-        Text(
-            listOfNotNull(environmentText(c.environment), sourceDetail(c.environmentSource, c.environmentSince, m.zone)).joinToString(" · "),
-            style = DayCueTheme.type.bodySmall, color = ink2, modifier = Modifier.padding(bottom = 8.dp),
-        )
-        val override = c.envOverride
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton(stringResource(R.string.app_choice_auto), { vm.clearEnvironment(); onDismiss() }, compact = true, selected = override == null)
-            SecondaryButton(stringResource(R.string.app_quick_indoors), { vm.setEnvironment(Environment.Indoor, duration.forEnvironment()); onDismiss() }, compact = true, selected = override?.value == Environment.Indoor)
-            SecondaryButton(stringResource(R.string.app_quick_outdoors), { vm.setEnvironment(Environment.Outdoor, duration.forEnvironment()); onDismiss() }, compact = true, selected = override?.value == Environment.Outdoor)
-        }
-
-        Text(stringResource(R.string.app_ctx_activity), style = DayCueTheme.type.label, color = ink2, modifier = Modifier.padding(top = 16.dp))
-        Text(
-            listOfNotNull(
-                activityText(c.activity, c.session != null) ?: stringResource(R.string.app_act_none),
-                sourceDetail(c.activitySource, c.activitySince, m.zone),
-            ).joinToString(" · "),
-            style = DayCueTheme.type.bodySmall, color = ink2, modifier = Modifier.padding(bottom = 8.dp),
-        )
-        val session = c.session
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton(stringResource(R.string.app_choice_auto), { if (session != null) vm.endSession(); onDismiss() }, compact = true, selected = session == null)
-            SecondaryButton(stringResource(R.string.app_session_working), { vm.startSession(SessionKind.Working, duration.forSession()); onDismiss() }, compact = true, selected = session?.kind == SessionKind.Working)
-            SecondaryButton(stringResource(R.string.app_session_studying), { vm.startSession(SessionKind.Studying, duration.forSession()); onDismiss() }, compact = true, selected = session?.kind == SessionKind.Studying)
-        }
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
         if (c.detectionPaused) {
-            SecondaryButton(stringResource(R.string.app_resume_detection), { vm.resumeDetection(); onDismiss() }, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.app_resume_detection), { vm.resumeDetection(); onDismiss() })
         } else {
-            SecondaryButton(stringResource(R.string.app_pause_detection_button), onPause, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.app_pause_detection_button), onPause)
         }
         DayCueTextButton(stringResource(R.string.app_ctx_adjust_places), onAdjustPlaces)
     }

@@ -1,10 +1,8 @@
 package app.daycue.devtools
 
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
 import app.daycue.delivery.SpeechQueue
 import app.daycue.delivery.SpeechUsage
@@ -33,10 +31,11 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 /**
- * Debug-only driver for the engine without UI (task step 8). Disabled in the manifest and enabled at
- * runtime only in debuggable builds ([DevTools.setEnabled]); it also requires the sender to hold
- * `android.permission.DUMP`, which `adb shell` has and ordinary apps don't. All output goes to logcat
- * tag `DayCueDebug`. Synthetic demo data only.
+ * Debug-only driver for the engine without UI (task step 8). Lives in the `debug` source set together
+ * with its manifest entry (`src/debug/AndroidManifest.xml`), so the release APK contains neither the
+ * class nor the component (VALIDATION D2). It requires the sender to hold `android.permission.DUMP`,
+ * which `adb shell` has and ordinary apps don't. All output goes to logcat tag `DayCueDebug`.
+ * Synthetic demo data only.
  *
  * ```
  * adb shell am broadcast -n app.daycue/.devtools.DevToolsReceiver -a app.daycue.devtools.CMD --es cmd dump
@@ -140,16 +139,3 @@ class DevToolsReceiver : BroadcastReceiver() {
 
 private fun cueType(name: String?) =
     app.daycue.domain.config.CueType.entries.firstOrNull { it.name.equals(name, true) } ?: app.daycue.domain.config.CueType.Habit
-
-/** Enables the debug receiver only in debuggable builds (it is `enabled="false"` in the manifest). */
-object DevTools {
-    fun setEnabled(context: Context, enabled: Boolean) {
-        val cn = ComponentName(context, DevToolsReceiver::class.java)
-        val want = if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-        runCatching {
-            if (context.packageManager.getComponentEnabledSetting(cn) != want) {
-                context.packageManager.setComponentEnabledSetting(cn, want, PackageManager.DONT_KILL_APP)
-            }
-        }
-    }
-}

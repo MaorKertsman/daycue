@@ -52,5 +52,8 @@ class ReadinessCopyTest {
     fun optionalRowsNeverCountAsProblems() {
         val r = report(ReadinessId.SpeechFailure to ReadinessStatus.Limited, ReadinessId.Notifications to ReadinessStatus.Off)
         assertEquals(1, ReadinessCopy.problemCount(r, true))
+        // A missing optional voice is not "something that may delay reminders" (UX 3.13).
+        val voices = report(ReadinessId.Voices to ReadinessStatus.Limited, ReadinessId.SpeechFailure to ReadinessStatus.Limited)
+        assertEquals(0, ReadinessCopy.problemCount(voices, true))
     }
 }

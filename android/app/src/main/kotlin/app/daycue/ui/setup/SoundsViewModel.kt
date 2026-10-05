@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 
 /** Cue profiles, speech, quiet hours and collision settings. Previews go through the facade (GEN-10). */
 class SoundsViewModel(app: Application) : SetupViewModel(app) {
-    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), facade.snapshot.value?.config)
     val voices: StateFlow<VoiceStatus> = facade.voices
     val rate = MutableStateFlow(facade.speechRate())
 

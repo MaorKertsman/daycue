@@ -26,7 +26,7 @@ enum class Template(val id: String, @StringRes val title: Int, @StringRes val su
 
 /** The system permissions and settings onboarding may ask for, each in context with a benefit and a skip. */
 enum class PermissionKind(val id: String) {
-    Notifications("notifications"), ExactAlarms("exact"), FullScreen("fullscreen"), Calendar("calendar"), Battery("battery"), Hibernation("hibernation"),
+    Notifications("notifications"), ExactAlarms("exact"), FullScreen("fullscreen"), Calendar("calendar"),
 }
 
 object OnboardingPlan {
@@ -59,7 +59,7 @@ object OnboardingPlan {
 
     /**
      * The permission cards to show, in the UX order: Notifications, exact alarms, full-screen alarm (only when an
-     * alarm was chosen), calendar (only when calendar cues were chosen), then battery and hibernation. A card
+     * alarm was chosen) and calendar (only when calendar cues were chosen). Battery and unused-app pausing are left to Reminder readiness. A card
      * appears only while its row is not already Ready and the owner did not say "Not now".
      */
     fun cards(chosen: Set<Template>, report: ReadinessReport?, calendarGranted: Boolean, skipped: Set<String>): List<PermissionKind> {
@@ -72,8 +72,6 @@ object OnboardingPlan {
             if (any && timeBased(chosen) && missing(ReadinessId.ExactAlarms)) add(PermissionKind.ExactAlarms)
             if (Template.Alarm in chosen && missing(ReadinessId.FullScreenIntent)) add(PermissionKind.FullScreen)
             if (Template.Calendar in chosen && !calendarGranted) add(PermissionKind.Calendar)
-            if (any && missing(ReadinessId.BatteryOptimization)) add(PermissionKind.Battery)
-            if (any && missing(ReadinessId.Hibernation)) add(PermissionKind.Hibernation)
         }.filter { it.id !in skipped }
     }
 }

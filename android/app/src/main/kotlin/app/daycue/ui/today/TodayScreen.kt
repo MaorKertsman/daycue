@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -146,7 +147,7 @@ fun TodayScreen(nav: TodayNav, initial: TodayInitial, modifier: Modifier = Modif
     }
 
     Box(modifier.fillMaxSize().background(c.paper)) {
-        Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding(), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = DayCueSpacing.contentMaxWidth).fillMaxWidth().padding(bottom = bottomPadding)) {
                 if (m == null) {
                     TodaySkeleton(gutter)
@@ -215,10 +216,13 @@ private fun TodayContent(
         Field(
             context = f.context, active = f.active, nextCue = f.nextMark, remainingMinutes = f.remainingMinutes,
             horizonMinutes = f.horizonMinutes, description = fieldDescription(m), overdue = f.overdue,
+            modifier = Modifier.heightIn(max = 160.dp),
         )
+    } else if (!m.nothingEnabled) {
+        QuietPlane(TodayMapper.fieldContext(ctx))
     }
 
-    Column(Modifier.padding(horizontal = gutter).padding(top = 12.dp)) {
+    Column(Modifier.padding(horizontal = gutter).padding(top = 0.dp)) {
         if (m.nothingEnabled) {
             StateBlock(
                 StateBlockKind.Empty, stringResource(R.string.app_empty_nothing_enabled),
@@ -229,7 +233,7 @@ private fun TodayContent(
 
         // NOW: due items in priority order; beyond two they collapse.
         if (m.due.isNotEmpty()) {
-            SectionHeader(stringResource(R.string.app_now), Modifier.padding(top = if (f == null) 8.dp else 0.dp))
+            SectionHeader(stringResource(R.string.app_now), topPadding = 24.dp)
             val shown = if (showAllDue) m.due else m.due.take(2)
             shown.forEach { item -> DueCard(item, m, handlers, Modifier.padding(bottom = 8.dp)) }
             if (m.due.size > 2 && !showAllDue) {
@@ -237,9 +241,17 @@ private fun TodayContent(
             }
         }
 
+        if (m.due.isEmpty() && !m.nothingEnabled) {
+            val nextAt = m.next.firstOrNull { it.at != null && it.waiting == null }?.at
+            Text2(
+                if (nextAt != null) stringResource(R.string.app_quiet_now_next, clockOf(nextAt, m.zone)) else stringResource(R.string.app_quiet_now),
+                Modifier.padding(top = 20.dp, bottom = 4.dp),
+            )
+        }
+
         // RUNNING
         if (m.running.isNotEmpty()) {
-            SectionHeader(stringResource(R.string.app_running))
+            SectionHeader(stringResource(R.string.app_running), topPadding = if (m.due.isEmpty()) 16.dp else 32.dp)
             m.running.forEachIndexed { i, r ->
                 RunningRowFor(r, m, nav, divider = i < m.running.lastIndex, onContext = { onSheet(TodaySheet.Context) })
             }
@@ -269,8 +281,6 @@ private fun TodayContent(
                     divider = false,
                 )
             }
-        } else if (!m.nothingEnabled && m.due.isEmpty() && m.running.isEmpty()) {
-            Text2(stringResource(R.string.app_nothing_else))
         }
 
         QuickControlsRow(m, vm, onMore = { onSheet(TodaySheet.More) }, modifier = Modifier.padding(top = 20.dp))
@@ -278,8 +288,8 @@ private fun TodayContent(
 }
 
 @Composable
-private fun Text2(text: String) {
-    androidx.compose.material3.Text(text, style = DayCueTheme.type.body, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(vertical = 16.dp))
+private fun Text2(text: String, modifier: Modifier = Modifier) {
+    androidx.compose.material3.Text(text, style = DayCueTheme.type.titleSmall, color = DayCueTheme.colors.ink, modifier = modifier)
 }
 
 private fun openNext(n: NextItem, nav: TodayNav, onDetail: (String) -> Unit) {

@@ -247,4 +247,22 @@
     <string name="dc_remote_scope_sessions_control">התחלה ועצירה של סשנים</string>
     <string name="dc_remote_scope_activity_read">קריאת סיכום פעילות המחשב</string>
     <string name="dc_remote_scope_medication">פרטי תרופות ושינויים בהן</string>
+    <!-- First-run template names (template.* keys) -->
+    <string name="dc_template_place_home">בית</string>
+    <string name="dc_template_place_office">משרד</string>
+    <string name="dc_template_place_gym">חדר כושר</string>
+    <string name="dc_template_habit_sunscreen">קרם הגנה</string>
+    <string name="dc_template_habit_hydration">שתיית מים</string>
+    <string name="dc_template_habit_water_bottle">בקבוק מים</string>
+    <string name="dc_template_routine_morning">שגרת בוקר</string>
+    <string name="dc_template_step_shower">מקלחת</string>
+    <string name="dc_template_step_face_cleanser">ניקוי פנים</string>
+    <string name="dc_template_step_brush_teeth">צחצוח שיניים</string>
+    <string name="dc_template_step_get_dressed">להתלבש</string>
+    <string name="dc_template_alarm_morning">שעון מעורר</string>
+    <string name="dc_template_calendar_meetings">פגישות</string>
+    <string name="dc_template_calendar_appointments">תורים</string>
+    <string name="dc_template_calendar_workouts">אימונים</string>
+    <string name="dc_template_calendar_important">חשוב</string>
+    <string name="dc_template_calendar_free_time">זמן פנוי</string>
 </resources>

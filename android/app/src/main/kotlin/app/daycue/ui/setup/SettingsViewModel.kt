@@ -65,7 +65,7 @@ sealed interface ImportUi {
 }
 
 class SettingsViewModel(app: Application) : SetupViewModel(app) {
-    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), facade.snapshot.value?.config)
     val reduceMotion: StateFlow<Boolean> = UiPrefs.reduceMotion
 
     init { UiPrefs.load(app) }

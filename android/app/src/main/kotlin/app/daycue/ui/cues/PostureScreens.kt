@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,7 +57,9 @@ import app.daycue.ui.components.PolicyOption
 import app.daycue.ui.components.PrimaryButton
 import app.daycue.ui.components.ReorderableList
 import app.daycue.ui.components.SecondaryButton
+import app.daycue.ui.components.SectionHeader
 import app.daycue.ui.components.SettingRow
+import app.daycue.ui.components.CuePreviewButton
 import app.daycue.ui.components.StateBlock
 import app.daycue.ui.components.StateBlockKind
 import app.daycue.ui.components.TimerKind
@@ -90,6 +93,7 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
     val postureName = stringResource(R.string.cue_posture)
     var sheet by remember { mutableStateOf<String?>(null) }
     var editMode by remember { mutableStateOf<String?>(null) }
+    val localizedNewName = stringResource(R.string.cues_posture_new_mode_name)
     var advanced by remember { mutableStateOf(false) }
     // Optimistic local order while a drag or move is in flight.
     var modes by remember(pc.modes) { mutableStateOf(pc.modes) }
@@ -102,14 +106,14 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
     )
 
     CuesScreen(
-        stringResource(R.string.cue_posture), onBack,
+        stringResource(R.string.cue_posture), onBack, mark = CueType.Posture,
         trailing = { DayCueSwitch(pc.enabled, { vm.edit(ConfigOp.SetPostureEnabled(it)) }, Modifier.semantics { contentDescription = postureName }) },
     ) {
         if (paused != null) DayCueRow(primary = paused, trailing = { DayCueTextButton(stringResource(R.string.cues_resume), { vm.dispatch(Event.Resume(PauseTarget.Posture)) }) })
         DayCueTextButton(stringResource(R.string.cues_live_control), { push("posture/live") })
         FieldErrors(errors, "postureCycle.modes")
 
-        Text(stringResource(R.string.cues_posture_modes), style = DayCueTheme.type.label, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 8.dp))
+        SectionHeader(stringResource(R.string.cues_posture_modes))
         val enabledCount = modes.count { it.enabled }
         ReorderableList(
             items = modes, keyOf = { it.id },
@@ -124,7 +128,7 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
                 handle()
                 DayCueRow(
                     primary = m.name.shown(lang),
-                    secondary = if (locked) stringResource(R.string.cues_mode_keep_one, durationText(m.durationMin)) else durationText(m.durationMin),
+                    secondary = (if (locked) stringResource(R.string.cues_mode_keep_one, durationText(m.durationMin)) else durationText(m.durationMin)) + modePhraseSuffix(m, lang),
                     onClick = { editMode = m.id },
                     modifier = Modifier.weight(1f),
                     trailing = {
@@ -139,10 +143,20 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
             }
         }
 
+        DayCueTextButton(stringResource(R.string.cues_posture_add_mode), {
+            val n = localizedNewName
+            val mode = PostureMode(id = "mode-" + System.currentTimeMillis().toString(36), kind = PostureModeKind.Custom, name = app.daycue.domain.config.LocalizedText(n, n), durationMin = 20)
+            val all = modes + mode
+            modes = all
+            vm.edit(ConfigOp.SetPostureModes(all))
+            editMode = mode.id
+        })
+
         SettingRow(stringResource(R.string.cues_posture_runs), activeWhenLabel(pc.activeWhen), { sheet = "runs" })
 
         Spacer(Modifier.height(8.dp))
-        SettingRow(stringResource(R.string.cues_sound_voice), stringResource(R.string.cues_sound_voice_value), { onOpenCueProfile(vm.profileId(app.daycue.domain.config.CueType.Posture, pc.cueProfileId)) })
+        SettingRow(stringResource(R.string.cues_sound_voice), soundSummary(cfg, app.daycue.domain.config.CueType.Posture, pc.cueProfileId), { onOpenCueProfile(vm.profileId(app.daycue.domain.config.CueType.Posture, pc.cueProfileId)) })
+        CuePreviewButton(CueType.Posture, stringResource(R.string.cues_test_cue), { vm.testReminder(app.daycue.domain.config.CueType.Posture) })
         DayCueTextButton(stringResource(R.string.cues_pause), { sheet = "pause" })
 
         AdvancedSection(changed.count { it }, advanced, { advanced = !advanced }, onReset = {
@@ -155,7 +169,7 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
             SettingRow(stringResource(R.string.cues_during_meetings), meetingPostureLabel(pc.duringMeeting), { sheet = "meeting" }, changed = changed[2])
             SettingRow(stringResource(R.string.cues_posture_breaks), "${durationText(pc.shortInterruptionMin)} · ${interruptionLabel(pc.longInterruption)}", { sheet = "breaks" }, changed = changed[3])
             FieldErrors(errors, "postureCycle.shortInterruptionMin")
-            SettingRow(stringResource(R.string.cues_posture_extend), pc.extendOptionsMin.joinToString(" · ") { "+$it" }, { sheet = "extend" }, changed = changed[4])
+            SettingRow(stringResource(R.string.cues_posture_extend), pc.extendOptionsMin.map { plusMinutes(it) }.joinToString(" · "), { sheet = "extend" }, changed = changed[4])
             SettingRow(stringResource(R.string.cues_snooze_length), durationText(pc.snoozeMin), { sheet = "snooze" }, changed = changed[5])
             FieldErrors(errors, "postureCycle.snoozeMin")
         }
@@ -209,7 +223,7 @@ internal fun PostureEditorScreen(vm: CuesViewModel, onBack: () -> Unit, push: (S
                 NumberRow(
                     stringResource(R.string.cues_posture_extend_n, i + 1), v, 1, 120,
                     { nv -> saveCycle(pc.copy(extendOptionsMin = pc.extendOptionsMin.mapIndexed { j, x -> if (j == i) nv else x })) },
-                    valueText = "+$v", valueDescription = durationText(v),
+                    valueText = plusMinutes(v), valueDescription = durationText(v),
                 )
             }
             FieldErrors(errors, "postureCycle.extendOptionsMin")
@@ -239,7 +253,20 @@ private fun ModeSheet(vm: CuesViewModel, pc: PostureCycleConfig, m: PostureMode,
             },
             label = stringResource(R.string.cues_phrase_label), helper = stringResource(R.string.cues_mode_phrase_help), singleLine = false,
         )
+        if (pc.modes.size > 1) DayCueTextButton(stringResource(R.string.cues_posture_remove_mode), { vm.edit(ConfigOp.SetPostureModes(pc.modes.filter { it.id != m.id })); onDismiss() })
     }
+}
+
+/** " · “Time to sit”": the phrase a mode speaks, as a second fact on its row. */
+@Composable
+private fun modePhraseSuffix(m: PostureMode, lang: Language): String {
+    val phrase = m.phrase?.get(lang)?.takeIf { it.isNotBlank() } ?: when (m.kind) {
+        PostureModeKind.Sitting -> stringResource(R.string.cues_mode_phrase_sit)
+        PostureModeKind.Standing -> stringResource(R.string.cues_mode_phrase_stand)
+        PostureModeKind.Walking -> stringResource(R.string.cues_mode_phrase_walk)
+        PostureModeKind.Custom -> return ""
+    }
+    return " · “$phrase”"
 }
 
 @Composable
@@ -320,7 +347,7 @@ internal fun PostureLiveScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Str
     val ps = engine?.posture
     val lang = uiLanguage()
     fun act(a: PostureAction) = vm.dispatch(Event.PostureControl(a))
-    CuesScreen(stringResource(R.string.cues_posture_live_title), onBack) {
+    CuesScreen(stringResource(R.string.cues_posture_live_title), onBack, mark = CueType.Posture) {
         if (cfg == null || ps == null) return@CuesScreen
         val pc = cfg.postureCycle
         if (!pc.enabled) {
@@ -336,43 +363,61 @@ internal fun PostureLiveScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Str
             if (ids.isEmpty()) null else enabledModes[(from + 1).mod(ids.size)]
         }
         val single = enabledModes.size == 1
+        // The control follows the engine exactly: a pending switch is SwitchPending, and a Running mode whose end has
+        // passed (the engine has not delivered the cue yet) is shown as the same "time to switch" state, never as 0:00.
+        val modeEnd = ps.modeEndsAt
+        val overdue = ps.phase == PosturePhase.Running && modeEnd != null && !now.isBefore(modeEnd)
 
-        when (ps.phase) {
-            PosturePhase.Off -> {
+        when {
+            ps.phase == PosturePhase.Off -> {
                 StateBlock(
                     StateBlockKind.Empty, stringResource(R.string.cues_posture_not_running),
                     body = stringResource(if (pc.activeWhen == PostureActiveWhen.ManualOnly) R.string.cues_posture_start_manual else R.string.cues_posture_start_auto),
                     actionLabel = stringResource(R.string.cues_start), onAction = { act(PostureAction.Start) },
                 )
             }
-            PosturePhase.SwitchPending -> {
-                val pending = mode(ps.pendingModeId) ?: nextMode
-                Headline(if (single) stringResource(R.string.cues_posture_keep_going) else stringResource(R.string.cues_posture_time_to, pending?.name?.shown(lang).orEmpty()))
-                if (pc.timerStart == PostureTimerStartPolicy.AtConfirmation) Text(stringResource(R.string.cues_posture_timer_starts_on_switched), style = DayCueTheme.type.body, color = DayCueTheme.colors.ink2)
-                Spacer(Modifier.height(16.dp))
+            ps.phase == PosturePhase.SwitchPending || overdue -> {
+                val pending = if (ps.phase == PosturePhase.SwitchPending) mode(ps.pendingModeId) ?: nextMode else nextMode
+                val pendingPhrase = pending?.let { m ->
+                    m.phrase?.get(lang)?.takeIf { it.isNotBlank() } ?: when (m.kind) {
+                        PostureModeKind.Sitting -> stringResource(R.string.cues_mode_phrase_sit)
+                        PostureModeKind.Standing -> stringResource(R.string.cues_mode_phrase_stand)
+                        PostureModeKind.Walking -> stringResource(R.string.cues_mode_phrase_walk)
+                        PostureModeKind.Custom -> m.name.shown(lang)
+                    }
+                }.orEmpty()
+                Headline(if (single) stringResource(R.string.cues_posture_keep_going) else pendingPhrase)
+                Spacer(Modifier.height(12.dp))
                 if (pending != null) ProgressTimer(
                     remainingText = clockDuration(pending.durationMin, 0), progress = 0f,
                     description = stringResource(R.string.cues_posture_desc_pending, pending.name.shown(lang), durationDescription(pending.durationMin)),
                     kind = TimerKind.Pending, cue = CueType.Posture,
                 )
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton(stringResource(R.string.cues_posture_switched), { act(PostureAction.Switched) }, Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SecondaryButton(stringResource(R.string.cues_posture_snooze, pc.snoozeMin), { act(PostureAction.Snooze) }, compact = true)
-                    SecondaryButton(stringResource(R.string.cues_posture_skip), { act(PostureAction.Skip) }, compact = true)
-                    ExtendButtons(::act)
+                PrimaryButton(
+                    stringResource(R.string.cues_posture_switched),
+                    { act(if (ps.phase == PosturePhase.SwitchPending) PostureAction.Switched else PostureAction.SwitchNow) },
+                    Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                )
+                FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Snooze only exists for a delivered switch cue; an overdue Running mode can switch or skip.
+                    if (ps.phase == PosturePhase.SwitchPending) DayCueTextButton(stringResource(R.string.cues_posture_snooze, pc.snoozeMin), { act(PostureAction.Snooze) })
+                    DayCueTextButton(stringResource(R.string.cues_posture_skip), { act(PostureAction.Skip) })
+                    if (ps.phase == PosturePhase.SwitchPending) DayCueTextButton(plusMinutes(5), { act(PostureAction.Extend5) })
+                }
+                if (pc.timerStart == PostureTimerStartPolicy.AtConfirmation) {
+                    Text(stringResource(R.string.cues_posture_timer_starts_on_switched), style = DayCueTheme.type.body, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 8.dp))
                 }
             }
             else -> {
                 val paused = ps.phase == PosturePhase.Paused
                 val frozen = ps.phase == PosturePhase.Frozen
                 val remainingMs = when (ps.phase) {
-                    PosturePhase.Running -> Duration.between(now, ps.modeEndsAt ?: now).toMillis().coerceAtLeast(0)
+                    PosturePhase.Running -> Duration.between(now, modeEnd ?: now).toMillis().coerceAtLeast(0)
                     else -> ps.remainingMs ?: 0
                 }
-                val totalMs = if (ps.phase == PosturePhase.Running && ps.modeStartedAt != null && ps.modeEndsAt != null)
-                    Duration.between(ps.modeStartedAt, ps.modeEndsAt).toMillis().coerceAtLeast(1)
+                val totalMs = if (ps.phase == PosturePhase.Running && ps.modeStartedAt != null && modeEnd != null)
+                    Duration.between(ps.modeStartedAt, modeEnd).toMillis().coerceAtLeast(1)
                 else ((current?.durationMin ?: 30) * 60_000L).coerceAtLeast(remainingMs).coerceAtLeast(1)
                 var progress = (1f - remainingMs.toFloat() / totalMs).coerceIn(0f, 1f)
                 if (reduce) progress = (progress * 60f).toInt() / 60f // per-minute-ish steps, no sweep
@@ -406,18 +451,16 @@ internal fun PostureLiveScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Str
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (paused) PrimaryButton(stringResource(R.string.cues_resume), { act(PostureAction.Resume) })
-                    else SecondaryButton(stringResource(R.string.cues_pause_now), { act(PostureAction.Pause) })
-                    SecondaryButton(stringResource(R.string.cues_posture_switch_now), { act(PostureAction.SwitchNow) })
-                }
+                if (paused) PrimaryButton(stringResource(R.string.cues_resume), { act(PostureAction.Resume) }, Modifier.fillMaxWidth().heightIn(min = 64.dp))
+                else PrimaryButton(stringResource(R.string.cues_pause_now), { act(PostureAction.Pause) }, Modifier.fillMaxWidth().heightIn(min = 64.dp))
                 Spacer(Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ExtendButtons(::act)
-                    SecondaryButton(stringResource(R.string.cues_posture_skip_next), { act(PostureAction.Skip) }, compact = true)
+                SecondaryButton(stringResource(R.string.cues_posture_switch_now), { act(PostureAction.SwitchNow) }, Modifier.fillMaxWidth())
+                FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    DayCueTextButton(plusMinutes(5), { act(PostureAction.Extend5) })
+                    DayCueTextButton(plusMinutes(10), { act(PostureAction.Extend10) })
+                    DayCueTextButton(stringResource(R.string.cues_posture_skip_next), { act(PostureAction.Skip) })
                 }
-                Spacer(Modifier.height(8.dp))
-                Row {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     DayCueTextButton(stringResource(R.string.cues_posture_reset), { act(PostureAction.Reset) })
                     DayCueTextButton(stringResource(R.string.cues_posture_stop), { act(PostureAction.Stop) })
                 }
@@ -426,13 +469,6 @@ internal fun PostureLiveScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Str
         Spacer(Modifier.height(8.dp))
         DayCueTextButton(stringResource(R.string.cues_posture_edit_modes), { push("posture") })
     }
-}
-
-@Composable
-private fun ExtendButtons(act: (PostureAction) -> Unit) {
-    SecondaryButton("+5", { act(PostureAction.Extend5) }, compact = true)
-    SecondaryButton("+10", { act(PostureAction.Extend10) }, compact = true)
-    SecondaryButton("+15", { act(PostureAction.Extend15) }, compact = true)
 }
 
 @Composable

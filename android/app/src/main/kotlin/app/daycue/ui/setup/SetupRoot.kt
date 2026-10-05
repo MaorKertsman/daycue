@@ -52,6 +52,12 @@ internal object SetupRoutes {
     const val ABOUT = "about"
     const val PRIVACY = "privacy"
     const val READINESS = "readiness"
+    const val ACTIVITY = "activity"
+
+    /** Route to an item with its display name, so the title is right on the first frame (REVIEW-2 C13). */
+    fun withName(prefix: String, id: String, name: String): String = prefix + id + "|" + java.net.URLEncoder.encode(name, "UTF-8")
+    fun idOf(rest: String): String = rest.substringBefore('|')
+    fun nameOf(rest: String): String? = rest.substringAfter('|', "").takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") }
 }
 
 /**
@@ -81,6 +87,7 @@ internal fun stackFor(startItem: String?): List<String> {
         item == "privacy" -> listOf(home, SetupRoutes.SETTINGS, SetupRoutes.PRIVACY)
         item.startsWith("calendar-rule:") -> listOf(home, SetupRoutes.CALENDAR, SetupRoutes.CALENDAR_RULE + item.removePrefix("calendar-rule:"))
         item == "readiness" -> listOf(home, SetupRoutes.READINESS)
+        item == "activity" -> listOf(home, SetupRoutes.ACTIVITY)
         else -> listOf(home, SetupRoutes.PLACES, SetupRoutes.PLACE + item.removePrefix("place:"))
     }
 }
@@ -141,11 +148,11 @@ fun SetupRoot(
         when {
             route == SetupRoutes.HOME -> SetupHomeScreen(push)
             route == SetupRoutes.PLACES -> PlacesScreen(pop, push)
-            route.startsWith(SetupRoutes.PLACE) -> PlaceEditorScreen(route.removePrefix(SetupRoutes.PLACE), pop)
+            route.startsWith(SetupRoutes.PLACE) -> route.removePrefix(SetupRoutes.PLACE).let { PlaceEditorScreen(SetupRoutes.idOf(it), pop, SetupRoutes.nameOf(it)) }
             route == SetupRoutes.CONTEXT -> ContextSettingsScreen(pop)
             route == SetupRoutes.CALENDAR -> CalendarScreen(pop, push)
             route == SetupRoutes.CALENDAR_PREVIEW -> CalendarPreviewScreen(pop)
-            route.startsWith(SetupRoutes.CALENDAR_RULE) -> CalendarRuleScreen(route.removePrefix(SetupRoutes.CALENDAR_RULE), pop)
+            route.startsWith(SetupRoutes.CALENDAR_RULE) -> route.removePrefix(SetupRoutes.CALENDAR_RULE).let { CalendarRuleScreen(SetupRoutes.idOf(it), pop, SetupRoutes.nameOf(it)) }
             route == SetupRoutes.SOUNDS -> SoundsScreen(pop, push)
             route.startsWith(SetupRoutes.PROFILE) -> ProfileScreen(route.removePrefix(SetupRoutes.PROFILE), pop)
             route == SetupRoutes.SPEECH -> SpeechScreen(pop)
@@ -159,6 +166,7 @@ fun SetupRoot(
             route == SetupRoutes.ABOUT -> AboutScreen(pop)
             route == SetupRoutes.PRIVACY -> PrivacyScreen(pop)
             route == SetupRoutes.READINESS -> readiness(pop)
+            route == SetupRoutes.ACTIVITY -> ActivityScreen(pop)
             else -> SetupHomeScreen(push)
         }
         DayCueSnackbarHost(host, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))

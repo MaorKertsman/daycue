@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter
 object Templates {
     private val placeholder = Regex("\\{([a-zA-Z0-9_]+)\\}")
     private val hhmm: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    private val hmma: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
 
     /** Keys whose resource name is derived from the domain key. */
     fun resourceName(key: String): String = "dc_" + key.replace('.', '_').replace('-', '_')
@@ -26,8 +27,8 @@ object Templates {
     fun needsAlt(template: String, args: Map<String, String>): Boolean =
         placeholders(template).any { it != "inner" && args[it].isNullOrBlank() }
 
-    fun fill(template: String, args: Map<String, String>, zone: ZoneId, rtl: Boolean): String {
-        val formatted = args.mapValues { (k, v) -> formatArg(k, v, zone, rtl) }
+    fun fill(template: String, args: Map<String, String>, zone: ZoneId, rtl: Boolean, hour24: Boolean = true): String {
+        val formatted = args.mapValues { (k, v) -> formatArg(k, v, zone, rtl, hour24) }
         val expanded = formatted["template"]?.let { t -> mapOf("template" to substitute(t, formatted - "template")) } ?: emptyMap()
         return substitute(template, formatted + expanded).trim()
     }
@@ -49,13 +50,17 @@ object Templates {
     private fun substitute(t: String, args: Map<String, String>): String =
         placeholder.replace(t) { m -> args[m.groupValues[1]] ?: "" }
 
-    /** Instants -> local `HH:mm`; `HH:mm[:ss]` times kept; times are LTR-isolated inside RTL text. */
-    fun formatArg(key: String, value: String, zone: ZoneId, rtl: Boolean): String {
+    /**
+     * Instants -> local `HH:mm` (or `h:mm AM` when ![hour24], `settings.use24Hour`); `HH:mm[:ss]` times kept;
+     * times are LTR-isolated inside RTL text.
+     */
+    fun formatArg(key: String, value: String, zone: ZoneId, rtl: Boolean, hour24: Boolean = true): String {
+        val fmt = if (hour24) hhmm else hmma
         val time = when {
             key == "template" -> null
             value.length >= 16 && value[10] == 'T' && value.endsWith("Z") ->
-                runCatching { hhmm.format(Instant.parse(value).atZone(zone)) }.getOrNull()
-            value.length in 5..8 && value[2] == ':' -> runCatching { hhmm.format(LocalTime.parse(value)) }.getOrNull()
+                runCatching { fmt.format(Instant.parse(value).atZone(zone)) }.getOrNull()
+            value.length in 5..8 && value[2] == ':' -> runCatching { fmt.format(LocalTime.parse(value)) }.getOrNull()
             else -> null
         } ?: return value
         return if (rtl) "\u2066$time\u2069" else time

@@ -2,6 +2,8 @@ package app.daycue.ui.today
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -33,6 +35,7 @@ import app.daycue.ui.components.WhyNow
 import app.daycue.ui.marks.CueMark
 import app.daycue.ui.marks.CueState
 import app.daycue.ui.marks.CueType
+import app.daycue.ui.marks.tone
 import app.daycue.ui.theme.DayCueSpacing
 import app.daycue.ui.theme.DayCueTheme
 import java.time.Instant
@@ -83,16 +86,8 @@ fun ItemDetailScreen(
     val lastAck = (due as? HabitDue)?.lastAck ?: next?.lastAck
     val history by remember(itemKey) { vm.history(itemKey) }.collectAsState(emptyList())
 
-    ScrollPage(stringResource(R.string.app_detail_title), onBack) {
-        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(DayCueSpacing.markSlot), contentAlignment = Alignment.Center) {
-                CueMark(mark, state = if (due != null) CueState.Due else CueState.Scheduled)
-            }
-            Spacer(Modifier.width(DayCueSpacing.inRow))
-            Text(name, style = DayCueTheme.type.headline, color = c.ink, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(12.dp))
-        // State, last confirmation, next due: plain words.
+    ScrollPage(name, onBack, mark = { CueMark(mark, state = if (due != null) CueState.Due else CueState.Scheduled) }) {
+        // State, last confirmation, next due: plain words, the state in its own ink.
         DayCueRow(
             primary = stringResource(R.string.app_detail_state),
             secondary = when {
@@ -100,6 +95,7 @@ fun ItemDetailScreen(
                 next != null -> waitingText(next, model.now, model.zone)
                 else -> stringResource(R.string.app_detail_no_schedule)
             },
+            secondaryColor = if (due != null) c.tone(mark).ink else c.ink2,
             divider = true,
         )
         if (lastAck != null) {
@@ -112,26 +108,37 @@ fun ItemDetailScreen(
         if (due != null) {
             Spacer(Modifier.height(16.dp))
             val spec = cardSpec(due, model, handlers)
-            spec.actions.forEach { a -> ActionBlock(a, Modifier.padding(bottom = 8.dp)) }
+            // Side by side like the Today card; they stack only at very large text.
+            if (LocalDensity.current.fontScale >= 1.5f) {
+                spec.actions.forEach { a -> ActionBlock(a, Modifier.padding(bottom = 8.dp)) }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    spec.actions.forEach { a -> ActionBlock(a, Modifier.weight(1f)) }
+                }
+            }
             Row { spec.textActions.forEach { a -> DayCueTextButton(a.label, a.onClick) } }
         }
         val habit = due as? HabitDue
         if (habit != null && !habit.bottle) DayCueTextButton(stringResource(R.string.app_menu_pause), { onPause(habit) })
 
+        // Why now: a section, not a button inside an already expanded block. The rule names its source.
+        SectionHeader(stringResource(R.string.why_now))
+        Text(ruleText(rule), style = DayCueTheme.type.body, color = c.ink)
+        if (lastAck != null) {
+            Text(
+                stringResource(R.string.app_why_last, dayAwareClock(lastAck, model.now, model.zone)),
+                style = DayCueTheme.type.body, color = c.ink, modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(Modifier.height(8.dp))
-        WhyNow(
-            rule = ruleText(rule),
-            sources = buildList {
-                val ctx = model.context
-                add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_place), placeText(ctx.place), sourceText(ctx.placeSource).orEmpty()))
-                add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_environment), environmentText(ctx.environment), sourceText(ctx.environmentSource).orEmpty()))
-                activityText(ctx.activity, ctx.session != null)?.let {
-                    add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_activity), it, sourceText(ctx.activitySource).orEmpty()))
-                }
-            }.map { it.trimEnd(' ', '·', '(', ')') },
-            expanded = whyExpanded,
-            onToggle = onToggleWhy,
-        )
+        buildList {
+            val ctx = model.context
+            add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_place), placeText(ctx.place), sourceText(ctx.placeSource).orEmpty()))
+            add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_environment), environmentText(ctx.environment), sourceText(ctx.environmentSource).orEmpty()))
+            activityText(ctx.activity, ctx.session != null)?.let {
+                add(stringResource(R.string.app_src_line, stringResource(R.string.app_ctx_activity), it, sourceText(ctx.activitySource).orEmpty()))
+            }
+        }.map { it.trimEnd(' ', '·', '(', ')') }.forEach { Text("· $it", style = DayCueTheme.type.bodySmall, color = c.ink2) }
 
         SectionHeader(stringResource(R.string.app_detail_history))
         val rows = history.mapNotNull { h -> historyKindRes(h.kind)?.let { h to it } }

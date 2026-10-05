@@ -1,6 +1,150 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- לשונית ההגדרות (ui/setup). עברית נייטרלית מבחינת מגדר: שמות פעולה, שמות עצם ולשון רבים/סבילה. -->
 <resources>
+    <string name="su_learn_more">למידע נוסף</string>
+    <string name="su_learn_less">הסתרה</string>
+    <string name="su_activity_title">פעילות וביטול</string>
+    <string name="su_activity_home_hint">שינויים אחרונים עם אפשרות ביטול</string>
+    <string name="su_activity_empty">עדיין אין שינויים</string>
+    <string name="su_activity_empty_body">שינויים שתבצעו, תייבאו או תאשרו מרחוק יופיעו כאן.</string>
+    <string name="su_source_import">ייבוא</string>
+    <string name="su_source_undo">ביטול</string>
+    <string name="su_status_connected">מחובר</string>
+    <string name="su_status_not_set_up">לא מחובר</string>
+    <string name="su_status_needs_attention">דורש טיפול</string>
+    <string name="su_companion_intro_short">מדווח רק אם המחשב פעיל, ממתין או נעול.</string>
+    <string name="su_what_is_sent">מה נשלח?</string>
+    <string name="su_how_to_remove">איך מסירים מחשב</string>
+    <string name="su_how_to_install">איך מתקינים</string>
+    <string name="su_remote_intro_short">מאפשר לעוזר שבחרתם לקרוא ולשנות את ההגדרות. שינויים רגישים מאושרים כאן.</string>
+    <string name="su_relay_connected">שרת ממסר · מחובר</string>
+    <string name="su_relay_offline">שרת ממסר · לא מחובר</string>
+    <string name="su_relay_attention">שרת ממסר · דורש טיפול</string>
+    <string name="su_details">פרטים</string>
+    <string name="su_details_hide">הסתרת פרטים</string>
+    <string name="su_remote_paired_with">מצומד אל %1$s</string>
+    <string name="su_remote_host_unknown">שרת לא ידוע</string>
+    <string name="su_push_cadence">שינויים מרחוק מגיעים תוך כ־15 דקות.</string>
+    <string name="su_scope_state_on">פעיל</string>
+    <string name="su_perm_off_line">המיקום כבוי: אי אפשר לזהות מקומות. הפעלה ידנית, „יוצאים עכשיו” ותזכורות לפי שעה ממשיכים לעבוד.</string>
+    <string name="su_loc_saved">המיקום נשמר</string>
+    <string name="su_loc_not_set">עדיין אין מיקום</string>
+    <string name="su_work_here">עבודה כאן</string>
+    <string name="su_sounds_more_header">הקראה ושעות שקט</string>
+    <string name="su_speech_state_on">התזכורות מקריאות את המשפט שלהן.</string>
+    <string name="su_speech_state_off">התזכורות משתמשות בצליל וברטט בלבד.</string>
+    <string name="su_leads_and">%1$s ו־%2$s</string>
+
+    <!-- טקסט שינויים ידידותי (ui/util/DiffText.kt): סקירת הייבוא ורשימות השינויים מרחוק. -->
+    <string name="diff_change">%1$s: %2$s ← %3$s</string>
+    <string name="diff_now">%1$s: עכשיו %2$s</string>
+    <string name="diff_removed_value">%1$s: הוסר (היה %2$s)</string>
+    <string name="diff_item_added">הוספת %1$s: %2$s</string>
+    <string name="diff_item_removed">הסרת %1$s: %2$s</string>
+    <string name="diff_title_change">שינוי %1$s ל־%2$s</string>
+    <string name="diff_of">%1$s (%2$s)</string>
+    <string name="diff_generic">הגדרה שונתה (%1$s)</string>
+    <string name="diff_order">הסדר שונה: %1$s</string>
+    <string name="diff_med_withheld">פרטי תרופות השתנו (מוצגים רק בטלפון)</string>
+    <string name="diff_place_moved">מקום הועבר: %1$s</string>
+    <string name="diff_loc_saved">מיקום נשמר: %1$s</string>
+    <string name="diff_loc_removed">מיקום הוסר: %1$s</string>
+    <string name="diff_loc_note_set">(מיקום שמור)</string>
+    <string name="diff_loc_note_removed">(המיקום הוסר)</string>
+    <string name="diff_loc_note_none">(בלי מיקום)</string>
+    <string name="diff_on">פעיל</string>
+    <string name="diff_off">כבוי</string>
+    <string name="diff_none">לא מוגדר</string>
+    <string name="diff_every">כל %1$s</string>
+    <string name="diff_every_day">כל יום</string>
+    <string name="diff_no_days">בלי ימים</string>
+    <string name="diff_no_windows">אין חלונות שקט</string>
+    <string name="diff_window_days">%1$s, %2$s</string>
+    <string name="diff_more">ועוד %1$d</string>
+    <string name="diff_dur_min">%1$d דק׳</string>
+    <string name="diff_dur_h">%1$d שע׳</string>
+    <string name="diff_dur_h_min">%1$d שע׳ %2$d דק׳</string>
+    <string name="diff_dur_min_list">%1$s דק׳</string>
+    <string name="diff_sec">%1$d שנ׳</string>
+    <string name="diff_meters">%1$d מ׳</string>
+    <string name="diff_days_n">%1$d ימים</string>
+    <string name="diff_n_hydration">שתייה</string>
+    <string name="diff_n_sunscreen">קרם הגנה</string>
+    <string name="diff_n_bottle">בקבוק מים</string>
+    <string name="diff_k_habit">תזכורת</string>
+    <string name="diff_k_place">מקום</string>
+    <string name="diff_k_routine">שגרה</string>
+    <string name="diff_k_alarm">שעון מעורר</string>
+    <string name="diff_k_medication">תרופה</string>
+    <string name="diff_k_profile">פרופיל צליל</string>
+    <string name="diff_k_item">פריט</string>
+    <string name="diff_sec_settings">הגדרות כלליות</string>
+    <string name="diff_sec_habits">תזכורות</string>
+    <string name="diff_sec_places">מקומות</string>
+    <string name="diff_sec_routines">שגרות</string>
+    <string name="diff_sec_alarms">שעונים מעוררים</string>
+    <string name="diff_sec_medications">תרופות</string>
+    <string name="diff_sec_profiles">פרופילי צליל</string>
+    <string name="diff_sec_calendar">יומן</string>
+    <string name="diff_sec_context">כללי הקשר</string>
+    <string name="diff_sec_posture">מחזור יציבה</string>
+    <string name="diff_l_work_days">ימי עבודה</string>
+    <string name="diff_l_day_start">תחילת היום</string>
+    <string name="diff_l_language">שפה</string>
+    <string name="diff_l_quiet">שעות שקט</string>
+    <string name="diff_l_quiet_dnd">לפעול לפי מצב „נא לא להפריע”</string>
+    <string name="diff_l_speech">הקראת תזכורות</string>
+    <string name="diff_l_speech_media">הקראה בזמן השמעת מדיה</string>
+    <string name="diff_l_speech_meeting">הקראה בפגישות</string>
+    <string name="diff_l_speech_output">פלט הקראה</string>
+    <string name="diff_l_merge">חלון איחוד</string>
+    <string name="diff_l_name">שם</string>
+    <string name="diff_l_hours">שעות פעילות</string>
+    <string name="diff_l_days">ימים</string>
+    <string name="diff_l_snooze">דחייה</string>
+    <string name="diff_l_anchor">ספירה מ־</string>
+    <string name="diff_l_phrase">מה יוקרא</string>
+    <string name="diff_l_cooldown">הפסקה לכל מקום</string>
+    <string name="diff_l_repeat_every">חזרה כל</string>
+    <string name="diff_l_radius">רדיוס</string>
+    <string name="diff_l_usually">בדרך כלל</string>
+    <string name="diff_l_bottle_leave">תזכורת ביציאה</string>
+    <string name="diff_l_session_start">תחילת מושב עבודה</string>
+    <string name="diff_l_time">שעה</string>
+    <string name="diff_l_vibration">רטט</string>
+    <string name="diff_l_times">שעות</string>
+    <string name="diff_l_sound">צליל</string>
+    <string name="diff_l_sync_range">טווח סנכרון היומן</string>
+    <string name="diff_l_speak_titles">הקראת שמות אירועים</string>
+    <string name="diff_l_lock_titles">שמות במסך הנעילה</string>
+    <string name="diff_l_tentative">אירועים לא סופיים</string>
+    <string name="diff_l_supplement">תזכורות לאירועים</string>
+    <string name="diff_l_posture">מחזור יציבה</string>
+    <string name="diff_l_extend">אפשרויות הארכה</string>
+    <string name="diff_e_indoor">בפנים</string>
+    <string name="diff_e_outdoor">בחוץ</string>
+    <string name="diff_e_mixed">משולב</string>
+    <string name="diff_e_en">אנגלית</string>
+    <string name="diff_e_he">עברית</string>
+    <string name="diff_e_autostart">מתחיל אוטומטית</string>
+    <string name="diff_e_suggest">מציע</string>
+    <string name="diff_e_duck">מנמיכה את המדיה ומקריאה</string>
+    <string name="diff_e_pause">משהה את המדיה ומקריאה</string>
+    <string name="diff_e_notif_only">התראה בלבד</string>
+    <string name="diff_e_vibrate_only">רטט בלבד</string>
+    <string name="diff_e_speak_anyway">מקריאה בכל זאת</string>
+    <string name="diff_e_any_route">כל רמקול</string>
+    <string name="diff_e_headphones">אוזניות בלבד</string>
+    <string name="diff_e_accepted">מאושרים בלבד</string>
+    <string name="diff_e_exclude">לא נכללים</string>
+    <string name="diff_e_supplement">נוסף לתזכורת של האירוע</string>
+    <string name="diff_e_only_none">רק כשאין לו תזכורת</string>
+    <string name="diff_e_ignore">מתעלמים</string>
+    <string name="diff_e_from_ack">מרגע האישור</string>
+    <string name="diff_e_from_due">ממועד התזכורת</string>
+    <string name="diff_e_working">עבודה</string>
+    <string name="diff_e_studying">לימודים</string>
+
     <!-- Shared -->
     <string name="su_back">חזרה</string>
     <string name="su_cancel">ביטול</string>
@@ -73,7 +217,7 @@
     <string name="su_home_sense_header">מה DayCue מזהה</string>
     <string name="su_home_deliver_header">איך התזכורות מגיעות</string>
     <string name="su_home_connect_header">חיבורים</string>
-    <string name="su_home_check_header">בדיקה</string>
+    <string name="su_home_check_header">מוכנות</string>
     <string name="su_home_app_header">האפליקציה</string>
     <string name="su_places_home_hint">בית, משרד ומקומות נוספים</string>
     <plurals name="su_places_active">
@@ -91,14 +235,14 @@
     </plurals>
     <string name="su_sounds_home_hint">צלילים, רטט, משפטים מוקראים וקול</string>
     <string name="su_quiet_home_hint">מתי התזכורות שקטות</string>
-    <string name="su_integrations_home_hint">מלווה למחשב, גישה מרחוק, Spotify</string>
+    <string name="su_integrations_home_hint">חיבור למחשב, גישה מרחוק, Spotify</string>
     <string name="su_integrations_home_paired">הגישה מרחוק מוגדרת</string>
     <string name="su_readiness_title">מוכנות התזכורות</string>
     <string name="su_readiness_home_hint">התראות, תזמון מדויק, סוללה, קולות</string>
     <string name="su_readiness_placeholder">מוכנות התזכורות</string>
     <string name="su_readiness_placeholder_body">המסך הזה מסופק על ידי מעטפת האפליקציה.</string>
     <string name="su_settings_title">הגדרות כלליות</string>
-    <string name="su_settings_home_hint">שפה, תנועה, גיבוי, אודות ופרטיות</string>
+    <string name="su_settings_home_hint">שפה, הפחתת אנימציה, גיבוי, אודות ופרטיות</string>
 
     <!-- Places list -->
     <string name="su_places_title">מקומות והקשר</string>
@@ -177,15 +321,15 @@
     <string name="su_fix_unavailable">לא הצלחנו לאתר מיקום. כדאי להתקרב לחלון ולנסות שוב, או להזין קואורדינטות.</string>
     <string name="su_fix_failed">לא הצלחנו לאתר מיקום. כדאי לנסות שוב, או להזין קואורדינטות.</string>
     <string name="su_coords_title">הזנת קואורדינטות</string>
-    <string name="su_coords_hint">קו רוחב מ־‎-90 עד 90, קו אורך מ־‎-180 עד 180, כמספרים עשרוניים. המספרים נשמרים בטלפון הזה ולא מוצגים שוב.</string>
+    <string name="su_coords_hint">קו רוחב בין \u2066\u221290\u2069 ל־\u206690\u2069, קו אורך בין \u2066\u2212180\u2069 ל־\u2066180\u2069, כמספרים עשרוניים. המספרים נשארים בטלפון הזה.</string>
     <string name="su_coords_lat">קו רוחב</string>
     <string name="su_coords_lng">קו אורך</string>
     <string name="su_coords_set">קביעת המיקום</string>
     <string name="su_coords_empty">יש להזין את שני המספרים.</string>
-    <string name="su_coords_bad_lat">קו הרוחב צריך להיות מספר מ־‎-90 עד 90.</string>
-    <string name="su_coords_bad_lng">קו האורך צריך להיות מספר מ־‎-180 עד 180.</string>
+    <string name="su_coords_bad_lat">קו הרוחב צריך להיות מספר בין \u2066\u221290\u2069 ל־\u206690\u2069.</string>
+    <string name="su_coords_bad_lng">קו האורך צריך להיות מספר בין \u2066\u2212180\u2069 ל־\u2066180\u2069.</string>
     <string name="su_map_title">בחירה במפה</string>
-    <string name="su_map_not_included">בחירה במפה לא כלולה. אריחי המפה מגיעים משירות מפות, ו־DayCue שומר את המקומות בטלפון בלי לפנות לשירות כזה. אפשר להשתמש במיקום הנוכחי או להזין קואורדינטות.</string>
+    <string name="su_map_not_included">אין מפה: המקומות נשמרים רק בטלפון.</string>
     <string name="su_radius_header">גודל המקום</string>
     <string name="su_radius_label">רדיוס</string>
     <string name="su_radius_hint">בין %1$d ל־%2$d מטרים. קטן יותר מדויק יותר אבל דורש איתור טוב; גדול יותר סולח לאיתור גס.</string>
@@ -382,13 +526,13 @@
     <string name="su_prev_untitled">(בלי כותרת)</string>
     <string name="su_prev_all_day">כל היום</string>
     <string name="su_prev_cue">תזכורת %s לפני</string>
-    <string name="su_prev_cue_you">תמיד להזכיר (לפי בחירה) · %s לפני</string>
+    <string name="su_prev_cue_you">תזכורת (נבחר ידנית) · %s לפני</string>
     <string name="su_prev_no_cue">בלי תזכורת</string>
-    <string name="su_prev_no_cue_you">אף פעם להזכיר (לפי בחירה)</string>
+    <string name="su_prev_no_cue_you">בלי תזכורת (נבחר ידנית)</string>
     <string name="su_prev_always">תמיד לאירוע הזה</string>
     <string name="su_prev_never">אף פעם לאירוע הזה</string>
     <string name="su_prev_never_calendar">אף פעם ליומן הזה</string>
-    <string name="su_prev_clear">חזרה לכללים</string>
+    <string name="su_prev_clear">ביטול הבחירה הידנית</string>
     <string name="su_prev_always_q">להזכיר תמיד?</string>
     <string name="su_prev_never_q">לא להזכיר אף פעם?</string>
     <string name="su_prev_just_this">רק האירוע הזה</string>
@@ -401,7 +545,7 @@
 
     <!-- Sounds and speech -->
     <string name="su_sounds_title">צלילים והקראה</string>
-    <string name="su_sounds_intro">לכל סוג תזכורת יש צליל, רטט ומשפט מוקרא משלו. בוחרים, ואז לוחצים על ״תצוגה מקדימה״ כדי לשמוע בדיוק מה תזכורת אמיתית עושה.</string>
+    <string name="su_sounds_intro">לכל סוג תזכורת יש צליל, רטט ומשפט מוקרא משלו. בוחרים, ואז לוחצים על ״השמעה לדוגמה״ כדי לשמוע בדיוק מה תזכורת אמיתית עושה.</string>
     <string name="su_profiles_header">סוגי תזכורות, החשוב ביותר קודם</string>
     <string name="su_profiles_hint">כשתזכורות מתנגשות, הגבוהה יותר נשמעת קודם. הסדר קבוע.</string>
     <string name="su_cue_habit">הרגלים אחרים</string>
@@ -423,8 +567,8 @@
     <string name="su_profile_missing_body">ייתכן שההגדרות השתנו. יש לחזור ולפתוח שוב.</string>
     <string name="su_priority_line">עדיפות %1$d מתוך %2$d</string>
     <string name="su_priority_explain">כשכמה תזכורות מגיעות יחד, העדיפות הגבוהה יותר מוקראת קודם והאחרות ממתינות.</string>
-    <string name="su_preview">תצוגה מקדימה</string>
-    <string name="su_preview_hint">מנגן את הצליל, הרטט והמשפט בטלפון בלבד. שום דבר לא מפורסם ולא נרשם.</string>
+    <string name="su_preview">השמעה לדוגמה</string>
+    <string name="su_preview_hint">מנגן את הצליל, הרטט והמשפט בטלפון בלבד. שום דבר לא נשלח ולא נשמר.</string>
     <string name="su_sound_header">צליל</string>
     <string name="su_sound_switch">השמעת צליל</string>
     <string name="su_alarm_sound_note">צלילי שעון מעורר נבחרים לכל שעון בלשונית התזכורות. שעון מצלצל תמיד משמיע את הצליל שלו.</string>
@@ -493,7 +637,7 @@
     <string name="su_voice_none_listed">המנוע לא מציג קולות נפרדים.</string>
     <string name="su_rate">מהירות הדיבור</string>
     <string name="su_rate_desc">פי %s מהמהירות הרגילה</string>
-    <string name="su_rate_hint">בין 0.5 ל־2 פעמים. 1.0 היא מהירות רגילה. ״תצוגה מקדימה״ בתזכורת מאפשרת לשמוע.</string>
+    <string name="su_rate_hint">בין 0.5 ל־2 פעמים. 1.0 היא מהירות רגילה. ״השמעה לדוגמה״ בתזכורת מאפשרת לשמוע.</string>
     <string name="su_when_header">מתי מותר להקריא</string>
     <string name="su_over_media">בזמן שמוזיקה או וידאו מתנגנים</string>
     <string name="su_media_duck">להנמיך ולהקריא</string>
@@ -529,7 +673,7 @@
     <string name="su_quiet_days">ימים</string>
     <string name="su_quiet_add">הוספת טווח נוסף</string>
     <string name="su_quiet_remove">הסרת הטווח הזה</string>
-    <string name="su_quiet_dnd">כיבוד ״נא לא להפריע״</string>
+    <string name="su_quiet_dnd">לפעול לפי מצב „נא לא להפריע”</string>
     <string name="su_quiet_dnd_hint">כש״נא לא להפריע״ של אנדרואיד פעיל, התזכורות שותקות כפי שהוא דורש.</string>
     <string name="su_quiet_what_header">מה קורה</string>
     <string name="su_quiet_always">תמיד מגיעות: שעון מעורר, תרופות ושגרה שרצה.</string>
@@ -537,7 +681,7 @@
     <string name="su_quiet_wait">ממתינות לסוף שעות השקט: קרם הגנה, יציבה ושתייה.</string>
 
     <!-- Integrations -->
-    <string name="su_integrations_title">שילובים</string>
+    <string name="su_integrations_title">חיבורים</string>
     <string name="su_integrations_intro">כל מה שכאן אופציונלי. DayCue עובד במלואו בטלפון הזה גם בלי אף אחד מהם.</string>
     <string name="su_int_computer_header">מחשב</string>
     <string name="su_int_remote_header">גישה מרחוק</string>
@@ -546,21 +690,21 @@
     <string name="su_int_calendar_hint">גישה, יומנים וכללים</string>
 
     <!-- Companion -->
-    <string name="su_companion_title">מלווה למחשב</string>
+    <string name="su_companion_title">חיבור למחשב</string>
     <string name="su_companion_intro">אפליקציית מגש קטנה ל־Windows שמעדכנת את הטלפון אם המחשב בשימוש. בלעדיה פעילות עבודה מתחילה ידנית, וזו דרך שימוש נתמכת לגמרי.</string>
     <string name="su_companion_data_header">מה נשלח</string>
     <string name="su_companion_data_sent">הודעה חתומה אחת על מצב המחשב: פעיל, לא פעיל, נעול או במצב שינה, מתי נצפה וכמה זמן אפשר לסמוך עליו.</string>
-    <string name="su_companion_data_never">לעולם לא נשלחים: הקשות מקלדת, תנועות עכבר, צילומי מסך, כותרות חלונות, שמות אפליקציות, גלישה, שמות קבצים או משך חוסר הפעילות. האות עובר דרך המסלול שלך ולא דרך אף גורם אחר.</string>
+    <string name="su_companion_data_never">לעולם לא נשלחים: הקשות מקלדת, תנועות עכבר, צילומי מסך, כותרות חלונות, שמות אפליקציות, גלישה, שמות קבצים או משך חוסר הפעילות. האות עובר דרך שרת הממסר שלך ולא דרך אף גורם אחר.</string>
     <string name="su_companion_pair_header">צימוד מחשב</string>
     <string name="su_companion_needs_remote">נדרשת קודם גישה מרחוק</string>
-    <string name="su_companion_needs_remote_body">המלווה מדבר עם הטלפון דרך המסלול (relay) שלך. יש לצמד את הטלפון למסלול תחת ״גישה מרחוק״ ואז לחזור לכאן.</string>
+    <string name="su_companion_needs_remote_body">המלווה מדבר עם הטלפון דרך שרת הממסר שלך. יש לצמד את הטלפון לשרת הממסר תחת ״גישה מרחוק״ ואז לחזור לכאן.</string>
     <string name="su_companion_code_make">יצירת קוד צימוד</string>
-    <string name="su_companion_code_hint">אחר כך באפליקציית המגש בוחרים צימוד ומזינים את כתובת המסלול ואת הקוד הזה.</string>
-    <string name="su_companion_code_loading">מבקש קוד מהמסלול. מסלול באחסון חינמי עשוי להתעורר בדקה.</string>
+    <string name="su_companion_code_hint">אחר כך באפליקציית המגש בוחרים צימוד ומזינים את כתובת שרת הממסר ואת הקוד הזה.</string>
+    <string name="su_companion_code_loading">מבקש קוד משרת הממסר. שרת ממסר באחסון חינמי עשוי להתעורר בדקה.</string>
     <string name="su_companion_code_failed">לא הצלחנו לקבל קוד</string>
-    <string name="su_companion_code_failed_body">המסלול לא ענה. פעולה זו דורשת חיבור. כדאי לנסות שוב.</string>
+    <string name="su_companion_code_failed_body">שרת הממסר לא ענה. פעולה זו דורשת חיבור. כדאי לנסות שוב.</string>
     <string name="su_companion_code_valid">תקף לשימוש אחד, עד %s. אחר כך צריך קוד חדש.</string>
-    <string name="su_companion_code_steps">במחשב: סמל המגש, קליק ימני, צימוד, ואז כתובת המסלול והקוד הזה.</string>
+    <string name="su_companion_code_steps">במחשב: סמל המגש, קליק ימני, צימוד, ואז כתובת שרת הממסר והקוד הזה.</string>
     <string name="su_companion_status_header">מצב</string>
     <string name="su_companion_status">מחשב</string>
     <string name="su_companion_checked">הטלפון בדק %s</string>
@@ -577,8 +721,8 @@
     <string name="su_companion_use_hint">מאפשר לפעילות עבודה להתחיל ולהשתהות לפי הפעילות במחשב במקומות העבודה.</string>
     <string name="su_companion_manual_ok">גם בלי זה הכול בסדר. פעילות מתחילה אז ידנית, ופגישה ביומן נחשבת לפעילות.</string>
     <string name="su_companion_unpair_header">ביטול צימוד של מחשב</string>
-    <string name="su_companion_unpair_how">במחשב: סמל המגש, קליק ימני, ביטול צימוד. הוא מבקש מהמסלול לבטל אותו ומוחק את המפתח שלו.</string>
-    <string name="su_companion_devices_note">הטלפון הזה לא יכול להציג או להסיר מחשבים בעצמו. אם מחשב אבד, יש לבטל את ההתקן שלו במסלול (ראו מדריך ההתקנה). האותות שלו מפסיקים להיחשב כשהם פגי תוקף.</string>
+    <string name="su_companion_unpair_how">במחשב: סמל המגש, קליק ימני, ביטול צימוד. הוא מבקש משרת הממסר לבטל אותו ומוחק את המפתח שלו.</string>
+    <string name="su_companion_devices_note">הטלפון הזה לא יכול להציג או להסיר מחשבים בעצמו. אם מחשב אבד, יש לבטל את ההתקן שלו בשרת הממסר (ראו מדריך ההתקנה). האותות שלו מפסיקים להיחשב כשהם פגי תוקף.</string>
 
     <!-- Frequent check / push -->
     <string name="su_frequent_header">באיזו מהירות הטלפון מבחין</string>
@@ -590,13 +734,13 @@
     <string name="su_push_switch">התעוררות בהודעת דחיפה</string>
     <string name="su_push_available">התעוררות מיידית מוגדרת</string>
     <string name="su_push_unavailable">לא זמין בגרסה הזו</string>
-    <string name="su_push_ready">המסלול יכול להעיר את הטלפון כשמשהו משתנה.</string>
+    <string name="su_push_ready">שרת הממסר יכול להעיר את הטלפון כשמשהו משתנה.</string>
     <string name="su_push_not_built">דורש גרסה עם Firebase מוגדר. עד אז הטלפון בודק בערך כל 15 דקות או פחות.</string>
 
     <!-- Remote access -->
     <string name="su_remote_title">גישה מרחוק</string>
-    <string name="su_remote_intro">מאפשרת לעוזר בינה מלאכותית שנבחר, כמו Claude, לקרוא ולשנות את ההגדרות דרך מסלול (relay) שמופעל על ידי הבעלים. ההחלטה מה מותר היא של הבעלים, והמילה האחרונה היא של הטלפון.</string>
-    <string name="su_remote_off_default">כבוי עד לצימוד הטלפון למסלול.</string>
+    <string name="su_remote_intro">מאפשרת לעוזר בינה מלאכותית שנבחר, כמו Claude, לקרוא ולשנות את ההגדרות דרך שרת ממסר שמופעל על ידי הבעלים. מה מותר נקבע כאן, והמילה האחרונה תמיד של הטלפון.</string>
+    <string name="su_remote_off_default">כבוי עד לצימוד הטלפון לשרת הממסר.</string>
     <string name="su_remote_not_set_up">לא מוגדר</string>
     <string name="su_remote_disabled">מושהה (כבוי)</string>
     <string name="su_remote_on_host">פעיל · %s</string>
@@ -606,27 +750,27 @@
         <item quantity="many">%d דברים ממתינים לאישור</item>
         <item quantity="other">%d דברים ממתינים לאישור</item>
     </plurals>
-    <string name="su_remote_unpaired_by_relay_short">הצימוד בוטל על ידי המסלול</string>
-    <string name="su_remote_unpaired_by_relay">הצימוד של הטלפון הזה למסלול בוטל</string>
-    <string name="su_remote_unpaired_by_relay_body">המסלול כבר לא סומך על הטלפון הזה, ולכן שום דבר לא נקרא, לא משתנה ולא נשלח. צימוד מחדש יחזיר את הגישה מרחוק.</string>
-    <string name="su_pair_intro">אפשר להדביק את קישור הצימוד, או להזין את כתובת המסלול ואת הקוד מהמסלול.</string>
-    <string name="su_pair_url">כתובת המסלול</string>
+    <string name="su_remote_unpaired_by_relay_short">הצימוד בוטל על ידי שרת הממסר</string>
+    <string name="su_remote_unpaired_by_relay">הצימוד של הטלפון הזה לשרת הממסר בוטל</string>
+    <string name="su_remote_unpaired_by_relay_body">שרת הממסר כבר לא סומך על הטלפון הזה, ולכן שום דבר לא נקרא, לא משתנה ולא נשלח. צימוד מחדש יחזיר את הגישה מרחוק.</string>
+    <string name="su_pair_intro">אפשר להדביק את קישור הצימוד, או להזין את כתובת שרת הממסר ואת הקוד משרת הממסר.</string>
+    <string name="su_pair_url">כתובת שרת הממסר</string>
     <string name="su_pair_url_hint">מתחילה ב־https://. קישור daycue://pair שהודבק ימלא גם את הקוד.</string>
     <string name="su_pair_code">קוד צימוד</string>
     <string name="su_pair_code_hint">נראה כמו ABCDE-FGHJK.</string>
     <string name="su_pair_label">שם הטלפון הזה</string>
-    <string name="su_pair_label_hint">מוצג במסלול. לא חובה.</string>
+    <string name="su_pair_label_hint">מוצג בשרת הממסר. לא חובה.</string>
     <string name="su_pair_action">צימוד הטלפון הזה</string>
     <string name="su_pairing">מתבצע צימוד…</string>
-    <string name="su_pair_slow">מסלול באחסון חינמי עשוי להתעורר עד כדקה וחצי. יש להמתין.</string>
-    <string name="su_pair_privacy">הצימוד יוצר מפתח שלעולם לא עוזב את הטלפון. ההגדרות משותפות עם המסלול רק אחרי הצימוד, ובלי שמות תרופות או קואורדינטות.</string>
+    <string name="su_pair_slow">שרת ממסר באחסון חינמי עשוי להתעורר עד כדקה וחצי. יש להמתין.</string>
+    <string name="su_pair_privacy">הצימוד יוצר מפתח שלעולם לא עוזב את הטלפון. ההגדרות משותפות עם שרת הממסר רק אחרי הצימוד, ובלי שמות תרופות או קואורדינטות.</string>
     <string name="su_pair_err_url">הכתובת הזו לא תקינה.</string>
     <string name="su_pair_err_https">רק כתובות https מתקבלות.</string>
-    <string name="su_pair_err_code">הקוד לא תקין או שפג תוקפו. יש לקבל קוד חדש מהמסלול.</string>
+    <string name="su_pair_err_code">הקוד לא תקין או שפג תוקפו. יש לקבל קוד חדש משרת הממסר.</string>
     <string name="su_pair_err_locked">יותר מדי קודים שגויים. יש להמתין זמן מה ואז לקבל קוד חדש.</string>
-    <string name="su_pair_err_rejected">המסלול דחה את הצימוד. יש לקבל קוד חדש ולנסות שוב.</string>
-    <string name="su_pair_err_offline">אין חיבור למסלול. צימוד דורש חיבור.</string>
-    <string name="su_remote_paired">הצימוד למסלול הושלם.</string>
+    <string name="su_pair_err_rejected">שרת הממסר דחה את הצימוד. יש לקבל קוד חדש ולנסות שוב.</string>
+    <string name="su_pair_err_offline">אין חיבור לשרת הממסר. צימוד דורש חיבור.</string>
+    <string name="su_remote_paired">הצימוד לשרת הממסר הושלם.</string>
     <string name="su_remote_waiting_header">ממתינים לאישור</string>
     <string name="su_remote_waiting_hint">שום דבר מכאן עוד לא קרה. אישור דורש לחיצה ארוכה במסך הבדיקה.</string>
     <string name="su_pending_change">שינוי בהגדרות</string>
@@ -642,18 +786,18 @@
     </plurals>
     <string name="su_remote_state_header">חיבור</string>
     <string name="su_remote_enabled">גישה מרחוק</string>
-    <string name="su_remote_enabled_on">פעילה. זה מתג החירום: כיבויו עוצר הכול מיד.</string>
+    <string name="su_remote_enabled_on">פעילה. כיבוי עוצר כל גישה מרחוק מיד.</string>
     <string name="su_remote_enabled_off">כבויה. שום דבר לא נמשך, לא מוחל ולא מתפרסם. הצימוד נשמר.</string>
-    <string name="su_remote_relay">מסלול (relay)</string>
+    <string name="su_remote_relay">שרת ממסר</string>
     <string name="su_remote_sync">בדיקה אחרונה</string>
     <string name="su_sync_ok">מעודכן</string>
     <string name="su_sync_offline">אין חיבור. יישלח כשיהיה חיבור</string>
-    <string name="su_sync_unauthorized">המסלול דחה את הטלפון הזה</string>
+    <string name="su_sync_unauthorized">שרת הממסר דחה את הטלפון הזה</string>
     <string name="su_sync_failed">הבדיקה האחרונה נכשלה</string>
     <string name="su_sync_disabled">כבוי</string>
     <string name="su_sync_not_paired">לא מצומד</string>
     <string name="su_sync_none">עדיין לא נבדק</string>
-    <string name="su_remote_cadence">הטלפון בודק את המסלול בפתיחת האפליקציה, אחרי כל שינוי, ובערך כל 15 דקות או פחות ברקע. אנדרואיד עשוי לדחות זאת כדי לחסוך בסוללה.</string>
+    <string name="su_remote_cadence">הטלפון בודק את שרת הממסר בפתיחת האפליקציה, אחרי כל שינוי, ובערך כל 15 דקות או פחות ברקע. אנדרואיד עשוי לדחות זאת כדי לחסוך בסוללה.</string>
     <string name="su_remote_rules_header">מה מותר לעשות</string>
     <string name="su_remote_policy">שינויים מרחוק</string>
     <string name="su_policy_auto">שינויים רגילים מוחלים, רגישים דורשים אישור</string>
@@ -663,7 +807,7 @@
     <string name="su_policy_deny">בלי שינויים</string>
     <string name="su_policy_deny_hint">שינויים מרחוק נדחים. קריאה ממשיכה לעבוד לחיבורים שמותר להם לקרוא.</string>
     <string name="su_remote_ordinary_vs_sensitive">רגיל: הוספה או הפעלה של הרגלים, שגרות וכללים. רגיש: שינוי או כיבוי של שעונים מעוררים, שעות שקט, הקראה, כללי הקשר ופעילות, העברת מקום, מדיניות היומן וכל דבר שמוחק.</string>
-    <string name="su_remote_sessions">לאפשר התחלה ועצירה של פעילות מרחוק</string>
+    <string name="su_remote_sessions">התחלה ועצירה של פעילות מרחוק</string>
     <string name="su_remote_sessions_hint">פעילות עבודה ובקרת שגרות. שגרה אפשר להתחיל רק אחרי לחיצה עליה כאן.</string>
     <string name="su_remote_medication">תרופות</string>
     <string name="su_remote_medication_off">כבוי. שמות תרופות אף פעם לא עוזבים את הטלפון, ואי אפשר לשנות תרופות מרחוק.</string>
@@ -685,11 +829,11 @@
     <string name="su_scope_medication">תרופות</string>
     <string name="su_scope_medication_warn">שמות תרופות יוצאים מהטלפון עבור החיבור הזה.</string>
     <string name="su_scope_other">הרשאה אחרת</string>
-    <string name="su_scope_off_until_approved">כבויה עד לאישור</string>
+    <string name="su_scope_off_until_approved">כבוי עד לאישור</string>
     <string name="su_grant_declined">החיבור נדחה.</string>
     <string name="su_grant_revoked">ההרשאה של החיבור בוטלה.</string>
     <string name="su_grant_offline">נדרש חיבור. כדאי לנסות שוב כשיש חיבור.</string>
-    <string name="su_grant_unauthorized">המסלול כבר לא סומך על הטלפון הזה. יש לצמד מחדש.</string>
+    <string name="su_grant_unauthorized">שרת הממסר כבר לא סומך על הטלפון הזה. יש לצמד מחדש.</string>
     <string name="su_grant_failed">זה לא הצליח. כדאי לנסות שוב.</string>
     <string name="su_revoke_title">לבטל את ההרשאה של %s?</string>
     <string name="su_revoke_body">החיבור מפסיק לעבוד מיד וצריך לבקש חיבור מחדש.</string>
@@ -709,11 +853,11 @@
     <string name="su_sens_sensitive">שינוי רגיש</string>
     <string name="su_sens_destructive">מוחק משהו</string>
     <string name="su_remote_unpair">ביטול הצימוד של הטלפון</string>
-    <string name="su_remote_unpair_title">לבטל את הצימוד למסלול?</string>
+    <string name="su_remote_unpair_title">לבטל את הצימוד לשרת הממסר?</string>
     <string name="su_remote_unpair_body">הגישה מרחוק נעצרת והטלפון שוכח את המפתח ואת החיבורים. אפשר לצמד שוב מאוחר יותר.</string>
-    <string name="su_remote_unpair_hint">אם אין חיבור, יש לבטל את הטלפון הזה גם במסלול.</string>
-    <string name="su_unpair_done">הצימוד בוטל. המסלול אישר.</string>
-    <string name="su_unpair_offline">הצימוד בוטל כאן, אבל אי אפשר היה להגיע למסלול. יש לבטל את הטלפון הזה במסלול כדי שהמפתח שלו יפסיק לעבוד שם.</string>
+    <string name="su_remote_unpair_hint">אם אין חיבור, יש לבטל את הטלפון הזה גם בשרת הממסר.</string>
+    <string name="su_unpair_done">הצימוד בוטל. שרת הממסר אישר.</string>
+    <string name="su_unpair_offline">הצימוד בוטל כאן, אבל אי אפשר היה להגיע לשרת הממסר. יש לבטל את הטלפון הזה בשרת הממסר כדי שהמפתח שלו יפסיק לעבוד שם.</string>
 
     <!-- Spotify -->
     <string name="su_spotify_title">Spotify</string>
@@ -761,11 +905,11 @@
     <string name="su_set_workdays">ימי עבודה</string>
     <string name="su_set_workdays_hint">משמשים לפעילות עבודה ולתזכורות של ימי עבודה.</string>
     <string name="su_set_reduce_motion">הפחתת תנועה</string>
-    <string name="su_set_reduce_motion_hint">כבוי: לפי הגדרת האנימציות בטלפון וחיסכון בסוללה. פעיל: בלי החלקות ובלי תנועת רקע בכלל.</string>
+    <string name="su_set_reduce_motion_hint">מבטל תנועות החלקה ותנועת רקע.</string>
     <string name="su_set_backup_header">גיבוי</string>
-    <string name="su_set_backup_status">ההגדרות נשמרות רק בטלפון הזה, ואינן נכללות בגיבוי הענן של אנדרואיד. אפשר לשמור אותן כקובץ כדי להחזיק עותק או כדי לעבור לטלפון חדש.</string>
+    <string name="su_set_backup_status">ההגדרות נשמרות רק בטלפון הזה. אפשר לשמור קובץ כדי לגבות או לעבור לטלפון חדש.</string>
     <string name="su_set_include_history">כולל היסטוריה</string>
-    <string name="su_set_include_history_hint">כבוי כברירת מחדל. ההיסטוריה נשארת במכשיר ולא משוחזרת בייבוא.</string>
+    <string name="su_set_include_history_hint">ההיסטוריה נשארת בטלפון הזה.</string>
     <string name="su_set_export_medication">הקובץ הזה מכיל שמות תרופות. כדאי לשמור אותו בפרטיות.</string>
     <string name="su_set_export_history_note">הקובץ יכיל גם את היסטוריית התזכורות שאושרו.</string>
     <string name="su_set_export">שמירת ההגדרות כקובץ</string>
@@ -804,7 +948,7 @@
     <string name="su_import_confirm_body">ההגדרות הנוכחיות ישתנו כמפורט. אפשר לבטל אחר כך.</string>
     <string name="su_import_applied">ההגדרות יובאו.</string>
     <string name="su_import_done">ההגדרות יובאו</string>
-    <string name="su_import_done_body">אפשר לבטל את הייבוא בהודעה שבתחתית המסך למשך כמה שניות.</string>
+    <string name="su_import_done_body">אפשר לבטל את הייבוא ב„פעילות וביטול”.</string>
     <string name="su_import_conflict">ההגדרות השתנו בינתיים</string>
     <string name="su_import_conflict_body">שום דבר לא יובא. יש לבחור את הקובץ שוב כדי לראות את ההבדלים החדשים.</string>
     <string name="su_import_failed">לא הצלחנו להחיל את הקובץ</string>
@@ -833,11 +977,11 @@
     <string name="su_privacy_lead">DayCue עובד בטלפון הזה. אין חשבון, אין ניתוח שימוש ואין פרסומות.</string>
     <string name="su_privacy_stays_header">נשאר בטלפון הזה</string>
     <string name="su_privacy_stays">המקומות והקואורדינטות שלהם, כותרות היומן, שמות התרופות וההיסטוריה, ההגדרות והגדרות ההקראה. גיבוי הענן של אנדרואיד לא כולל אותם.</string>
-    <string name="su_privacy_leaves_header">יכול לצאת, רק אם הוגדר</string>
-    <string name="su_privacy_leaves">גישה מרחוק שולחת סיכום של ההגדרות למסלול שאליו מצמדים, כדי שעוזר שנבחר יוכל לקרוא אותו. המלווה למחשב שולח למסלול רק את מצב המחשב. Spotify, אם בשימוש, פועלת דרך אפליקציית Spotify.</string>
+    <string name="su_privacy_leaves_header">יוצא מהטלפון רק אם הופעל</string>
+    <string name="su_privacy_leaves">גישה מרחוק שולחת סיכום של ההגדרות לשרת הממסר שאליו מצמדים, כדי שעוזר שנבחר יוכל לקרוא אותו. המלווה למחשב שולח לשרת הממסר רק את מצב המחשב. Spotify, אם בשימוש, פועלת דרך אפליקציית Spotify.</string>
     <string name="su_privacy_remote">קואורדינטות אף פעם לא עוזבות את הטלפון. שמות תרופות יוצאים רק אם מפעילים את הרשאת התרופות.</string>
     <string name="su_privacy_perms_header">הרשאות</string>
-    <string name="su_privacy_perms">מיקום למקומות, יומן לתזכורות, פעילות גופנית להליכה, התראות ושעונים מעוררים לתזכורות. כל הרשאה אופציונלית חוץ מהתראות, והאפליקציה מסבירה מה מפסיק לעבוד בלעדיה.</string>
+    <string name="su_privacy_perms">מיקום למקומות, יומן לתזכורות, פעילות גופנית להליכה, התראות ותזמון מדויק לתזכורות. כל הרשאה אופציונלית חוץ מהתראות, והאפליקציה מסבירה מה מפסיק לעבוד בלעדיה.</string>
     <string name="su_privacy_control_header">השליטה נשארת אצלך</string>
     <string name="su_privacy_control">אפשר לכבות את הגישה מרחוק מיד, לבטל כל עוזר, לייצא את ההגדרות ולמחוק אותן על ידי ניקוי הנתונים של האפליקציה.</string>
 

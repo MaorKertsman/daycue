@@ -54,7 +54,7 @@ class QaAcceptanceTest {
     }
 
     @Test
-    fun `scenario 3 - posture pause and resume keeps the mode and the remaining time after a long pause (POS-4, POS-6)`() {
+    fun `scenario 3 - posture pause and resume keeps the mode and the remaining time after a long manual pause (POS-4)`() {
         val s = Scenario(start = "09:00")
         s.apply(ConfigOp.SetPostureEnabled(true))
         s.send(Event.StartSession(SessionKind.Working))
@@ -72,10 +72,12 @@ class QaAcceptanceTest {
         assertEquals(mode, s.state.posture.modeId, "same mode after a manual pause/resume")
         assertEquals(PosturePhase.Running, s.state.posture.phase)
         assertEquals(s.t("09:40"), s.state.posture.modeEndsAt, "POS-6: <= shortInterruption continues the 20 min that were left")
-        // A pause LONGER than shortInterruption applies longInterruption = ResetToFirst (POS-6): first mode, full time.
-        s.advanceTo("09:30"); s.send(Event.PostureControl(PostureAction.Pause))
+        // A MANUAL pause longer than shortInterruption still keeps position and remaining time (POS-4; POS-6 is for
+        // automatic freezes only, scheduling-engineer reading 2026-10-05, acceptance 3 "resumes at the correct position").
+        s.advanceTo("09:30"); s.send(Event.PostureControl(PostureAction.Pause)) // 10 min left
         s.advanceTo("10:30"); s.send(Event.PostureControl(PostureAction.Resume))
-        assertEquals(s.t("11:00"), s.state.posture.modeEndsAt, "POS-6: 60 min pause resets to the first mode with its full 30 min")
+        assertEquals(mode, s.state.posture.modeId)
+        assertEquals(s.t("10:40"), s.state.posture.modeEndsAt, "60 min manual pause: the 10 min that were left")
     }
 
     @Test

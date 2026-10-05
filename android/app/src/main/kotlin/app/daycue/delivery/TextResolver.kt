@@ -24,6 +24,9 @@ class TextResolver(private val context: Context) {
     private val contexts = ConcurrentHashMap<Language, Context>()
     private val ids = ConcurrentHashMap<String, Int>()
 
+    /** `settings.use24Hour` (kept current by `AppContainer` from the config). */
+    @Volatile var use24Hour: Boolean = true
+
     fun localized(lang: Language): Context = contexts.getOrPut(lang) {
         val cfg = Configuration(context.resources.configuration)
         cfg.setLocale(localeOf(lang))
@@ -42,6 +45,9 @@ class TextResolver(private val context: Context) {
     /** App-owned string by key (same naming scheme), with `{name}` arguments. */
     fun app(key: String, lang: Language, args: Map<String, String> = emptyMap(), zone: ZoneId = ZoneId.systemDefault()): String =
         fill(key, args, lang, zone)
+
+    /** The plain string for a text key in [lang] (no arguments), or null when the key has no resource. */
+    fun textOrNull(key: String, lang: Language): String? = raw(Templates.resourceName(key), lang)
 
     fun speech(req: SpeechRequest, zone: ZoneId = ZoneId.systemDefault()): String {
         val lang = req.language
@@ -62,7 +68,7 @@ class TextResolver(private val context: Context) {
         // `kindKey` -> localized `kind` (after variant selection, which uses only a real `kind`).
         val filled = Templates.withResolvedKind(args) { raw(it, lang) }
         if (Templates.needsAlt(template, filled)) raw("${base}_alt", lang)?.let { template = it }
-        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he)
+        return Templates.fill(template!!, filled, zone, rtl = lang == Language.he, hour24 = use24Hour)
     }
 
     @SuppressLint("DiscouragedApi") // keys are data from the domain; names are kept from shrinking by res/raw/keep_engine.xml

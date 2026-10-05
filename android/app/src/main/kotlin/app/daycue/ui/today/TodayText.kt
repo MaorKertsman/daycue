@@ -32,7 +32,7 @@ fun clockOf(at: Instant, zone: ZoneId): String {
 /** "Sun 4 Oct · 12:20" (the date part follows the locale; the clock is an LTR isolate). */
 @Composable
 fun dateLine(now: Instant, zone: ZoneId): String {
-    val date = now.atZone(zone).format(DateTimeFormatter.ofPattern("EEE d MMM", currentLocale()))
+    val date = now.atZone(zone).format(DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(currentLocale(), "EEEMMMd"), currentLocale()))
     return "$date · ${clockOf(now, zone)}"
 }
 
@@ -51,7 +51,7 @@ fun dayAwareClock(at: Instant, now: Instant, zone: ZoneId): String {
     return when {
         d == today -> clock
         d == today.plusDays(1) -> stringResource(R.string.app_tomorrow_at, clock)
-        else -> stringResource(R.string.app_date_at, d.format(DateTimeFormatter.ofPattern("EEE d MMM", currentLocale())), clock)
+        else -> stringResource(R.string.app_date_at, d.format(DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(currentLocale(), "EEEMMMd"), currentLocale())), clock)
     }
 }
 
@@ -134,7 +134,7 @@ fun waitingText(item: NextItem, now: Instant, zone: ZoneId): String {
         WaitingReason.AfterRoutine -> stringResource(R.string.app_wait_routine)
         WaitingReason.OutsideActiveHours -> stringResource(R.string.app_wait_from, dayAwareClock(until ?: item.at ?: now, now, zone))
         WaitingReason.CoveredUntil -> (until ?: item.at ?: now).let { "${dayAwareClock(it, now, zone)} · ${minutesUntil(it, now)}" }
-        WaitingReason.AfterFirstAck -> stringResource(R.string.app_wait_first)
+        WaitingReason.AfterFirstAck -> stringResource(if (item.mark == app.daycue.ui.marks.CueType.Hydration) R.string.app_wait_first_drank else R.string.app_wait_first)
         WaitingReason.Frozen -> stringResource(R.string.app_wait_frozen)
         WaitingReason.Pending -> stringResource(R.string.app_now_soon)
         null -> item.at?.let { "${dayAwareClock(it, now, zone)} · ${minutesUntil(it, now)}" } ?: ""
@@ -165,3 +165,13 @@ fun ruleText(rule: String): String = stringResource(
         else -> R.string.app_rule_generic
     },
 )
+
+/** "from location, 2 min ago" for the context sheet: the source and how old that reading is. */
+@Composable
+fun sourceAgo(source: ContextSource, since: Instant?, now: Instant): String? {
+    val word = sourceText(source) ?: return null
+    if (since == null) return word
+    val m = Duration.between(since, now).toMinutes().toInt()
+    val ago = if (m < 1) stringResource(R.string.app_just_now) else stringResource(R.string.app_ago, durationText(m))
+    return stringResource(R.string.app_src_ago, word, ago)
+}

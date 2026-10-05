@@ -136,12 +136,12 @@ fun ReadinessScreen(onBack: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         val r = report
         if (r == null) {
-            Text(stringResource(R.string.readiness_checking), style = DayCueTheme.type.headline, color = c.ink)
+            Text(stringResource(R.string.readiness_checking), style = DayCueTheme.type.title, color = c.ink)
         } else {
             val problems = ReadinessCopy.problemCount(r, alarm)
             Text(
                 if (problems == 0) stringResource(R.string.app_rd_all_ready) else pluralStringResource(R.plurals.app_rd_problems, problems, problems),
-                style = DayCueTheme.type.headline,
+                style = DayCueTheme.type.title,
                 color = c.ink,
             )
         }
@@ -154,16 +154,12 @@ fun ReadinessScreen(onBack: () -> Unit) {
 
         SectionHeader(stringResource(R.string.app_rd_section_reminders))
         if (r != null) {
-            val rows = ReadinessCopy.sorted(r).filter { it.id != ReadinessId.FullScreenIntent || alarm }
-            rows.forEachIndexed { i, item ->
-                ReadinessRow(
-                    name = stringResource(ReadinessCopy.name(item.id)),
-                    status = item.status.ui(),
-                    consequence = stringResource(ReadinessCopy.consequence(item)),
-                    onFix = if (item.hasFix) ({ fix(item.id, actions) }) else null,
-                    fixLabel = stringResource(ReadinessCopy.fixLabel(item)),
-                    divider = i < rows.lastIndex,
-                )
+            val all = ReadinessCopy.sorted(r).filter { it.id != ReadinessId.FullScreenIntent || alarm }
+            val (core, optional) = all.partition { ReadinessCopy.isCritical(it.id) }
+            core.forEachIndexed { i, item -> ItemRow(item, actions, divider = i < core.lastIndex) }
+            if (optional.isNotEmpty()) {
+                SectionHeader(stringResource(R.string.app_rd_section_optional))
+                optional.forEachIndexed { i, item -> ItemRow(item, actions, divider = i < optional.lastIndex) }
             }
         }
 
@@ -233,3 +229,15 @@ private fun ConnectionRow(name: String, value: String, divider: Boolean) {
     )
 }
 
+
+@Composable
+private fun ItemRow(item: app.daycue.system.ReadinessItem, actions: PermissionActions, divider: Boolean) {
+    ReadinessRow(
+        name = stringResource(ReadinessCopy.name(item.id)),
+        status = item.status.ui(),
+        consequence = stringResource(ReadinessCopy.consequence(item)),
+        onFix = if (item.hasFix) ({ fix(item.id, actions) }) else null,
+        fixLabel = stringResource(ReadinessCopy.fixLabel(item)),
+        divider = divider,
+    )
+}

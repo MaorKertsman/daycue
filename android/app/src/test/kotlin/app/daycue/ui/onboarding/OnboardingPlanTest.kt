@@ -59,12 +59,12 @@ class OnboardingPlanTest {
         )
         val all = OnboardingPlan.cards(setOf(Template.Alarm, Template.Calendar), r, calendarGranted = false, skipped = emptySet())
         assertEquals(
-            listOf(PermissionKind.Notifications, PermissionKind.ExactAlarms, PermissionKind.FullScreen, PermissionKind.Calendar, PermissionKind.Battery, PermissionKind.Hibernation),
+            listOf(PermissionKind.Notifications, PermissionKind.ExactAlarms, PermissionKind.FullScreen, PermissionKind.Calendar),
             all,
         )
         // No alarm chosen: no full-screen card. Calendar already granted: no calendar card.
         val some = OnboardingPlan.cards(setOf(Template.Hydration), r, calendarGranted = true, skipped = emptySet())
-        assertEquals(listOf(PermissionKind.Notifications, PermissionKind.ExactAlarms, PermissionKind.Battery, PermissionKind.Hibernation), some)
+        assertEquals(listOf(PermissionKind.Notifications, PermissionKind.ExactAlarms), some)
     }
 
     @Test
@@ -75,8 +75,8 @@ class OnboardingPlanTest {
             ReadinessId.BatteryOptimization to ReadinessStatus.Limited,
             ReadinessId.Hibernation to ReadinessStatus.Limited,
         )
-        val cards = OnboardingPlan.cards(setOf(Template.Hydration), r, true, skipped = setOf("battery"))
-        assertEquals(listOf(PermissionKind.Hibernation), cards)
+        val cards = OnboardingPlan.cards(setOf(Template.Hydration), r, true, skipped = setOf("exact"))
+        assertTrue(cards.isEmpty())
         // Nothing chosen: only notifications may be asked (the test reminder needs them), nothing else.
         val none = OnboardingPlan.cards(
             emptySet(),

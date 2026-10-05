@@ -253,4 +253,22 @@
     <string name="dc_remote_scope_sessions_control">Start and stop sessions</string>
     <string name="dc_remote_scope_activity_read">Read computer activity summary</string>
     <string name="dc_remote_scope_medication">Medication details and changes</string>
+    <!-- First-run template names (template.* keys, resolved once in the first-run language by Defaults.config(FirstRunSeed)) -->
+    <string name="dc_template_place_home">Home</string>
+    <string name="dc_template_place_office">Office</string>
+    <string name="dc_template_place_gym">Gym</string>
+    <string name="dc_template_habit_sunscreen">Sunscreen</string>
+    <string name="dc_template_habit_hydration">Hydration</string>
+    <string name="dc_template_habit_water_bottle">Water bottle</string>
+    <string name="dc_template_routine_morning">Morning routine</string>
+    <string name="dc_template_step_shower">Shower</string>
+    <string name="dc_template_step_face_cleanser">Face cleanser</string>
+    <string name="dc_template_step_brush_teeth">Brush teeth</string>
+    <string name="dc_template_step_get_dressed">Get dressed</string>
+    <string name="dc_template_alarm_morning">Morning alarm</string>
+    <string name="dc_template_calendar_meetings">Meetings</string>
+    <string name="dc_template_calendar_appointments">Appointments</string>
+    <string name="dc_template_calendar_workouts">Workouts</string>
+    <string name="dc_template_calendar_important">Important</string>
+    <string name="dc_template_calendar_free_time">Free time</string>
 </resources>

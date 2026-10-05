@@ -14,10 +14,11 @@ import app.daycue.delivery.AndroidEffectSink
 import app.daycue.delivery.ChannelRegistry
 import app.daycue.delivery.CuePlayer
 import app.daycue.delivery.NotificationDelivery
+import app.daycue.delivery.NotificationSync
+import app.daycue.system.AppLanguage
 import app.daycue.delivery.SpeechPrefs
 import app.daycue.delivery.SpeechQueue
 import app.daycue.delivery.TextResolver
-import app.daycue.domain.config.Language
 import app.daycue.domain.engine.Event
 import app.daycue.engine.AndroidClock
 import app.daycue.engine.EngineHost
@@ -33,7 +34,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.time.Duration
-import java.util.Locale
 
 /**
  * Manual DI (ANDROID.md §2). Everything is lazy so direct-boot components (which run before the first
@@ -69,8 +69,24 @@ class AppContainer(val app: Application) {
             store = RoomEngineStore(db), clock = clock, scheduler = scheduler,
             sink = AndroidEffectSink(app, notifications, speech, text),
             bootSnapshot = BootSnapshotStore(app, clock), log = log,
-            defaultLanguage = { if (Locale.getDefault().language in setOf("he", "iw")) Language.he else Language.en },
+            firstRun = { language.firstRunSeed() },
         )
+    }
+    /** App language (per-app locale + config language as one setting, VALIDATION D8). */
+    val language: AppLanguage by lazy { AppLanguage(app, { host }, { text }, scope, log) }
+
+    /**
+     * Start-of-process work, in order: `BootCompleted` (reboot detection, recompute), then tell the engine which
+     * notifications the system really shows so lost ones are re-posted (VALIDATION D1). Also called after
+     * `BOOT_COMPLETED` when the process was already running before the first unlock.
+     */
+    suspend fun bootAndReconcile() {
+        host.dispatch(Event.BootCompleted)
+        reconcileNotifications()
+    }
+
+    suspend fun reconcileNotifications() {
+        NotificationSync.observe(app, notifications.canPost())?.let { host.dispatch(it) }
     }
     val readiness by lazy { Readiness(app, channels) }
     val cuePlayer by lazy { CuePlayer(app, speech) }
@@ -100,10 +116,20 @@ class AppContainer(val app: Application) {
         // App open: refresh calendar (throttled) and repair registrations (no-op when unchanged).
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             private var startedCount = 0
+            private var languageChecked = false
             override fun onActivityStarted(a: Activity) {
-                if (startedCount++ == 0) { calendar.onAppOpened(); location.onAppOpened() }
+                if (startedCount++ == 0) {
+                    AppVisibility.visible = true
+                    calendar.onAppOpened(); location.onAppOpened()
+                    // Before API 33 AppCompat loads the stored per-app locale with the first Activity, so the
+                    // start reconcile of the language waits for it (API 33+ does it at process start).
+                    if (android.os.Build.VERSION.SDK_INT < 33 && !languageChecked) { languageChecked = true; scope.launch { language.reconcileOnStart() } }
+                }
             }
-            override fun onActivityStopped(a: Activity) { startedCount = (startedCount - 1).coerceAtLeast(0) }
+            override fun onActivityStopped(a: Activity) {
+                startedCount = (startedCount - 1).coerceAtLeast(0)
+                if (startedCount == 0) AppVisibility.visible = false
+            }
             override fun onActivityCreated(a: Activity, b: Bundle?) {}
             override fun onActivityResumed(a: Activity) {}
             override fun onActivityPaused(a: Activity) {}
@@ -128,4 +154,9 @@ class AppContainer(val app: Application) {
     }
 
     companion object { const val TAG = "DayCue" }
+}
+
+/** True while any DayCue Activity is started (visible). Used to open the alarm screen directly (VALIDATION D7). */
+object AppVisibility {
+    @Volatile var visible: Boolean = false
 }

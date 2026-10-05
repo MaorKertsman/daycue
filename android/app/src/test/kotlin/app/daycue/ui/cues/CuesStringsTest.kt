@@ -40,4 +40,18 @@ class CuesStringsTest {
         val banned = listOf("missed", "adherence", "streak", "score", "forgot")
         for ((k, v) in en) for (b in banned) assertTrue("$k contains $b", !Regex("\\b" + b).containsMatchIn(v.lowercase()))
     }
+
+    @Test fun plusMinutesStaysLeftToRightInHebrew() {
+        // REVIEW-2 B7: "+5" must not render as "5+" in Hebrew, so the sign and digit are isolated.
+        val v = he.getValue("cues_plus_min")
+        assertTrue(v, v.contains("&#x2066;") && v.contains("&#x2069;"))
+    }
+
+    @Test fun zoneIsShownByNameNotId() {
+        val zone = java.time.ZoneId.of("Asia/Jerusalem")
+        val en = zoneDisplayName(zone, java.util.Locale.ENGLISH)
+        val iw = zoneDisplayName(zone, java.util.Locale("he"))
+        assertTrue(en, !en.contains("/") && en.isNotBlank())
+        assertTrue(iw, !iw.contains("/") && iw.isNotBlank())
+    }
 }

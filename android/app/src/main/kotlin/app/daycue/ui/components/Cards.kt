@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -241,7 +242,12 @@ fun ContextLine(
             }
         }
         if (actionLabel != null && (kind == ContextLineKind.Uncertain || kind == ContextLineKind.Paused)) {
-            DayCueTextButton(actionLabel, onAction)
+            // Tucked under the line: the 48dp target overlaps the row slack so "Set it" sits ~8dp under the text.
+            DayCueTextButton(actionLabel, onAction, Modifier.layout { m, cs ->
+                val p = m.measure(cs)
+                val pull = 16.dp.roundToPx()
+                layout(p.width, p.height - pull) { p.place(0, -pull / 2) }
+            })
         }
     }
 }

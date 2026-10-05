@@ -14,7 +14,7 @@ import app.daycue.domain.time.plusMin
 import java.time.Duration
 import java.time.Instant
 
-/** Posture cycle (PRODUCT §6). */
+/** Posture cycle (PRODUCT ֲ§6). */
 internal object PostureModule {
     const val KEY = "posture"
 
@@ -69,11 +69,11 @@ internal object PostureModule {
         return s.copy(phase = to, remainingMs = remaining, interruptedAt = s.interruptedAt ?: now, resumePhase = resume, modeEndsAt = null, snoozedUntil = null)
     }
 
-    /** POS-6. */
-    private fun resume(run: Run, pc: PostureCycleConfig, s: PostureState): PostureState {
+    /** POS-6 for automatic freezes; a manual pause ([manual]) always continues the remaining time (POS-4). */
+    private fun resume(run: Run, pc: PostureCycleConfig, s: PostureState, manual: Boolean = false): PostureState {
         val now = run.now
         val gap = Duration.between(s.interruptedAt ?: now, now)
-        val short = gap <= Duration.ofMinutes(pc.shortInterruptionMin.toLong())
+        val short = manual || gap <= Duration.ofMinutes(pc.shortInterruptionMin.toLong())
         val current = mode(pc, s.modeId) ?: modes(pc).first()
         val policy = if (short) PostureInterruptionPolicy.ContinueRemaining else pc.longInterruption
         val base = s.copy(interruptedAt = null, resumePhase = null)
@@ -116,15 +116,20 @@ internal object PostureModule {
                 val m = when (ev.action) { PostureAction.Extend5 -> 5; PostureAction.Extend10 -> 10; else -> 15 }
                 when (s.phase) {
                     PosturePhase.SwitchPending -> clearCue(run, s.copy(phase = PosturePhase.Running, pendingModeId = null, modeEndsAt = now.plusMin(m)), "extended")
-                    PosturePhase.Running -> s.copy(modeEndsAt = (s.snoozedUntil ?: s.modeEndsAt ?: now).plusMin(m), snoozedUntil = null)
+                    // POS-4 "extend current": +m from the planned end, or from now when that end has already passed
+                    // (an overdue mode must not stay overdue after Extend).
+                    PosturePhase.Running -> s.copy(modeEndsAt = maxOf(s.snoozedUntil ?: s.modeEndsAt ?: now, now).plusMin(m), snoozedUntil = null)
                     PosturePhase.Paused, PosturePhase.Frozen -> s.copy(remainingMs = (s.remainingMs ?: 0) + m * 60_000L)
                     PosturePhase.Off -> s
                 }
             }
             PostureAction.SwitchNow -> if (s.phase == PosturePhase.Off) s else clearCue(run, startMode(run, s, if (s.phase == PosturePhase.SwitchPending) mode(pc, s.pendingModeId) ?: nextMode(pc, s.modeId) else nextMode(pc, s.modeId)), "switch_now")
             PostureAction.Pause -> if (s.phase == PosturePhase.Running || s.phase == PosturePhase.SwitchPending || s.phase == PosturePhase.Frozen) clearCue(run, interrupt(s, now, PosturePhase.Paused), "paused") else s
+            // POS-4 manual pause keeps position and remaining time for as long as it lasts; POS-6 (shortInterruption /
+            // longInterruption) governs only automatic freezes. Resuming while the cycle may not run turns into a freeze
+            // that starts now.
             PostureAction.Resume -> if (s.phase == PosturePhase.Paused) {
-                if (shouldRun(run, pc, s)) resume(run, pc, s) else s.copy(phase = PosturePhase.Frozen)
+                if (shouldRun(run, pc, s)) resume(run, pc, s, manual = true) else s.copy(phase = PosturePhase.Frozen, interruptedAt = now)
             } else s
             PostureAction.Reset -> {
                 val first = modes(pc).first()

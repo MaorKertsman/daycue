@@ -18,6 +18,8 @@ internal object MedicationModule {
 
     fun slotKey(s: MedSlot) = "med:${s.key}"
     private const val MERGED_KEY = "med:merged"
+    /** MED-11: doses due within this many hours before the recovery count in the merged catch-up notice; older ones only in history. */
+    const val CATCH_UP_HOURS = 48L
 
     fun medDay(run: Run, m: Medication): LocalDate = TimeMath.dayOf(run.now, m.travelPolicy.zone(run.zone), run.config.settings.dayStartsAt)
     private fun slotDay(run: Run, m: Medication, s: MedSlot) = TimeMath.dayOf(s.dueAt, m.travelPolicy.zone(run.zone), run.config.settings.dayStartsAt)
@@ -31,10 +33,13 @@ internal object MedicationModule {
                 if (s.status == SlotStatus.Taken || s.status == SlotStatus.Skipped) return // idempotent
                 if (slotDay(run, m, s) != medDay(run, m)) return // MED-5: today's slots only (history edits are separate)
                 s.cue?.let { run.dismiss(slotKey(s), it.cueId, "taken") }
-                put(run, s.copy(status = SlotStatus.Taken, takenAt = run.now, snoozedUntil = null))
-                run.history(slotKey(s), HistoryKind.Taken, "MED-2", ev.cueId ?: s.cue?.cueId)
+                val at = clampTakenAt(run, s, ev.takenAt)
+                put(run, s.copy(status = SlotStatus.Taken, takenAt = at, snoozedUntil = null))
+                run.history(slotKey(s), HistoryKind.Taken, "MED-2", ev.cueId ?: s.cue?.cueId,
+                    if (at != run.now) mapOf("takenAt" to at.toString()) else emptyMap())
                 closeMergedIfResolved(run)
             }
+            is Event.MedicationCorrect -> correct(run, ev)
             is Event.MedicationSnooze -> {
                 val s = ms.slots[ev.slot.key] ?: return
                 val m = run.config.medication(s.medicationId) ?: return
@@ -55,6 +60,47 @@ internal object MedicationModule {
             }
             else -> {}
         }
+    }
+
+    /** A user-given taken time: never in the future, never more than 24 h before the slot's time (MED-5). */
+    private fun clampTakenAt(run: Run, s: MedSlot, at: Instant?): Instant {
+        val t = at ?: return run.now
+        val earliest = s.dueAt.minus(java.time.Duration.ofHours(24))
+        return when {
+            t.isAfter(run.now) -> run.now
+            t.isBefore(earliest) -> earliest
+            else -> t
+        }
+    }
+
+    /**
+     * MED-5 history correction. Applies to slots of today or the previous day that are still tracked. Undo returns the
+     * slot to not confirmed; a corrected slot never gets a new cue (MED-10: the app must not prompt as if advising).
+     */
+    private fun correct(run: Run, ev: Event.MedicationCorrect) {
+        val s = run.st.medication.slots[ev.slot.key] ?: return
+        val m = run.config.medication(s.medicationId) ?: return
+        if (slotDay(run, m, s).isAfter(medDay(run, m))) return // future days: nothing to correct
+        val now = run.now
+        val next = when (val c = ev.correction) {
+            is DoseCorrection.Taken -> s.copy(status = SlotStatus.Taken, takenAt = clampTakenAt(run, s, c.at), snoozedUntil = null)
+            DoseCorrection.Skipped -> s.copy(status = SlotStatus.Skipped, takenAt = null, snoozedUntil = null)
+            DoseCorrection.Undo -> {
+                if (s.status != SlotStatus.Taken && s.status != SlotStatus.Skipped) return
+                val upcoming = s.dueAt.isAfter(now)
+                s.copy(status = if (upcoming) SlotStatus.Upcoming else SlotStatus.Due, takenAt = null, snoozedUntil = null,
+                    noCueReason = if (upcoming) s.noCueReason else "corrected", cue = null, mergedCueId = null)
+            }
+        }
+        if (next == s) return
+        if (next.status != SlotStatus.Due && next.status != SlotStatus.Upcoming) s.cue?.let { run.dismiss(slotKey(s), it.cueId, "corrected") }
+        put(run, if (next.status == SlotStatus.Taken || next.status == SlotStatus.Skipped) next.copy(cue = null) else next)
+        run.history(slotKey(s), HistoryKind.Corrected, "MED-5", detail = buildMap {
+            put("from", s.status.name); put("to", next.status.name)
+            s.takenAt?.let { put("previousTakenAt", it.toString()) }
+            next.takenAt?.let { put("takenAt", it.toString()) }
+        })
+        closeMergedIfResolved(run)
     }
 
     private fun put(run: Run, s: MedSlot) {
@@ -127,12 +173,21 @@ internal object MedicationModule {
 
         // MED-7 / MED-8 merged recovery cue.
         if (run.recovery && ms.mergedCue == null && run.once.add("med-recovery")) {
+            val catchUpFrom = now.minus(java.time.Duration.ofHours(CATCH_UP_HOURS))
             val candidates = ms.slots.values.filter { s ->
                 val m = run.config.medication(s.medicationId)!!
-                s.status == SlotStatus.Due && s.noCueReason == null && slotDay(run, m, s) == medDay(run, m) &&
-                    (if (run.isReboot) true else s.cue == null && s.snoozedUntil == null)
+                val today = slotDay(run, m, s) == medDay(run, m)
+                s.status == SlotStatus.Due && s.noCueReason == null && !s.dueAt.isBefore(catchUpFrom) && when {
+                    // Reboot: every due dose of today (its notification is gone), except a snooze still running (§0: snooze survives reboot).
+                    today && run.isReboot -> s.snoozedUntil?.isAfter(now) != true
+                    today -> s.cue == null && s.snoozedUntil == null
+                    // MED-11 (owner decision 2026-10-05): earlier-day doses that the clock jump / power-off skipped without ever
+                    // cueing them are counted in the same merged notice (they stay Not confirmed; nothing per dose).
+                    else -> s.cue == null && s.mergedCueId == null
+                }
             }
-            if (candidates.size >= 2) { proposeMerged(run, candidates); return }
+            val earlierDay = candidates.any { s -> slotDay(run, run.config.medication(s.medicationId)!!, s) != medDay(run, run.config.medication(s.medicationId)!!) }
+            if (candidates.size >= 2 || (candidates.size == 1 && earlierDay)) { proposeMerged(run, candidates); return }
             if (candidates.size == 1 && run.isReboot) {
                 val s = candidates.first()
                 proposeSlot(run, run.config.medication(s.medicationId)!!, s, null, 0, "MED-8")

@@ -1,6 +1,7 @@
 package app.daycue.ui.cues
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -118,6 +120,8 @@ internal fun ToggleNavRow(
     onCheckedChange: (Boolean) -> Unit,
     onClick: () -> Unit,
     extra: (@Composable () -> Unit)? = null,
+    showSwitch: Boolean = true,
+    overflow: (() -> Unit)? = null,
 ) {
     val on = stringResource(R.string.cues_state_on)
     val off = stringResource(R.string.cues_state_off)
@@ -131,12 +135,17 @@ internal fun ToggleNavRow(
             extra?.invoke()
         },
         trailing = {
-            DayCueSwitch(checked, onCheckedChange, Modifier.semantics { contentDescription = title })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (overflow != null) app.daycue.ui.components.GlyphButton(Glyph.MoreVertical, stringResource(R.string.cues_more), overflow)
+                if (showSwitch) DayCueSwitch(checked, onCheckedChange, Modifier.semantics { contentDescription = title })
+            }
         },
         onClick = onClick,
         semanticsExtra = {
-            stateDescription = if (checked) on else off
-            customActions = listOf(CustomAccessibilityAction(toggleLabel) { onCheckedChange(!checked); true })
+            if (showSwitch) {
+                stateDescription = if (checked) on else off
+                customActions = listOf(CustomAccessibilityAction(toggleLabel) { onCheckedChange(!checked); true })
+            }
         },
     )
 }
@@ -159,7 +168,7 @@ private fun HabitRow(h: Habit, cfg: DayCueConfig, today: TodayView?, vm: CuesVie
     val summary = habitSummary(h, cfg)
     val status = when {
         pausedText != null -> pausedText
-        !h.enabled -> stringResource(R.string.cues_off)
+        !h.enabled -> null // the switch already says it is off
         else -> today?.upcoming?.firstOrNull { it.itemKey == "habit:${h.id}" }?.let { waitingText(it) }
     }
     ToggleNavRow(
@@ -195,7 +204,7 @@ private fun PostureRow(cfg: DayCueConfig, today: TodayView?, vm: CuesViewModel, 
     val paused = pauseText(pc.pause, Instant.now())
     val status = when {
         paused != null -> paused
-        !pc.enabled -> stringResource(R.string.cues_off)
+        !pc.enabled -> null
         else -> today?.upcoming?.firstOrNull { it.itemKey == "posture" }?.let { waitingText(it) }
     }
     ToggleNavRow(
@@ -207,9 +216,6 @@ private fun PostureRow(cfg: DayCueConfig, today: TodayView?, vm: CuesViewModel, 
         checked = pc.enabled,
         onCheckedChange = { vm.edit(ConfigOp.SetPostureEnabled(it)) },
         onClick = { push("posture") },
-        extra = {
-            DayCueTextButton(stringResource(R.string.cues_live_control), { push("posture/live") })
-        },
     )
 }
 
@@ -218,21 +224,21 @@ private fun MedicationNavRow(cfg: DayCueConfig, today: TodayView?, push: (String
     val count = cfg.medications.size
     val next = today?.doses?.filter { it.status == DoseStatus.Due || it.status == DoseStatus.Upcoming }?.minByOrNull { it.dueAt }
     val summary = if (count == 0) stringResource(R.string.cues_med_none_summary)
-    else if (next != null) stringResource(R.string.cues_med_summary_next, count, instantTime(next.dueAt))
-    else stringResource(R.string.cues_med_summary, count)
-    NavRow(CueType.Medication, stringResource(R.string.cue_medication), summary) { push("meds") }
+    else if (next != null) pluralStringResource(R.plurals.cues_med_count_next, count, count, instantTime(next.dueAt))
+    else pluralStringResource(R.plurals.cues_med_count_summary, count, count)
+    NavRow(CueType.Medication, stringResource(R.string.cues_med_title), summary) { push("meds") }
 }
 
 @Composable
 private fun routinesSummary(cfg: DayCueConfig): String =
     if (cfg.routines.isEmpty()) stringResource(R.string.cues_routines_none_summary)
-    else stringResource(R.string.cues_routines_summary, cfg.routines.size)
+    else pluralStringResource(R.plurals.cues_routines_count, cfg.routines.size, cfg.routines.size)
 
 @Composable
 private fun alarmsSummary(cfg: DayCueConfig): String {
     val a = cfg.alarms.filter { it.enabled }.minByOrNull { it.time } ?: return if (cfg.alarms.isEmpty()) stringResource(R.string.cues_alarms_none_summary) else stringResource(R.string.cues_alarms_all_off)
     val days = a.days ?: cfg.settings.workDays
-    return "${timeText(a.time)} ${daysSummary(days)}"
+    return "${timeText(a.time)} · ${daysSummary(days)}"
 }
 
 @Composable

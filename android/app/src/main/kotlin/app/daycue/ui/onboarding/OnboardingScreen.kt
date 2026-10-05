@@ -15,6 +15,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import app.daycue.integrations.location.LocationPermissionStep
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -117,12 +123,16 @@ class OnboardingViewModel(private val facade: DayCueFacade) : ViewModel() {
     }
 }
 
-private const val STEPS = 5
+private const val STEPS = 6
+private const val STEP_PERMISSIONS = 2
+private const val STEP_PLACES = 3
+private const val STEP_TEST = 4
 
 /**
- * First-run flow (UX 3.1): Language, What to start with, Permissions (each asked in context with a benefit and a
- * way to say "Not now"), Test, Done. Progress and choices are kept, Back goes one step back (the first step exits
- * the app). Nothing is seeded: templates start disabled and the medication list stays empty.
+ * First-run flow (UX 3.1): Language, What to start with, Permissions (one card at a time, each with a benefit and a
+ * way to say "Not now"), Places (location, skippable), Test, Done. Battery and unused-app pausing are not asked
+ * here: they live in Reminder readiness. Progress and choices are kept, Back goes one step back (the first step
+ * exits the app). Nothing is seeded: templates start disabled and the medication list stays empty.
  */
 @Composable
 fun OnboardingFlow(onFinished: () -> Unit) {
@@ -146,13 +156,17 @@ fun OnboardingFlow(onFinished: () -> Unit) {
     val gutter = DayCueSpacing.gutterFor(LocalConfiguration.current.screenWidthDp)
     Box(Modifier.fillMaxSize().background(c.paper)) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = gutter - 12.dp).height(DayCueSpacing.minTouch), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = if (step > 0) gutter - 12.dp else gutter, end = gutter).height(DayCueSpacing.minTouch),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (step > 0) {
                     GlyphButton(Glyph.Chevron, stringResource(R.string.app_back), { go(step - 1) }, Modifier.rotate(180f))
-                } else Spacer(Modifier.padding(start = 12.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
                     stringResource(R.string.app_step_x_of_y, step + 1, STEPS),
-                    style = DayCueTheme.type.label, color = c.ink2, modifier = Modifier.padding(horizontal = 8.dp),
+                    style = DayCueTheme.type.label, color = c.ink2,
                 )
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -160,6 +174,8 @@ fun OnboardingFlow(onFinished: () -> Unit) {
                     Modifier.widthIn(max = DayCueSpacing.contentMaxWidth).fillMaxWidth().verticalScroll(rememberScrollState())
                         .padding(horizontal = gutter).padding(bottom = 24.dp),
                 ) {
+                    // Plane, then disc, then rule: the picture is built up as the steps go by.
+                    OnboardingComposition(stage = when { step <= 1 -> 1; step <= STEP_PLACES -> 2; else -> 3 })
                     when (step) {
                         0 -> LanguageStep(vm, onNext = { go(1) })
                         1 -> TemplatesStep(
@@ -170,12 +186,13 @@ fun OnboardingFlow(onFinished: () -> Unit) {
                             },
                             onNext = { go(2) },
                         )
-                        2 -> PermissionsStep(
+                        STEP_PERMISSIONS -> PermissionsStep(
                             vm, chosen, skipped,
                             onSkip = { kind -> skipped = skipped + kind.id; prefs.onboardingSkipped = skipped },
-                            onNext = { go(3) },
+                            onNext = { go(STEP_PLACES) },
                         )
-                        3 -> TestStep(vm, onYes = { go(4) }, onNo = { showReadiness = true }, onSkip = { go(4) })
+                        STEP_PLACES -> PlacesStep(onNext = { go(STEP_TEST) })
+                        STEP_TEST -> TestStep(vm, onYes = { go(5) }, onNo = { showReadiness = true }, onSkip = { go(5) })
                         else -> DoneStep(onFinished)
                     }
                 }
@@ -256,6 +273,7 @@ private fun templateMark(t: Template): CueType = when (t) {
     Template.Calendar -> CueType.Calendar
 }
 
+/** One permission at a time: the current card carries the only primary (Allow), "Not now" moves to the next. */
 @Composable
 private fun PermissionsStep(vm: OnboardingViewModel, chosen: Set<Template>, skipped: Set<String>, onSkip: (PermissionKind) -> Unit, onNext: () -> Unit) {
     val facade = rememberFacade()
@@ -267,50 +285,97 @@ private fun PermissionsStep(vm: OnboardingViewModel, chosen: Set<Template>, skip
     }
     // Recomputed on every readiness refresh (after returning from a system screen the granted card disappears).
     val cards = OnboardingPlan.cards(chosen, report, vm.calendarGranted(), skipped)
-    Title(stringResource(R.string.app_perm_title), stringResource(R.string.app_perm_body))
-    if (report == null) {
-        Text(stringResource(R.string.readiness_checking), style = DayCueTheme.type.body, color = DayCueTheme.colors.ink2)
-    } else if (cards.isEmpty()) {
-        Text(stringResource(R.string.app_perm_none), style = DayCueTheme.type.body, color = DayCueTheme.colors.ink)
-    }
-    cards.forEach { kind ->
-        val (mark, title, why, without) = permissionCopy(kind)
-        PermissionCard(
-            cue = mark, title = stringResource(title), why = stringResource(why), without = stringResource(without),
-            allowLabel = stringResource(R.string.app_allow), notNowLabel = stringResource(R.string.app_not_now),
-            onAllow = {
-                when (kind) {
-                    PermissionKind.Notifications -> actions.requestNotifications()
-                    PermissionKind.ExactAlarms -> actions.openFix(ReadinessId.ExactAlarms)
-                    PermissionKind.FullScreen -> actions.openFix(ReadinessId.FullScreenIntent)
-                    PermissionKind.Calendar -> actions.requestCalendar()
-                    PermissionKind.Battery -> actions.openFix(ReadinessId.BatteryOptimization)
-                    PermissionKind.Hibernation -> actions.openFix(ReadinessId.Hibernation)
-                }
-            },
-            onNotNow = { onSkip(kind) },
+    val current = cards.firstOrNull()
+    val c = DayCueTheme.colors
+    if (current == null) {
+        Title(stringResource(R.string.app_perm_title), stringResource(R.string.app_perm_body))
+        Text(
+            if (report == null) stringResource(R.string.readiness_checking) else stringResource(R.string.app_perm_none),
+            style = DayCueTheme.type.body, color = c.ink,
         )
+        Spacer(Modifier.height(DayCueSpacing.related))
+        PrimaryButton(stringResource(R.string.app_continue), onNext, Modifier.fillMaxWidth(), enabled = report != null)
+        return
     }
-    if (cards.isNotEmpty()) Text(stringResource(R.string.app_perm_later), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
-    Spacer(Modifier.height(DayCueSpacing.related))
-    PrimaryButton(stringResource(R.string.app_continue), onNext, Modifier.fillMaxWidth())
+    val copy = permissionCopy(current)
+    Title(stringResource(R.string.app_perm_title))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(DayCueSpacing.markSlot), contentAlignment = Alignment.Center) { AppMark() }
+        Spacer(Modifier.width(DayCueSpacing.inRow))
+        Text(stringResource(copy.title), style = DayCueTheme.type.title, color = c.ink, modifier = Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(stringResource(copy.why), style = DayCueTheme.type.body, color = c.ink)
+    Spacer(Modifier.height(4.dp))
+    Text(stringResource(copy.without), style = DayCueTheme.type.bodySmall, color = c.ink2)
+    Spacer(Modifier.height(DayCueSpacing.inRow))
+    PrimaryButton(
+        stringResource(R.string.app_allow),
+        {
+            when (current) {
+                PermissionKind.Notifications -> actions.requestNotifications()
+                PermissionKind.ExactAlarms -> actions.openFix(ReadinessId.ExactAlarms)
+                PermissionKind.FullScreen -> actions.openFix(ReadinessId.FullScreenIntent)
+                PermissionKind.Calendar -> actions.requestCalendar()
+            }
+        },
+        Modifier.fillMaxWidth(),
+    )
+    DayCueTextButton(stringResource(R.string.app_not_now), { onSkip(current) })
+    Text(stringResource(R.string.app_perm_later), style = DayCueTheme.type.bodySmall, color = c.ink2)
 }
 
-private data class PermissionCopy(val mark: CueType, val title: Int, val why: Int, val without: Int)
+private class PermissionCopy(val title: Int, val why: Int, val without: Int)
 
 private fun permissionCopy(kind: PermissionKind): PermissionCopy = when (kind) {
-    PermissionKind.Notifications -> PermissionCopy(CueType.Alarm, R.string.app_rd_notifications, R.string.app_perm_notif_why, R.string.app_perm_notif_without)
-    PermissionKind.ExactAlarms -> PermissionCopy(CueType.Alarm, R.string.app_rd_exact, R.string.app_perm_exact_why, R.string.app_perm_exact_without)
-    PermissionKind.FullScreen -> PermissionCopy(CueType.Alarm, R.string.app_rd_fullscreen, R.string.app_perm_fs_why, R.string.app_perm_fs_without)
-    PermissionKind.Calendar -> PermissionCopy(CueType.Calendar, R.string.cue_calendar, R.string.app_perm_cal_why, R.string.app_perm_cal_without)
-    PermissionKind.Battery -> PermissionCopy(CueType.Routine, R.string.app_rd_battery, R.string.app_perm_battery_why, R.string.app_perm_battery_without)
-    PermissionKind.Hibernation -> PermissionCopy(CueType.Routine, R.string.app_rd_hibernation, R.string.app_perm_hib_why, R.string.app_perm_hib_without)
+    PermissionKind.Notifications -> PermissionCopy(R.string.app_rd_notifications, R.string.app_perm_notif_why, R.string.app_perm_notif_without)
+    PermissionKind.ExactAlarms -> PermissionCopy(R.string.app_rd_exact, R.string.app_perm_exact_why, R.string.app_perm_exact_without)
+    PermissionKind.FullScreen -> PermissionCopy(R.string.app_rd_fullscreen, R.string.app_perm_fs_why, R.string.app_perm_fs_without)
+    PermissionKind.Calendar -> PermissionCopy(R.string.cue_calendar, R.string.app_perm_cal_why, R.string.app_perm_cal_without)
 }
 
-private operator fun PermissionCopy.component1() = mark
-private operator fun PermissionCopy.component2() = title
-private operator fun PermissionCopy.component3() = why
-private operator fun PermissionCopy.component4() = without
+/**
+ * Places (UX 3.1): location is what lets DayCue notice arriving and leaving. Skippable; foreground first, then the
+ * background step as its own explained request (Android rejects a combined one). The saved places themselves are
+ * added later in Setup.
+ */
+@Composable
+private fun PlacesStep(onNext: () -> Unit) {
+    val facade = rememberFacade()
+    val scope = rememberCoroutineScope()
+    var step by remember { mutableStateOf(facade.places.nextPermissionStep()) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        scope.launch {
+            facade.places.onPermissionsChanged()
+            step = facade.places.nextPermissionStep()
+        }
+    }
+    LifecycleResumeEffect(Unit) {
+        scope.launch { facade.places.refreshAccess(); step = facade.places.nextPermissionStep() }
+        onPauseOrDispose { }
+    }
+    val c = DayCueTheme.colors
+    Title(stringResource(R.string.app_places_title), stringResource(R.string.app_places_body))
+    when (step) {
+        LocationPermissionStep.Foreground, LocationPermissionStep.Precise -> {
+            Text(stringResource(R.string.app_places_without), style = DayCueTheme.type.bodySmall, color = c.ink2)
+            Spacer(Modifier.height(DayCueSpacing.inRow))
+            PrimaryButton(stringResource(R.string.app_places_allow), { launcher.launch(step.permissions.toTypedArray()) }, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.app_not_now), onNext)
+        }
+        LocationPermissionStep.Background -> {
+            Text(stringResource(R.string.app_places_bg_why), style = DayCueTheme.type.body, color = c.ink)
+            Spacer(Modifier.height(DayCueSpacing.inRow))
+            PrimaryButton(stringResource(R.string.app_places_bg_allow), { launcher.launch(step.permissions.toTypedArray()) }, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.app_skip), onNext)
+        }
+        LocationPermissionStep.Done -> {
+            Text(stringResource(R.string.app_places_done), style = DayCueTheme.type.body, color = c.ink)
+            Spacer(Modifier.height(DayCueSpacing.inRow))
+            PrimaryButton(stringResource(R.string.app_continue), onNext, Modifier.fillMaxWidth())
+        }
+    }
+}
 
 @Composable
 private fun TestStep(vm: OnboardingViewModel, onYes: () -> Unit, onNo: () -> Unit, onSkip: () -> Unit) {

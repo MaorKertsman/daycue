@@ -94,4 +94,6 @@ data class GlobalSettings(
     val speech: SpeechSettings = SpeechSettings(),
     /** Global pause of non-exempt items (medication, alarms and a running routine are exempt). */
     val pauseAll: PauseSpec? = null,
+    /** Clock style for times in notifications and speech text (seeded from the device on first run). */
+    val use24Hour: Boolean = true,
 )

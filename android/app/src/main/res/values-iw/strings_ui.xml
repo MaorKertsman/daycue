@@ -36,7 +36,7 @@
     <string name="readiness_checking">בודק…</string>
 
     <!-- Shared actions and labels -->
-    <string name="action_fix">לתיקון</string>
+    <string name="action_fix">תיקון</string>
     <string name="setting_changed">שונה</string>
     <string name="state_expanded">מורחב</string>
     <string name="state_collapsed">מכווץ</string>

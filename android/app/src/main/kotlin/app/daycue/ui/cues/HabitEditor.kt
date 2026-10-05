@@ -127,6 +127,7 @@ private fun IntervalHabitEditor(vm: CuesViewModel, cfg: DayCueConfig, h: Interva
     CuesScreen(
         title = habitName(h),
         onBack = onBack,
+        mark = markFor(h),
         trailing = {
             DayCueSwitch(h.enabled, { vm.edit(ConfigOp.SetHabitEnabled(h.id, it)) }, Modifier.semantics { contentDescription = hName })
         },
@@ -144,6 +145,15 @@ private fun IntervalHabitEditor(vm: CuesViewModel, cfg: DayCueConfig, h: Interva
             presets = if (h.kind == IntervalKind.Sunscreen) listOf(60, 120, 180, 240) else listOf(30, 60, 120, 240).filter { it in min..max })
         FieldErrors(errors, "$path.intervalMin")
 
+        if (h.kind == IntervalKind.Hydration) {
+            SettingRow(
+                stringResource(R.string.cues_hyd_by_context),
+                if (h.contextIntervals.isEmpty()) stringResource(R.string.cues_hyd_by_context_none)
+                else h.contextIntervals.map { stringResource(R.string.cues_hyd_ctx_row, conditionText(it.condition, cfg.places), durationText(it.intervalMin)) }.joinToString(" · "),
+                { sheet = "ctx" },
+            )
+            FieldErrors(errors, "$path.contextIntervals")
+        }
         SettingRow(stringResource(R.string.cues_when), conditionText(h.condition, cfg.places), { sheet = "when" })
         FieldErrors(errors, "$path.condition")
         val window = h.activeHours
@@ -158,7 +168,7 @@ private fun IntervalHabitEditor(vm: CuesViewModel, cfg: DayCueConfig, h: Interva
         FieldErrors(errors, "$path.days")
         Spacer(Modifier.height(8.dp))
         PhraseRow(h.phrase, defaultPhrase(h.kind, lang), lang, { sheet = "phrase" })
-        SettingRow(stringResource(R.string.cues_sound_voice), stringResource(R.string.cues_sound_voice_value), { onOpenCueProfile(vm.profileId(domainCueType(h), h.cueProfileId)) })
+        SettingRow(stringResource(R.string.cues_sound_voice), soundSummary(cfg, domainCueType(h), h.cueProfileId), { onOpenCueProfile(vm.profileId(domainCueType(h), h.cueProfileId)) })
 
         Spacer(Modifier.height(16.dp))
         CuePreviewButton(if (h.kind == IntervalKind.Sunscreen) CueType.Sunscreen else CueType.Hydration, stringResource(R.string.cues_test_cue), { vm.testReminder(h.cueType) })
@@ -196,6 +206,7 @@ private fun IntervalHabitEditor(vm: CuesViewModel, cfg: DayCueConfig, h: Interva
 
     // ---- Sheets ----
     when (sheet) {
+        "ctx" -> ContextIntervalsSheet(h, cfg, min, max, onChange = { save(h.copy(contextIntervals = it)) }, onDismiss = { sheet = null })
         "when" -> ConditionSheet(cfg, h.condition, onChange = { save(h.copy(condition = it)) }, onDismiss = { sheet = null })
         "hours" -> {
             val w = h.activeHours
@@ -437,6 +448,37 @@ private fun ReentrySheet(h: IntervalHabit, onChange: (ReentryPolicy) -> Unit, on
         if (p is ReentryPolicy.RemindOnReentry) {
             Text(stringResource(R.string.cues_reentry_grace), style = DayCueTheme.type.titleSmall, color = DayCueTheme.colors.ink)
             DurationField(p.graceMin, { onChange(ReentryPolicy.RemindOnReentry(it)) }, min = 0, max = 30, presets = listOf(0, 5, 10, 30))
+        }
+    }
+}
+
+/** HYD-5: a different interval per context; the first matching rule wins, everything else uses the main interval. */
+@Composable
+private fun ContextIntervalsSheet(
+    h: IntervalHabit, cfg: DayCueConfig, min: Int, max: Int,
+    onChange: (List<app.daycue.domain.config.ContextInterval>) -> Unit, onDismiss: () -> Unit,
+) {
+    val presets = listOf(
+        ContextCondition(environments = setOf(Environment.Outdoor)),
+        ContextCondition(environments = setOf(Environment.Indoor)),
+        ContextCondition(activities = setOf(CtxActivity.Working)),
+    )
+    DayCueBottomSheet(onDismiss, stringResource(R.string.cues_hyd_by_context), markFor(h)) {
+        Text(stringResource(R.string.cues_hyd_by_context_c), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
+        presets.forEach { cond ->
+            val idx = h.contextIntervals.indexOfFirst { it.condition == cond }
+            val label = conditionText(cond, cfg.places)
+            if (idx < 0) {
+                DayCueRow(label, trailing = {
+                    DayCueTextButton(stringResource(R.string.cues_hyd_ctx_add), { onChange(h.contextIntervals + app.daycue.domain.config.ContextInterval(cond, h.intervalMin.coerceIn(min, max))) })
+                })
+            } else {
+                val ci = h.contextIntervals[idx]
+                DayCueRow(label, trailing = {
+                    DayCueTextButton(stringResource(R.string.cues_remove), { onChange(h.contextIntervals.filterIndexed { j, _ -> j != idx }) })
+                })
+                DurationField(ci.intervalMin, { v -> onChange(h.contextIntervals.mapIndexed { j, x -> if (j == idx) x.copy(intervalMin = v) else x }) }, min = min, max = max, presets = listOf(30, 60, 120).filter { it in min..max })
+            }
         }
     }
 }

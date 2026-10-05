@@ -154,7 +154,7 @@
     <string name="app_session_studying">לימודים</string>
     <string name="app_session_since">מאז %1$s</string>
     <string name="app_session_paused_since">בהשהיה מאז %1$s</string>
-    <string name="app_override_title">נקבע: %1$s</string>
+    <string name="app_override_title">%1$s (לפי בחירתך)</string>
     <string name="app_until_place_change">עד החלפת מקום</string>
     <string name="app_until_time">עד %1$s</string>
     <string name="app_in_duration">בעוד %1$s</string>
@@ -173,7 +173,8 @@
     <string name="app_wait_meeting">אחרי הפגישה</string>
     <string name="app_wait_routine">אחרי השגרה</string>
     <string name="app_wait_from">החל מ־%1$s</string>
-    <string name="app_wait_first">אחרי האישור הראשון</string>
+    <string name="app_wait_first">תתחיל אחרי האישור הראשון</string>
+    <string name="app_wait_first_drank">תתחיל אחרי הלחיצה הראשונה על ״שתיתי״</string>
     <string name="app_wait_frozen">בהשהיה בזמן התרחקות מהמחשב</string>
 
     <!-- Today: Field description for TalkBack -->
@@ -231,11 +232,11 @@
     <string name="app_rd_notifications">התראות</string>
     <string name="app_rd_exact">תזמון מדויק</string>
     <string name="app_rd_fullscreen">שעון מעורר במסך מלא</string>
-    <string name="app_rd_battery">סוללה</string>
+    <string name="app_rd_battery">חיסכון בסוללה</string>
     <string name="app_rd_background">פעילות ברקע</string>
     <string name="app_rd_hibernation">השהיית אפליקציות שלא בשימוש</string>
     <string name="app_rd_voices">קולות</string>
-    <string name="app_rd_channels">סוגי התראות</string>
+    <string name="app_rd_channels">קטגוריות תזכורת</string>
     <string name="app_rd_speech">הקראה</string>
     <string name="app_rd_forcestop">עצירה בכוח</string>
     <string name="app_rd_notifications_why">תזכורות לא יוכלו להופיע עד שההתראות יופעלו.</string>
@@ -286,7 +287,7 @@
     <string name="app_step_x_of_y">שלב %1$d מתוך %2$d</string>
     <string name="app_lang_title">Language · שפה</string>
     <string name="app_lang_body">You can change this later. · אפשר לשנות בהמשך.</string>
-    <string name="app_tpl_title">מה להפעיל להתחלה?</string>
+    <string name="app_tpl_title">במה DayCue יכולה לעזור?</string>
     <string name="app_tpl_body">אפשר לשנות הכול בהמשך.</string>
     <string name="app_tpl_sunscreen">בחוץ: כל שעתיים במהלך היום</string>
     <string name="app_tpl_hydration">כל שעה במהלך היום</string>
@@ -331,4 +332,26 @@
     <string name="app_alarm_recover_open">פתיחת Spotify</string>
     <string name="app_alarm_recover_account">פתיחת Spotify</string>
     <string name="app_alarm_recover_retry">ניסיון חוזר</string>
+
+
+    <!-- Today שקטה, גיליון ההקשר, פרטי פריט -->
+    <string name="app_quiet_now">אין כרגע משהו לעשות</string>
+    <string name="app_quiet_now_next">אין כרגע משהו לעשות · הבא ב־%1$s</string>
+    <string name="app_ctx_change">שינוי</string>
+    <string name="app_ago">לפני %1$s</string>
+    <string name="app_just_now">הרגע</string>
+    <string name="app_src_ago">%1$s, %2$s</string>
+    <string name="app_why_last">אישרת אותה לאחרונה ב־%1$s.</string>
+    <string name="app_rd_section_optional">אופציונלי</string>
+
+    <!-- הכנה: שלב המקומות -->
+    <string name="app_places_title">לדעת איפה אתם?</string>
+    <string name="app_places_body">עם גישה למיקום, DayCue מזהה כשמגיעים למקומות כמו הבית או העבודה, או יוצאים מהם. המקומות נשארים בטלפון הזה.</string>
+    <string name="app_places_without">בלי זה המקומות לא מזוהים. שליטה ידנית, ״יציאה עכשיו״ ותזכורות לפי שעה ממשיכות לעבוד.</string>
+    <string name="app_places_allow">לאפשר מיקום</string>
+    <string name="app_places_bg_why">כדי לזהות הגעה גם כשהאפליקציה סגורה, צריך לאפשר מיקום כל הזמן. אנדרואיד תפתח לשם כך דף הגדרות.</string>
+    <string name="app_places_bg_allow">לאפשר כל הזמן</string>
+    <string name="app_places_done">המיקום פועל. אפשר להוסיף מקומות בהגדרות.</string>
+
+    <string name="app_remote_grant_note">דבר לא פעיל עד שתאשרו.</string>
 </resources>

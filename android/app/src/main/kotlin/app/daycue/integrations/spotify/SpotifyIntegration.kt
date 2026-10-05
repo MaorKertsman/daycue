@@ -9,7 +9,10 @@ import android.provider.Settings
 import app.daycue.AppContainer
 import app.daycue.BuildConfig
 import app.daycue.delivery.AlarmMusicPlayer
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Wiring for the Spotify alarm source. Without the SDK AAR (the default build, see docs/setup/SPOTIFY.md) the
@@ -32,7 +35,20 @@ class SpotifyIntegration(private val c: AppContainer) {
     }
 
     /** Registers the player with the ringing service. Called from the application's onCreate. */
-    fun install() { AlarmMusicPlayer.current = player }
+    fun install() {
+        AlarmMusicPlayer.current = player
+        c.scope.launch { status.state.collect { refreshAvailability() } }
+    }
+
+    private val clientIdConfigured: Boolean get() = BuildConfig.SPOTIFY_CLIENT_ID.isNotBlank() && BuildConfig.SPOTIFY_CLIENT_ID != "YOUR_SPOTIFY_CLIENT_ID"
+
+    private val _availability = MutableStateFlow(SpotifyAvailability.of(BuildConfig.SPOTIFY_SDK, clientIdConfigured, false, AlarmMusicState.Idle))
+    /** Available in this build / installed / connection state (APP_API §11). Call [refreshAvailability] from onResume. */
+    val availability: StateFlow<SpotifyAvailability> = _availability.asStateFlow()
+
+    fun refreshAvailability() {
+        _availability.value = SpotifyAvailability.of(BuildConfig.SPOTIFY_SDK, clientIdConfigured, isSpotifyInstalled(ctx), status.state.value)
+    }
 
     private fun createRemote(): SpotifyRemote? {
         if (!BuildConfig.SPOTIFY_SDK) return null

@@ -92,6 +92,7 @@ class HttpRelayApi(
     override suspend fun decideGrant(grantId: String, body: JsonObject): GrantDecisionResponse =
         WireJson.decodeFromString(GrantDecisionResponse.serializer(), call("POST", "/v1/phone/grants/${java.net.URLEncoder.encode(grantId, "UTF-8")}/decision", body))
     override suspend fun unpairSelf() { call("DELETE", "/v1/phone/self") }
+    override suspend fun revokeCompanion(companionId: String) { call("DELETE", "/v1/phone/companions/${java.net.URLEncoder.encode(companionId, "UTF-8")}") }
 
     companion object {
         /** Unauthenticated pairing call. [publicKeySpki] is `PublicKey.getEncoded()`. */

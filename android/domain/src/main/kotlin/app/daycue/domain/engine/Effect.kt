@@ -81,6 +81,10 @@ enum class HistoryKind {
     SkippedLate, NotConfirmed, Taken, MissedPowerOff, SessionStarted, SessionPaused, SessionEnded,
     RoutineStarted, RoutineStep, RoutineCompleted, RoutineCanceled, RoutinePaused, RoutineResumed, RoutineSkippedBySchedule,
     AlarmRang, AlarmSnoozed, AlarmStopped, SpeechFailed, SpeechFinished, ContextChanged, Test,
+    /** MED-5 history correction (detail: `from`, `to`, `takenAt`). */
+    Corrected,
+    /** A cue the platform lost (reboot, force stop) was re-posted quietly (detail: `reason`). Not a delivery. */
+    Reposted,
 }
 
 /** A localizable text: resource [key] + arguments. User-authored text travels as an argument. */

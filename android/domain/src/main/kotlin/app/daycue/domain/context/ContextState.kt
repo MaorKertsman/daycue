@@ -75,6 +75,10 @@ data class Session(
 @Serializable
 data class EnvOverride(val value: Environment, val setAt: Instant, val expiresAt: Instant, val untilTransition: Boolean)
 
+/** CTX-1 manual Place ("I'm at <place>" / "not at a saved place" = [PlaceValue.ELSEWHERE]). The automatic track keeps running underneath. */
+@Serializable
+data class PlaceOverride(val value: PlaceValue, val setAt: Instant, val expiresAt: Instant, val untilTransition: Boolean)
+
 @Serializable
 data class DetectionPause(val setAt: Instant, val until: Instant?)
 
@@ -101,10 +105,17 @@ data class ContextState(
     val sessionSuppressedUntil: Map<String, Instant> = emptyMap(),
     val sessionSuggestedAt: Map<String, Instant> = emptyMap(),
     val envOverride: EnvOverride? = null,
+    val placeOverride: PlaceOverride? = null,
     val detectionPause: DetectionPause? = null,
     /** Last meaningful transition (confirmed place change, CTX-3). */
     val lastTransitionAt: Instant? = null,
-)
+) {
+    /**
+     * The place every consumer uses: the manual override when set (CTX-1, it also applies while automatic detection is
+     * paused or location is off), else the automatic [place] track. Expiry is applied by `ContextEngine.advance`.
+     */
+    val effectivePlace: PlaceTrack get() = placeOverride?.let { PlaceTrack(it.value, it.setAt) } ?: place
+}
 
 /** One inferred dimension with confidence, source and since (GEN-9 facts). */
 @Serializable

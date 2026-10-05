@@ -64,6 +64,9 @@ import app.daycue.ui.util.durationDescription
 import app.daycue.ui.util.durationText
 import app.daycue.ui.util.is24Hour
 import app.daycue.ui.util.clockText
+import app.daycue.ui.util.friendlyDiffLines
+import app.daycue.ui.util.friendlyDiffSummary
+import app.daycue.ui.util.friendlyDiffTitle
 import app.daycue.ui.util.ltr
 import java.time.Instant
 import java.time.ZoneId
@@ -83,35 +86,26 @@ fun IntegrationsScreen(onBack: () -> Unit, push: (String) -> Unit) {
 
     SetupFrame(stringResource(R.string.su_integrations_title), onBack) {
         Hint(stringResource(R.string.su_integrations_intro))
-
-        SectionHeader(stringResource(R.string.su_int_computer_header))
         SettingRow(
             stringResource(R.string.su_companion_title),
             when {
-                !paired -> stringResource(R.string.su_companion_needs_remote)
-                settings.useCompanionActivity -> companionWord(status.companion)
-                else -> stringResource(R.string.su_companion_unused)
+                !paired || !settings.useCompanionActivity -> stringResource(R.string.su_status_not_set_up)
+                else -> companionWord(status.companion)
             },
             { push(SetupRoutes.COMPANION) },
         )
-
-        SectionHeader(stringResource(R.string.su_int_remote_header))
         SettingRow(
             stringResource(R.string.su_remote_title),
             when {
-                status.unpairedByRelay -> stringResource(R.string.su_remote_unpaired_by_relay_short)
-                !paired -> stringResource(R.string.su_remote_not_set_up)
+                status.unpairedByRelay -> stringResource(R.string.su_status_needs_attention)
+                !paired -> stringResource(R.string.su_status_not_set_up)
                 !settings.enabled -> stringResource(R.string.su_remote_disabled)
                 waiting > 0 -> pluralStringResource(R.plurals.su_remote_waiting, waiting, waiting)
-                else -> stringResource(R.string.su_remote_on_host, vm.relayHost() ?: "")
+                else -> stringResource(R.string.su_status_connected)
             },
             { push(SetupRoutes.REMOTE) },
         )
-
-        SectionHeader(stringResource(R.string.su_int_music_header))
-        SettingRow(stringResource(R.string.su_spotify_title), stringResource(R.string.su_spotify_off_by_default), { push(SetupRoutes.SPOTIFY) })
-
-        SectionHeader(stringResource(R.string.su_int_calendar_header))
+        SettingRow(stringResource(R.string.su_spotify_title), stringResource(R.string.su_status_not_set_up), { push(SetupRoutes.SPOTIFY) })
         SettingRow(stringResource(R.string.su_cal_title), stringResource(R.string.su_int_calendar_hint), { push(SetupRoutes.CALENDAR) })
     }
 }
@@ -144,11 +138,8 @@ fun CompanionScreen(onBack: () -> Unit) {
     val c = DayCueTheme.colors
 
     SetupFrame(stringResource(R.string.su_companion_title), onBack) {
-        Hint(stringResource(R.string.su_companion_intro))
-
-        SectionHeader(stringResource(R.string.su_companion_data_header))
-        Para(stringResource(R.string.su_companion_data_sent))
-        Hint(stringResource(R.string.su_companion_data_never))
+        Hint(stringResource(R.string.su_companion_intro_short))
+        LearnMore(stringResource(R.string.su_companion_data_sent) + "\n\n" + stringResource(R.string.su_companion_data_never), label = stringResource(R.string.su_what_is_sent))
 
         SectionHeader(stringResource(R.string.su_companion_pair_header))
         if (!paired) {
@@ -157,11 +148,11 @@ fun CompanionScreen(onBack: () -> Unit) {
             PrimaryButton(stringResource(R.string.su_companion_code_make), { vm.createCompanionCode() }, Modifier.fillMaxWidth(), enabled = code != IntegrationsViewModel.CodeUi.Loading)
             Gap(8)
             when (val state = code) {
-                IntegrationsViewModel.CodeUi.None -> Hint(stringResource(R.string.su_companion_code_hint))
+                IntegrationsViewModel.CodeUi.None -> Unit
                 IntegrationsViewModel.CodeUi.Loading -> Hint(stringResource(R.string.su_companion_code_loading))
                 IntegrationsViewModel.CodeUi.Failed -> StateBlock(StateBlockKind.Error, stringResource(R.string.su_companion_code_failed), body = stringResource(R.string.su_companion_code_failed_body), actionLabel = stringResource(R.string.su_try_again), onAction = { vm.createCompanionCode() })
                 is IntegrationsViewModel.CodeUi.Ready -> {
-                    // The code sits on `surface` with a quiet zone and no decoration.
+                    // The code sits on surface with a quiet zone and no decoration.
                     Column(Modifier.fillMaxWidth().background(c.surface).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(state.code.ltr(), style = DayCueTheme.type.display.copy(fontFamily = FontFamily.Monospace), color = c.ink)
                         Hint(stringResource(R.string.su_companion_code_valid, formatClock(state.createdAtMs + 10 * 60_000L)))
@@ -187,14 +178,11 @@ fun CompanionScreen(onBack: () -> Unit) {
             secondary = stringResource(R.string.su_companion_use_hint),
             enabled = paired,
         )
-        Hint(stringResource(R.string.su_companion_manual_ok))
 
         SectionHeader(stringResource(R.string.su_frequent_header))
         FrequentCheck(vm)
 
-        SectionHeader(stringResource(R.string.su_companion_unpair_header))
-        Para(stringResource(R.string.su_companion_unpair_how))
-        Hint(stringResource(R.string.su_companion_devices_note))
+        LearnMore(stringResource(R.string.su_companion_unpair_how) + "\n\n" + stringResource(R.string.su_companion_devices_note), label = stringResource(R.string.su_how_to_remove))
     }
 }
 
@@ -211,7 +199,6 @@ private fun FrequentCheck(vm: IntegrationsViewModel) {
     if (settings.frequentCheck) {
         MinutesStepper(R.string.su_frequent_every, settings.frequentCheckMinutes, 3, 30, R.string.su_frequent_every_hint) { v -> vm.setFrequentCheck(true, v) }
     }
-    Hint(stringResource(R.string.su_frequent_battery))
 }
 
 private fun formatClockOf(ms: Long, is24: Boolean, locale: java.util.Locale): String {
@@ -240,11 +227,11 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
     var policySheet by remember { mutableStateOf(false) }
     var confirmUnpair by remember { mutableStateOf(false) }
     var revokeFor by remember { mutableStateOf<RemoteGrant?>(null) }
-    var showAudit by rememberSaveable { mutableStateOf(false) }
     var unpairNote by remember { mutableStateOf<Boolean?>(null) }
 
     SetupFrame(stringResource(R.string.su_remote_title), onBack) {
-        Hint(stringResource(R.string.su_remote_intro))
+        Hint(stringResource(R.string.su_remote_intro_short))
+        LearnMore(stringResource(R.string.su_remote_intro), label = stringResource(R.string.su_what_is_sent))
 
         if (status.unpairedByRelay) {
             StateBlock(StateBlockKind.Error, stringResource(R.string.su_remote_unpaired_by_relay), body = stringResource(R.string.su_remote_unpaired_by_relay_body))
@@ -261,7 +248,6 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
         val pendingGrants = grants.filter { it.awaitsApproval }
         if (pending.isNotEmpty() || pendingGrants.isNotEmpty()) {
             SectionHeader(stringResource(R.string.su_remote_waiting_header))
-            Hint(stringResource(R.string.su_remote_waiting_hint))
             pending.forEach { p -> PendingRow(p, onReview = { context.startActivitySafely(vm.confirmationIntent(context, commandId = p.commandId)) }, highlight = focusId == p.commandId) }
             pendingGrants.forEach { g ->
                 GrantRow(
@@ -279,27 +265,35 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
             stringResource(R.string.su_remote_enabled), settings.enabled, { vm.setEnabled(it) },
             secondary = stringResource(if (settings.enabled) R.string.su_remote_enabled_on else R.string.su_remote_enabled_off),
         )
-        DayCueRow(
-            primary = stringResource(R.string.su_remote_relay),
-            secondary = vm.relayHost() ?: "",
-        )
         val result = status.lastResult
+        val relayProblem = result == SyncStatus.Failed || result == SyncStatus.Unauthorized
         DayCueRow(
-            primary = stringResource(R.string.su_remote_sync),
+            primary = stringResource(
+                when {
+                    relayProblem -> R.string.su_relay_attention
+                    result == SyncStatus.Offline -> R.string.su_relay_offline
+                    result == SyncStatus.Ok -> R.string.su_relay_connected
+                    else -> R.string.su_remote_relay
+                },
+            ),
             secondary = syncSummary(result, status.lastSyncAtMs),
-            secondaryColor = if (result == SyncStatus.Failed || result == SyncStatus.Unauthorized) c.error.ink else c.ink2,
-            leading = if (result == SyncStatus.Failed || result == SyncStatus.Unauthorized) ({ StatusNotch() }) else null,
+            secondaryColor = if (relayProblem) c.error.ink else c.ink2,
+            leading = if (relayProblem) ({ StatusNotch() }) else null,
             trailing = { DayCueTextButton(stringResource(if (syncing) R.string.su_syncing else R.string.su_sync_now), { vm.syncNow() }, enabled = !syncing) },
         )
-        Hint(stringResource(R.string.su_remote_cadence))
+        // The relay's address is a technical detail: it lives behind "Details", never in the row itself.
+        var details by rememberSaveable { mutableStateOf(false) }
+        DayCueTextButton(stringResource(if (details) R.string.su_details_hide else R.string.su_details), { details = !details })
+        if (details) {
+            Hint(stringResource(R.string.su_remote_paired_with, vm.relayHost() ?: stringResource(R.string.su_remote_host_unknown)))
+            Hint(stringResource(R.string.su_remote_cadence))
+        }
 
         SectionHeader(stringResource(R.string.su_remote_rules_header))
         SettingRow(stringResource(R.string.su_remote_policy), configPolicyWord(settings.configPolicy), { policySheet = true })
-        Hint(stringResource(R.string.su_remote_ordinary_vs_sensitive))
         SwitchRow(
             stringResource(R.string.su_remote_sessions), settings.sessionPolicy == SessionPolicy.Allow,
             { vm.setSessionPolicy(if (it) SessionPolicy.Allow else SessionPolicy.Deny) },
-            secondary = stringResource(R.string.su_remote_sessions_hint),
         )
         SwitchRow(
             stringResource(R.string.su_remote_medication), settings.allowMedication, { vm.setAllowMedication(it) },
@@ -307,7 +301,6 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
         )
 
         SectionHeader(stringResource(R.string.su_remote_clients_header))
-        Hint(stringResource(R.string.su_remote_clients_hint))
         val active = grants.filter { !it.awaitsApproval }
         if (active.isEmpty()) {
             Para(stringResource(R.string.su_remote_clients_none))
@@ -320,51 +313,35 @@ fun RemoteScreen(onBack: () -> Unit, focusId: String?) {
 
         SectionHeader(stringResource(R.string.su_remote_recent_header))
         val remoteChanges = audit.filter { it.action.startsWith("remote.config") || it.action.startsWith("remote.undo") }
-            .filter { it.action.substringAfterLast('.') in setOf("applied", "rejected", "awaiting_confirmation") }
+            .filter { it.action.substringAfterLast('.') in setOf("applied", "rejected", "awaiting_confirmation", "expired") }
         if (remoteChanges.isEmpty()) {
             Para(stringResource(R.string.su_remote_recent_none))
         } else {
             val newestApplied = remoteChanges.firstOrNull { it.action.endsWith(".applied") }
-            remoteChanges.take(6).forEach { e ->
+            remoteChanges.take(8).forEach { e ->
                 val outcome = e.action.substringAfterLast('.')
                 val undoable = e == newestApplied && e.versionAfter != null && e.versionAfter == version
                 DayCueRow(
-                    primary = e.summary.ifBlank { stringResource(R.string.su_audit_no_summary) },
+                    primary = if (e.summary.isBlank()) stringResource(R.string.su_audit_no_summary) else friendlyDiffSummary(e.summary),
                     secondary = "${actorWord(e.actor)} · ${whenText(e.atMs)}",
                     extra = {
-                        StatusText(when (outcome) { "applied" -> StatusKind.Applied; "rejected" -> StatusKind.Rejected; else -> StatusKind.Waiting })
+                        StatusText(when (outcome) { "applied" -> StatusKind.Applied; "rejected" -> StatusKind.Rejected; "expired" -> StatusKind.Expired; else -> StatusKind.Waiting })
                     },
                     trailing = if (undoable) ({ DayCueTextButton(stringResource(R.string.su_undo), { vm.undoLatest() }) }) else null,
                 )
-            }
-            Hint(stringResource(R.string.su_remote_undo_hint))
-        }
-
-        SectionHeader(stringResource(R.string.su_audit_header))
-        DayCueRow(
-            primary = stringResource(R.string.su_audit_show),
-            secondary = stringResource(R.string.su_audit_hint),
-            trailing = { GlyphIcon(if (showAudit) Glyph.ChevronDown else Glyph.Chevron, c.ink2) },
-            onClick = { showAudit = !showAudit },
-        )
-        if (showAudit) {
-            if (audit.isEmpty()) Para(stringResource(R.string.su_audit_empty))
-            audit.take(30).forEach { e ->
-                DayCueRow(primary = e.summary.ifBlank { e.action }, secondary = "${actorWord(e.actor)} · ${whenText(e.atMs)}")
             }
         }
 
         SectionHeader(stringResource(R.string.su_frequent_header))
         FrequentCheck(vm)
-        SwitchRow(
-            stringResource(R.string.su_push_switch), settings.pushWake, { vm.setPushWake(it) },
-            secondary = stringResource(if (vm.pushAvailable()) R.string.su_push_available else R.string.su_push_unavailable),
-        )
-        Hint(stringResource(if (vm.pushAvailable()) R.string.su_push_ready else R.string.su_push_not_built))
+        if (vm.pushAvailable()) {
+            SwitchRow(stringResource(R.string.su_push_switch), settings.pushWake, { vm.setPushWake(it) }, secondary = stringResource(R.string.su_push_available))
+        } else {
+            Hint(stringResource(R.string.su_push_cadence))
+        }
 
-        Gap(24)
-        DestructiveButton(stringResource(R.string.su_remote_unpair), { confirmUnpair = true }, Modifier.fillMaxWidth())
-        Hint(stringResource(R.string.su_remote_unpair_hint))
+        Gap(16)
+        DayCueTextButton(stringResource(R.string.su_remote_unpair), { confirmUnpair = true }, color = c.error.ink)
         unpairNote?.let { confirmed -> FieldNote(stringResource(if (confirmed) R.string.su_unpair_done else R.string.su_unpair_offline), error = !confirmed) }
     }
 
@@ -428,29 +405,48 @@ private fun PairForm(vm: IntegrationsViewModel, replaceExisting: Boolean) {
         Modifier.fillMaxWidth(), enabled = !working && url.isNotBlank() && code.isNotBlank(),
     )
     if (working) Hint(stringResource(R.string.su_pair_slow))
-    Hint(stringResource(R.string.su_pair_privacy))
+    LearnMore(stringResource(R.string.su_pair_privacy), label = stringResource(R.string.su_what_is_sent))
 }
 
 @Composable
 private fun PendingRow(p: PendingRemote, onReview: () -> Unit, highlight: Boolean) {
     val c = DayCueTheme.colors
+    val fallback = when (p.kind) {
+        PendingKind.ConfigChange -> stringResource(R.string.su_pending_change)
+        PendingKind.Undo -> stringResource(R.string.su_pending_undo)
+        PendingKind.RoutineStart -> stringResource(R.string.su_pending_routine)
+    }
+    val friendly = if (p.kind == PendingKind.ConfigChange) friendlyDiffLines(p.lines) else emptyList()
+    val title = if (p.kind == PendingKind.ConfigChange) friendlyDiffTitle(p.lines, fallback) else fallback
     DayCueRow(
-        primary = when (p.kind) {
-            PendingKind.ConfigChange -> stringResource(R.string.su_pending_change)
-            PendingKind.Undo -> stringResource(R.string.su_pending_undo)
-            PendingKind.RoutineStart -> stringResource(R.string.su_pending_routine)
-        },
+        primary = title,
         secondary = stringResource(R.string.su_pending_from, p.clientLabel),
         extra = {
-            // The command is not applied until the owner approves it: never "done" here.
+            // The command is not applied until the owner approves it: never "done" here. A diff is never cut off.
             StatusText(StatusKind.Waiting, detail = sensitivityWord(p.sensitivity.name))
-            p.lines.firstOrNull()?.let { Text(it, style = DayCueTheme.type.bodySmall, color = c.ink2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
-            if (p.lines.size > 1) Text(pluralStringResource(R.plurals.su_pending_more_lines, p.lines.size - 1, p.lines.size - 1), style = DayCueTheme.type.bodySmall, color = c.ink2)
+            if (friendly.size > 1) friendly.forEach { Text("· $it", style = DayCueTheme.type.bodySmall, color = c.ink) }
             Text(stringResource(R.string.su_pending_expires, formatClock(p.expiresAtMs)), style = DayCueTheme.type.bodySmall, color = c.ink2)
         },
-        leading = { StatusNotch(error = false) },
+        leading = { CueMark(targetMark(p)) },
         trailing = { DayCueTextButton(stringResource(R.string.su_review), onReview) },
     )
+}
+
+/** The cue mark of what a pending change targets (REVIEW-2 C15): never the error diamond. */
+private fun targetMark(p: PendingRemote): CueType {
+    val path = p.lines.firstOrNull().orEmpty().substringBefore(":")
+    return when {
+        p.kind == PendingKind.RoutineStart || path.startsWith("routines") -> CueType.Routine
+        path.startsWith("habits[hydration") -> CueType.Hydration
+        path.startsWith("habits[sunscreen") -> CueType.Sunscreen
+        path.startsWith("habits[bottle") -> CueType.Bottle
+        path.startsWith("habits") -> CueType.Hydration
+        path.startsWith("medications") -> CueType.Medication
+        path.startsWith("alarms") -> CueType.Alarm
+        path.startsWith("calendarRules") -> CueType.Calendar
+        path.startsWith("postureCycle") -> CueType.Posture
+        else -> CueType.Alarm
+    }
 }
 
 @Composable
@@ -458,25 +454,17 @@ private fun GrantRow(g: RemoteGrant, highlight: Boolean, actions: @Composable ()
     val c = DayCueTheme.colors
     DayCueRow(
         primary = g.label,
-        secondary = stringResource(R.string.su_grant_unverified, stringResource(if (g.kind == "oauth") R.string.su_grant_kind_oauth else R.string.su_grant_kind_token)),
+        secondary = if (g.awaitsApproval) stringResource(R.string.su_grant_pending)
+        else stringResource(R.string.su_grant_last_used, g.lastUsedAtMs?.let { agoText(Instant.ofEpochMilli(it)) } ?: stringResource(R.string.su_grant_never_used)),
         extra = {
-            val gated = g.scopes.filter { isGatedScope(it) }
+            // One line per scope with its state, worded the same on the review screen.
             g.scopes.sortedBy { KNOWN_SCOPES.indexOf(it) }.forEach { s ->
                 val on = s in g.activeScopes
-                val line = stringResource(scopeText(s)) + when {
-                    isGatedScope(s) && !on -> " · " + stringResource(R.string.su_scope_off_until_approved)
-                    else -> ""
-                }
-                Text("· $line", style = DayCueTheme.type.bodySmall, color = if (s == "medication") c.error.ink else c.ink)
+                val state = stringResource(if (on) R.string.su_scope_state_on else R.string.su_scope_off_until_approved)
+                Text("· ${stringResource(scopeText(s))} · $state", style = DayCueTheme.type.bodySmall, color = if (s == "medication") c.error.ink else c.ink)
             }
             if (g.holdsMedication) Text(stringResource(R.string.su_scope_medication_warn), style = DayCueTheme.type.bodySmall, color = c.error.ink)
-            Text(
-                if (g.awaitsApproval) stringResource(R.string.su_grant_pending)
-                else stringResource(R.string.su_grant_last_used, g.lastUsedAtMs?.let { agoText(Instant.ofEpochMilli(it)) } ?: stringResource(R.string.su_grant_never_used)),
-                style = DayCueTheme.type.bodySmall, color = c.ink2,
-            )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { actions() }
-            if (gated.isEmpty() && g.approval == GrantApproval.NotRequired) Unit
         },
     )
 }
@@ -515,7 +503,7 @@ private fun configPolicyHint(p: ConfigPolicy): Int = when (p) {
 }
 
 @Composable
-private fun actorWord(actor: String): String = when {
+internal fun actorWord(actor: String): String = when {
     actor == "user" || actor == "owner" -> stringResource(R.string.su_actor_you)
     actor == "mcp" -> stringResource(R.string.su_actor_remote_plain)
     actor == "system" -> stringResource(R.string.su_actor_system)
@@ -524,7 +512,7 @@ private fun actorWord(actor: String): String = when {
 }
 
 @Composable
-private fun whenText(ms: Long): String = agoText(Instant.ofEpochMilli(ms))
+internal fun whenText(ms: Long): String = agoText(Instant.ofEpochMilli(ms))
 
 @Composable
 private fun syncSummary(result: SyncStatus?, at: Long?): String {
@@ -550,15 +538,8 @@ fun SpotifyScreen(onBack: () -> Unit) {
     val c = DayCueTheme.colors
 
     SetupFrame(stringResource(R.string.su_spotify_title), onBack) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CueMark(CueType.Alarm)
-            Para(stringResource(R.string.su_spotify_off_by_default), Modifier.padding(start = 16.dp))
-        }
         Hint(stringResource(R.string.su_spotify_intro))
-
-        SectionHeader(stringResource(R.string.su_spotify_policy_header))
-        Para(stringResource(R.string.su_spotify_policy))
-        Hint(stringResource(R.string.su_spotify_limit))
+        LearnMore(stringResource(R.string.su_spotify_policy) + "\n\n" + stringResource(R.string.su_spotify_limit))
 
         SectionHeader(stringResource(R.string.su_spotify_status_header))
         when (val s = state) {
@@ -580,11 +561,7 @@ fun SpotifyScreen(onBack: () -> Unit) {
                 }
             }
         }
-        Hint(stringResource(R.string.su_spotify_status_note))
-
-        SectionHeader(stringResource(R.string.su_spotify_use_header))
-        Para(stringResource(R.string.su_spotify_use))
-        Hint(stringResource(R.string.su_spotify_offline))
+        Hint(stringResource(R.string.su_spotify_use))
     }
 }
 

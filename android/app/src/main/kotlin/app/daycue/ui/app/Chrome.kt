@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.daycue.R
 import app.daycue.ui.components.DayCueSnackbarHost
+import app.daycue.ui.components.DayCueTopBar
 import app.daycue.ui.components.Glyph
 import app.daycue.ui.components.GlyphButton
 import app.daycue.ui.theme.DayCueSpacing
@@ -32,19 +33,10 @@ import app.daycue.ui.theme.DayCueTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Text
 
-/** Back button + title row for full-screen pages (the chevron points to the start edge and flips in RTL). */
+/** Back button + title row for full-screen pages: the shared DayCueTopBar (kept source-compatible). */
 @Composable
 fun ScreenHeader(title: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
-    val gutter = DayCueSpacing.gutterFor(LocalConfiguration.current.screenWidthDp)
-    Row(modifier.fillMaxWidth().padding(horizontal = gutter - 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        GlyphButton(Glyph.Chevron, stringResource(R.string.app_back), onBack, Modifier.rotate(180f))
-        Text(
-            title,
-            style = DayCueTheme.type.title,
-            color = DayCueTheme.colors.ink,
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp).semantics { heading() },
-        )
-    }
+    DayCueTopBar(title, onBack, modifier)
 }
 
 /**
@@ -57,13 +49,14 @@ fun ScrollPage(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     snackbar: SnackbarHostState? = null,
+    mark: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = DayCueTheme.colors
     val gutter = DayCueSpacing.gutterFor(LocalConfiguration.current.screenWidthDp)
     Box(modifier.fillMaxSize().background(c.paper)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            ScreenHeader(title, onBack)
+        Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+            DayCueTopBar(title, onBack, mark = mark)
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 Column(
                     Modifier

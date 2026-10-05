@@ -2,6 +2,7 @@ package app.daycue.ui.cues
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -111,6 +112,7 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
     CuesScreen(
         title = if (original == null) stringResource(R.string.cues_med_new) else original.label,
         onBack = ::requestBack,
+        mark = CueType.Medication,
     ) {
         DayCueTextField(
             draft.label, { draft = draft.copy(label = it.take(40)) }, stringResource(R.string.cues_med_name),
@@ -123,7 +125,12 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
             DayCueRow(
                 primary = timeText(t),
                 onClick = { timeEdit = i },
-                trailing = if (draft.times.size > 1) ({ DayCueTextButton(stringResource(R.string.cues_remove), { draft = draft.copy(times = draft.times.filterIndexed { j, _ -> j != i }) }) }) else null,
+                trailing = {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        if (draft.times.size > 1) DayCueTextButton(stringResource(R.string.cues_remove), { draft = draft.copy(times = draft.times.filterIndexed { j, _ -> j != i }) })
+                        app.daycue.ui.components.GlyphIcon(app.daycue.ui.components.Glyph.Chevron, DayCueTheme.colors.ink2)
+                    }
+                },
             )
         }
         FieldErrors(errors, "$path.times")
@@ -133,6 +140,7 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
         DayChips(draft.days, { d -> draft = draft.copy(days = if (d in draft.days) draft.days - d else draft.days + d) })
         FieldErrors(errors, "$path.days")
 
+        SettingRow(stringResource(R.string.cues_med_dates), medDatesSummary(draft), { sheet = "dates" })
         Text(stringResource(R.string.cues_med_travel), style = DayCueTheme.type.titleSmall, color = DayCueTheme.colors.ink, modifier = Modifier.padding(top = 20.dp))
         Text(stringResource(R.string.cues_med_travel_required), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
         val keeps = draft.travelPolicy as? TravelPolicy.KeepHomeTimezone
@@ -143,7 +151,7 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
         )
         val homeZone = keeps?.zone ?: ZoneId.systemDefault()
         ChoiceRow(
-            stringResource(R.string.cues_med_travel_home, homeZone.id), stringResource(R.string.cues_med_travel_home_c),
+            stringResource(R.string.cues_med_travel_home, zoneName(homeZone)), stringResource(R.string.cues_med_travel_home_c),
             selected = travelChosen && keeps != null,
             onSelect = { travelChosen = true; draft = draft.copy(travelPolicy = TravelPolicy.KeepHomeTimezone(homeZone)) },
         )
@@ -162,7 +170,7 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
             SettingRow(stringResource(R.string.cues_med_quiet), quietLabel(draft.quietHours), { sheet = "quiet" }, changed = changedFlags[4])
             SettingRow(stringResource(R.string.cues_med_retention), durationDays(draft.historyRetentionDays), { sheet = "retention" }, changed = changedFlags[5])
             FieldErrors(errors, "$path.historyRetentionDays")
-            SettingRow(stringResource(R.string.cues_sound_voice), stringResource(R.string.cues_sound_voice_value), { onOpenCueProfile(vm.profileId(app.daycue.domain.config.CueType.Medication, draft.cueProfileId)) })
+            SettingRow(stringResource(R.string.cues_sound_voice), soundSummary(cfg, app.daycue.domain.config.CueType.Medication, draft.cueProfileId), { onOpenCueProfile(vm.profileId(app.daycue.domain.config.CueType.Medication, draft.cueProfileId)) })
         }
 
         Spacer(Modifier.height(16.dp))
@@ -225,6 +233,15 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
             )
             Text(stringResource(R.string.cues_med_retention_c), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
         }
+        "dates" -> DayCueBottomSheet({ sheet = null }, stringResource(R.string.cues_med_dates), CueType.Medication) {
+            Text(stringResource(R.string.cues_med_start_label), style = DayCueTheme.type.titleSmall, color = DayCueTheme.colors.ink)
+            DateStepper(draft.startDate ?: LocalDate.now(), { draft = draft.copy(startDate = it) })
+            if (draft.startDate != null) DayCueTextButton(stringResource(R.string.cues_med_starts_today), { draft = draft.copy(startDate = null) })
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.cues_med_end_label), style = DayCueTheme.type.titleSmall, color = DayCueTheme.colors.ink)
+            DateStepper(draft.endDate ?: LocalDate.now(), { draft = draft.copy(endDate = it) })
+            if (draft.endDate != null) DayCueTextButton(stringResource(R.string.cues_med_no_end), { draft = draft.copy(endDate = null) })
+        }
         "stop" -> DayCueBottomSheet({ sheet = null }, stringResource(R.string.cues_med_stop), CueType.Medication) {
             Text(stringResource(R.string.cues_med_stop_c), style = DayCueTheme.type.body, color = DayCueTheme.colors.ink2)
             Spacer(Modifier.height(8.dp))
@@ -242,7 +259,7 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
         val lines = medicationDiffLines(original, ops, draft, travelChosen)
         DayCueBottomSheet({ review = null }, stringResource(R.string.cues_med_review_title), CueType.Medication) {
             DiffReview(
-                title = stringResource(R.string.cues_med_review_sub), lines = lines,
+                title = stringResource(if (original == null) R.string.cues_med_review_sub_new else R.string.cues_med_review_sub), lines = lines,
                 confirmLabel = stringResource(R.string.cues_med_save), backLabel = stringResource(R.string.cues_med_back),
                 onConfirm = {
                     vm.edit(ops, CuesMessage(R.string.cues_saved, undo = false)) { out ->
@@ -275,6 +292,13 @@ private fun MedicationEditorContent(vm: CuesViewModel, cfg: DayCueConfig, origin
 }
 
 @Composable
+private fun medDatesSummary(m: Medication): String {
+    val start = m.startDate?.let { stringResource(R.string.cues_med_starts, dateText(it)) } ?: stringResource(R.string.cues_med_starts_today)
+    val end = m.endDate?.let { stringResource(R.string.cues_med_ends, dateText(it)) } ?: stringResource(R.string.cues_med_no_end)
+    return "$start · $end"
+}
+
+@Composable
 private fun repeatSummary(r: RepeatPolicy) =
     if (r.maxRepeats == 0) stringResource(R.string.cues_repeat_none) else pluralStringResource(R.plurals.cues_repeat_summary, r.maxRepeats, r.maxRepeats, durationText(r.everyMin))
 
@@ -301,7 +325,7 @@ private fun medicationDiffLines(original: Medication?, ops: List<ConfigOp>, draf
         )
     }
     val lines = mutableListOf<String>()
-    val travel = @Composable { p: TravelPolicy -> if (p is TravelPolicy.KeepHomeTimezone) stringResource(R.string.cues_diff_travel_home, p.zone.id) else stringResource(R.string.cues_diff_travel_follow) }
+    val travel = @Composable { p: TravelPolicy -> if (p is TravelPolicy.KeepHomeTimezone) stringResource(R.string.cues_diff_travel_home, zoneName(p.zone)) else stringResource(R.string.cues_diff_travel_follow) }
     if (original == null) {
         lines += stringResource(R.string.cues_diff_new, draft.label.trim())
         lines += stringResource(R.string.cues_diff_times, draft.times.sorted().map { timeText(it) }.joinToString(", "), daysSummary(draft.days))

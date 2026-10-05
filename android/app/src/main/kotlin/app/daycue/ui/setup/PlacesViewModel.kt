@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -39,18 +40,21 @@ data class PlacesUi(
 /** Places, location permissions and the context / session rules. All edits go through the facade (one op each). */
 class PlacesViewModel(app: Application) : SetupViewModel(app) {
 
-    private val contextFlow = facade.today(60_000).map { it.context }
+    // The saved config is local data: it is on the first frame. The context line (which is computed) may arrive a moment
+    // later, so it must never hold the screen back (REVIEW-2 C13).
+    private val contextFlow = facade.today(60_000).map { it.context as app.daycue.domain.context.InferredContext? }.onStart { emit(null) }
 
     val ui: StateFlow<PlacesUi> = combine(
-        facade.config, facade.places.access, facade.places.geofenceStatus, contextFlow,
+        facade.config.map<DayCueConfig, DayCueConfig?> { it }.onStart { emit(facade.snapshot.value?.config) },
+        facade.places.access, facade.places.geofenceStatus, contextFlow,
     ) { cfg, access, geofence, ctx ->
         PlacesUi(
             config = cfg, access = access, geofence = geofence,
-            herePlaceId = ctx.place.value.takeIf { it.kind == PlaceKind.Saved }?.placeId,
-            hereElsewhere = ctx.place.value.kind == PlaceKind.Elsewhere,
-            detectionPaused = ctx.detectionPaused,
+            herePlaceId = ctx?.place?.value?.takeIf { it.kind == PlaceKind.Saved }?.placeId,
+            hereElsewhere = ctx?.place?.value?.kind == PlaceKind.Elsewhere,
+            detectionPaused = ctx?.detectionPaused ?: false,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlacesUi())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlacesUi(config = facade.snapshot.value?.config, access = facade.places.access.value))
 
     /** The last "use current location" outcome, for the editor. */
     val lastFix = MutableStateFlow<CurrentLocationResult?>(null)

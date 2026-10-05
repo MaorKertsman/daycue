@@ -47,8 +47,8 @@
     <string name="cues_wait_meeting">After your meeting</string>
     <string name="cues_wait_routine">After your routine</string>
     <string name="cues_wait_hours">Next within active hours, from %1$s</string>
-    <string name="cues_wait_covered">Covered until %1$s</string>
-    <string name="cues_wait_first_ack">Starts after you confirm once</string>
+    <string name="cues_wait_covered">Next at %1$s</string>
+    <string name="cues_wait_first_ack">Starts when you first tap Drank</string>
     <string name="cues_wait_frozen">On hold while you are away</string>
     <string name="cues_wait_pending">Reminder is showing now</string>
     <string name="cues_template_morning_routine">Morning routine</string>
@@ -76,16 +76,13 @@
     <string name="cues_new_reminder_name">New reminder</string>
     <string name="cues_calendar_cues">Calendar cues</string>
     <string name="cues_calendar_summary">Reminders before events</string>
-    <string name="cues_live_control">Live control</string>
+    <string name="cues_live_control">Control the cycle</string>
     <string name="cues_no_modes">No modes</string>
     <string name="cues_mode_sit">Sit</string>
     <string name="cues_mode_stand">Stand</string>
     <string name="cues_mode_walk">Walk</string>
     <string name="cues_med_none_summary">No medications</string>
-    <string name="cues_med_summary">Items: %1$d</string>
-    <string name="cues_med_summary_next">Items: %1$d · next %2$s</string>
     <string name="cues_routines_none_summary">No routines yet</string>
-    <string name="cues_routines_summary">Routines: %1$d</string>
     <string name="cues_alarms_none_summary">No alarms</string>
     <string name="cues_alarms_all_off">All alarms are off</string>
     <string name="cues_bottle_summary_any">When you leave a place</string>
@@ -215,7 +212,7 @@
     <string name="cues_bottle_places_help">Leave all unticked to use every place marked for the bottle reminder.</string>
     <string name="cues_bottle_triggers">When to remind</string>
     <string name="cues_bottle_leaving_now">Leaving now</string>
-    <string name="cues_bottle_leaving_now_c">The most reliable. The button on Today, the tile and the widget.</string>
+    <string name="cues_bottle_leaving_now_c">The most reliable: the button on Today, the tile and the widget.</string>
     <string name="cues_bottle_most_reliable">the most reliable</string>
     <string name="cues_bottle_geofence">When leaving a place</string>
     <string name="cues_bottle_geofence_c">Often arrives a few minutes late.</string>
@@ -274,7 +271,7 @@
     <string name="cues_posture_start_auto">It starts with your next work or study session, or you can start it now.</string>
     <string name="cues_posture_time_to">Time for: %1$s</string>
     <string name="cues_posture_keep_going">Keep going, or take a break</string>
-    <string name="cues_posture_timer_starts_on_switched">The timer starts when you tap Switched.</string>
+    <string name="cues_posture_timer_starts_on_switched">Timer starts when you tap Switched</string>
     <string name="cues_posture_switched">Switched</string>
     <string name="cues_posture_snooze">Snooze %1$d min</string>
     <string name="cues_posture_skip">Skip</string>
@@ -297,12 +294,12 @@
     <string name="cues_med_empty_body">Add one to get reminders at set times.</string>
     <string name="cues_med_add">Add medication</string>
     <string name="cues_med_today">Today</string>
-    <string name="cues_med_all">Medications</string>
+    <string name="cues_med_all">All medications</string>
     <string name="cues_med_taken">I took it</string>
     <string name="cues_med_snooze">Snooze</string>
     <string name="cues_med_skip_dose">Skip this dose</string>
     <string name="cues_med_history">History</string>
-    <string name="cues_med_disclaimer">DayCue reminds you. It does not give medical advice.</string>
+    <string name="cues_med_disclaimer">DayCue only reminds you and does not give medical advice.</string>
     <string name="cues_med_stops_on">Reminders stop after %1$s</string>
     <string name="cues_med_stopped_on">Reminders stopped after %1$s</string>
     <string name="cues_med_removed">Removed item</string>
@@ -317,7 +314,7 @@
     <string name="cues_med_travel_required">Choose one. It decides which clock the times follow.</string>
     <string name="cues_med_travel_follow">Follow local time</string>
     <string name="cues_med_travel_follow_c">08:00 means 08:00 wherever you are.</string>
-    <string name="cues_med_travel_home">Keep home time zone (%1$s)</string>
+    <string name="cues_med_travel_home">Keep home time (%1$s)</string>
     <string name="cues_med_travel_home_c">The same moment as at home, even when the local clock differs.</string>
     <string name="cues_med_travel_pick">Pick one to continue.</string>
     <string name="cues_med_repeat">Repeat if not confirmed</string>
@@ -340,9 +337,9 @@
     <string name="cues_med_retention">Keep history for</string>
     <string name="cues_med_retention_c">History stays only on this phone.</string>
     <string name="cues_med_review">Review and save</string>
-    <string name="cues_med_review_needs">Add a name, at least one time and choose a travel option first.</string>
+    <string name="cues_med_review_needs">Missing: a name, at least one time and a travel choice.</string>
     <string name="cues_med_review_title">Review changes</string>
-    <string name="cues_med_review_sub">This will change:</string>
+    <string name="cues_med_review_sub">Save these changes?</string>
     <string name="cues_med_save">Save</string>
     <string name="cues_med_back">Back</string>
     <string name="cues_med_stop">Stop reminders</string>
@@ -362,7 +359,7 @@
     <string name="cues_diff_removes_time">Removes %1$s.</string>
     <string name="cues_diff_days">Days: %1$s.</string>
     <string name="cues_diff_travel_follow">Travel: follow local time.</string>
-    <string name="cues_diff_travel_home">Travel: keep the home time zone (%1$s).</string>
+    <string name="cues_diff_travel_home">Travel: keep home time (%1$s).</string>
     <string name="cues_diff_repeat">Repeat: %1$s.</string>
     <string name="cues_diff_snooze">Snooze length: %1$s.</string>
     <string name="cues_diff_lock">Lock screen: %1$s.</string>
@@ -509,4 +506,36 @@
     <string name="cues_alarm_spotify_timeout_c">If Spotify has not started by then, the backup tone plays.</string>
     <string name="cues_alarm_delete">Delete this alarm</string>
     <string name="cues_pause_now">Pause</string>
+    <plurals name="cues_med_count_summary">
+        <item quantity="one">%1$d medication</item>
+        <item quantity="other">%1$d medications</item>
+    </plurals>
+    <plurals name="cues_med_count_next">
+        <item quantity="one">%1$d medication · next %2$s</item>
+        <item quantity="other">%1$d medications · next %2$s</item>
+    </plurals>
+    <plurals name="cues_routines_count">
+        <item quantity="one">%1$d routine</item>
+        <item quantity="other">%1$d routines</item>
+    </plurals>
+    <string name="cues_med_title">Medications</string>
+    <string name="cues_med_review_sub_new">Add this medication?</string>
+    <string name="cues_plus_min">+%1$d min</string>
+    <string name="cues_posture_add_mode">Add a mode</string>
+    <string name="cues_posture_new_mode_name">New mode</string>
+    <string name="cues_posture_remove_mode">Remove this mode</string>
+    <string name="cues_hyd_by_context">Different interval by context</string>
+    <string name="cues_hyd_by_context_none">Same interval everywhere</string>
+    <string name="cues_hyd_by_context_c">The first matching rule sets the interval. Everything else uses the main interval.</string>
+    <string name="cues_hyd_ctx_add">Add a rule</string>
+    <string name="cues_hyd_ctx_row">%1$s: every %2$s</string>
+    <string name="cues_open_running_routine">Open running routine</string>
+    <string name="cues_med_dates">Start and end</string>
+    <string name="cues_med_start_label">Start date</string>
+    <string name="cues_med_end_label">End date</string>
+    <string name="cues_med_starts_today">Starts today</string>
+    <string name="cues_med_starts">Starts %1$s</string>
+    <string name="cues_med_ends">ends %1$s</string>
+    <string name="cues_med_no_end">no end</string>
+    <string name="cues_bottle_no_places">No places yet</string>
 </resources>

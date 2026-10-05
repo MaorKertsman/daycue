@@ -34,11 +34,24 @@ sealed interface Event {
     @Serializable @SerialName("timezoneChanged") data object TimezoneChanged : Event
     /** Config document changed (any applied ConfigOp set). */
     @Serializable @SerialName("configChanged") data object ConfigChanged : Event
+    /**
+     * The app reports the notification keys the system actually shows for DayCue (on app start, after
+     * `BootCompleted`). Every cue the engine believes visible but missing from [shown] is re-posted quietly
+     * with the same cue id (VALIDATION D1: state and reality agree). Never a delivery, never an ack.
+     */
+    @Serializable @SerialName("notificationsObserved") data class NotificationsObserved(val shown: Set<String>) : Event
 
     // ---- Context (PRODUCT §1) ----
     @Serializable @SerialName("signal") data class SignalObserved(val signal: Signal) : Event
     @Serializable @SerialName("overrideEnvironment") data class OverrideEnvironment(val value: Environment, val duration: OverrideDuration) : Event
     @Serializable @SerialName("clearEnvironmentOverride") data object ClearEnvironmentOverride : Event
+    /**
+     * CTX-1 manual Place override ("I'm at <place>"; [placeId] = null: "not at a saved place" = `Elsewhere`).
+     * Same [OverrideDuration] kinds and cap as the environment override (`environmentOverrideCapMin`).
+     * `UntilTransition` ends at the next meaningful automatic place change (CTX-3).
+     */
+    @Serializable @SerialName("overridePlace") data class OverridePlace(val placeId: String?, val duration: OverrideDuration = OverrideDuration.UntilTransition) : Event
+    @Serializable @SerialName("clearPlaceOverride") data object ClearPlaceOverride : Event
     @Serializable @SerialName("startSession") data class StartSession(val kind: SessionKind, val duration: OverrideDuration = OverrideDuration.UntilChanged) : Event
     @Serializable @SerialName("endSession") data object EndSession : Event
     /** Answer to the WRK-2 suggestion / undo notification. */
@@ -60,10 +73,20 @@ sealed interface Event {
     @Serializable @SerialName("bottleAck") data class BottleAck(val habitId: String, val notNeeded: Boolean = false, val cueId: String? = null) : Event
 
     // ---- Medication (§7) ----
-    @Serializable @SerialName("medTaken") data class MedicationTaken(val slot: SlotRef, val cueId: String? = null) : Event
+    /**
+     * MED-2 / MED-5. [takenAt] = when the user says it was taken (null = now); a future instant is clamped to now and
+     * anything earlier than 24 h before the slot's time to that bound. Today's slots only (history edits: [MedicationCorrect]).
+     */
+    @Serializable @SerialName("medTaken") data class MedicationTaken(val slot: SlotRef, val cueId: String? = null, val takenAt: Instant? = null) : Event
     @Serializable @SerialName("medSnooze") data class MedicationSnooze(val slot: SlotRef, val cueId: String? = null) : Event
     /** Only from the dose detail screen (PRODUCT §7 actions). */
     @Serializable @SerialName("medSkip") data class MedicationSkip(val slot: SlotRef) : Event
+    /**
+     * MED-5 history correction of a slot of today or earlier that the engine still tracks (today and the previous
+     * day): set or change `takenAt`, mark skipped, or undo back to not confirmed. Recorded as a `Corrected` history
+     * row with before/after. A correction never produces a new cue for that slot (MED-10: no implied advice).
+     */
+    @Serializable @SerialName("medCorrect") data class MedicationCorrect(val slot: SlotRef, val correction: DoseCorrection) : Event
 
     // ---- Posture (§6) ----
     @Serializable @SerialName("posture") data class PostureControl(val action: PostureAction, val cueId: String? = null) : Event
@@ -114,6 +137,16 @@ sealed interface PauseChoice {
     @Serializable @SerialName("restOfToday") data object RestOfToday : PauseChoice
     @Serializable @SerialName("until") data class Until(val at: Instant) : PauseChoice
     @Serializable @SerialName("indefinite") data object Indefinite : PauseChoice
+}
+
+/** MED-5 dose history corrections ([Event.MedicationCorrect]). */
+@Serializable
+sealed interface DoseCorrection {
+    /** Taken at [at] (clamped like [Event.MedicationTaken.takenAt]); also changes the time of an already taken slot. */
+    @Serializable @SerialName("taken") data class Taken(val at: Instant) : DoseCorrection
+    @Serializable @SerialName("skipped") data object Skipped : DoseCorrection
+    /** Undo a Taken / Skipped entry: the slot is not confirmed again (Upcoming if its time is still ahead). */
+    @Serializable @SerialName("undo") data object Undo : DoseCorrection
 }
 
 /** Dose slot identity (MED-1): `(itemId, localDate, localTime)` in the policy zone. */

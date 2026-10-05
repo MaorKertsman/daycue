@@ -82,6 +82,12 @@ class AlarmRingingService : Service() {
         ServiceCompat.startForeground(this, FGS_ID, notification,
             if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)
         _ringing.value = alarm
+        // D7: with DayCue on screen the system does not show a full-screen intent (only a heads-up), so open the alarm
+        // screen directly; allowed because the app has a visible window. Otherwise the full-screen intent does it.
+        if (AlarmScreenLaunch.startDirectly(app.daycue.AppVisibility.visible, locked)) {
+            runCatching { startActivity(AlarmActivity.intent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                .onFailure { Log.w(TAG, "alarm screen could not be started directly", it) }
+        }
         wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "daycue:alarm").apply { acquire(MAX_RING_MS) }
 
         val sourceUri = intent.getStringExtra(EXTRA_SOURCE_URI)
@@ -222,6 +228,11 @@ class AlarmRingingService : Service() {
             instance?.let { it.handler.post { it.stopRinging(); it.stopSelf() } }
         }
     }
+}
+
+/** D7 decision (JVM-tested): open [AlarmActivity] ourselves only while a DayCue Activity is visible. */
+object AlarmScreenLaunch {
+    fun startDirectly(appVisible: Boolean, locked: Boolean): Boolean = appVisible && !locked
 }
 
 /**

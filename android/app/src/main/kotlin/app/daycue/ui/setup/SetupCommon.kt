@@ -8,7 +8,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,10 +27,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import app.daycue.DayCueApplication
@@ -38,7 +43,10 @@ import app.daycue.engine.ApplyOutcome
 import app.daycue.facade.DayCueFacade
 import app.daycue.ui.components.DayCueBottomSheet
 import app.daycue.ui.components.Glyph
-import app.daycue.ui.components.GlyphButton
+import app.daycue.ui.components.GlyphIcon
+import app.daycue.ui.components.DayCueRow
+import app.daycue.ui.components.DayCueTextButton
+import app.daycue.ui.components.DayCueTopBar
 import app.daycue.ui.components.PolicyChoiceList
 import app.daycue.ui.components.PolicyOption
 import app.daycue.ui.components.Stepper
@@ -113,49 +121,61 @@ internal fun Context.startActivitySafely(intent: Intent?): Boolean {
 }
 
 /**
- * Screen frame: a headline title, optional back button, one vertical scroll, content centred up to 560dp.
- * Everything scrolls so nothing is ever cut at font scale 2.0 (UX 5).
+ * Screen frame (REVIEW-2 S1/S2): the shared [DayCueTopBar] stays fixed (it pads for the status bar itself, so content
+ * never scrolls under the clock) and everything below it scrolls, centred up to 560dp, so nothing is ever cut at
+ * font scale 2.0 (UX 5).
  */
 @Composable
 fun SetupFrame(
     title: String,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = DayCueTheme.colors
-    Box(
+    val gutter = DayCueSpacing.gutterFor(LocalConfiguration.current.screenWidthDp)
+    Column(
         modifier
             .fillMaxSize()
             .background(c.paper)
-            .windowInsetsPadding(WindowInsets.safeDrawing),
-        contentAlignment = Alignment.TopCenter,
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)),
     ) {
-        Column(
-            Modifier
-                .widthIn(max = DayCueSpacing.contentMaxWidth)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = DayCueSpacing.gutter),
-        ) {
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != null) {
-                    GlyphButton(Glyph.Chevron, stringResource(R.string.su_back), onBack, modifier = Modifier.rotate(180f))
-                }
-                Text(
-                    title,
-                    style = DayCueTheme.type.headline,
-                    color = c.ink,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 8.dp, bottom = 8.dp, start = if (onBack != null) 4.dp else 0.dp)
-                        .semantics { heading() },
-                )
+        DayCueTopBar(title, onBack, actions = actions)
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier
+                    .widthIn(max = DayCueSpacing.contentMaxWidth)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = gutter),
+            ) {
+                content()
+                Spacer(Modifier.height(96.dp))
             }
-            content()
-            Spacer(Modifier.height(96.dp))
         }
     }
+}
+
+/** One short sentence, with the long explanation behind a "Learn more" text button (REVIEW-2 C8). */
+@Composable
+fun LearnMore(details: String, modifier: Modifier = Modifier, label: String = stringResource(R.string.su_learn_more)) {
+    var open by rememberSaveable(details) { mutableStateOf(false) }
+    Column(modifier.fillMaxWidth()) {
+        if (open) Hint(details)
+        DayCueTextButton(if (open) stringResource(R.string.su_learn_less) else label, { open = !open })
+    }
+}
+
+/** "More options" row for the Simple tier of an editor: collapsed by default, a chevron that points down when open. */
+@Composable
+fun MoreOptionsRow(expanded: Boolean, onToggle: () -> Unit) {
+    DayCueRow(
+        primary = stringResource(R.string.advanced_more),
+        onClick = onToggle,
+        divider = !expanded,
+        trailing = { GlyphIcon(if (expanded) Glyph.ChevronDown else Glyph.Chevron, DayCueTheme.colors.ink2) },
+    )
 }
 
 /** A short explanatory paragraph in `ink2`. */

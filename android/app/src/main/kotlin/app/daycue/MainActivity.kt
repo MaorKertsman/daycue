@@ -11,6 +11,9 @@ import app.daycue.delivery.DeepLinks
 import app.daycue.ui.app.AppRoot
 import app.daycue.ui.app.AppRoute
 import app.daycue.ui.theme.DayCueTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import app.daycue.ui.setup.UiPrefs as SetupPrefs
 
 // AppCompatActivity (not ComponentActivity) so AppCompatDelegate.setApplicationLocales
 // applies the per-app language on API 26-32.
@@ -22,11 +25,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
+        SetupPrefs.load(this)
         super.onCreate(savedInstanceState)
         // A recreated Activity (rotation, language change) must not replay the link it was started with.
         if (savedInstanceState == null) handle(intent)
         setContent {
-            DayCueTheme {
+            val reduceMotion by SetupPrefs.reduceMotion.collectAsState()
+            DayCueTheme(reduceMotionSetting = reduceMotion) {
                 AppRoot(route.value, routeNonce.intValue)
             }
         }

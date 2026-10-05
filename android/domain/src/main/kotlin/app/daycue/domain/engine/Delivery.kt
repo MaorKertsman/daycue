@@ -81,7 +81,7 @@ internal object Delivery {
             )
             run.effects += Effect.Deliver(cue)
             run.st = p.commit(run.st, cueId)
-            run.st = run.st.copy(delivery = run.st.delivery.copy(visible = run.st.delivery.visible + (p.notificationKey to VisibleCue(cueId, p.notificationKey, p.itemKey, p.type, now))))
+            run.st = run.st.copy(delivery = run.st.delivery.copy(visible = run.st.delivery.visible + (p.notificationKey to VisibleCue(cueId, p.notificationKey, p.itemKey, p.type, now, cue))))
             run.history(p.itemKey, if (p.repeatIndex > 0) HistoryKind.Repeated else HistoryKind.Delivered, p.why.rule, cueId,
                 mapOf("silent" to cue.silent.toString(), "repeat" to p.repeatIndex.toString()) + (groupKey?.let { mapOf("group" to it) } ?: emptyMap()), test = p.isTest)
         }

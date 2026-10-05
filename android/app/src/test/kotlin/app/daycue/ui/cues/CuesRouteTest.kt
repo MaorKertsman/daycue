@@ -40,4 +40,12 @@ class CuesRouteTest {
     }
 
     @Test fun literalRouteStackIsAccepted() = assertEquals(listOf("meds", "med/history"), resolveStartItem("route:meds,med/history", cfg))
+
+    /** Regression for B1: routes with a missing id segment must resolve to a screen, never throw (parts[1]). */
+    @Test fun routesWithoutIdSegmentFallBackSafely() {
+        for (r in listOf("habit", "habit/", "med", "routine", "alarm", "routine//play", "posture/", "")) {
+            assertNull(r, routeArg(r))
+        }
+        assertEquals("x", routeArg("habit/x"))
+    }
 }

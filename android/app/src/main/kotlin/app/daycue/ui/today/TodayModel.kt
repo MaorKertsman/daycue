@@ -393,10 +393,11 @@ object TodayMapper {
             )
         }
 
-    private fun fieldContext(ctx: ContextInfo): FieldContext = when {
+    fun fieldContext(ctx: ContextInfo): FieldContext = when {
         ctx.place.kind == PlaceKind.Unknown && ctx.environment == Environment.Unknown -> FieldContext.Unknown
         ctx.environment == Environment.Outdoor -> FieldContext.Outdoors
         ctx.activity == Activity.Working || ctx.activity == Activity.Studying || ctx.session != null -> FieldContext.Work
+        ctx.environment == Environment.Indoor && ctx.envOverride != null -> FieldContext.Home
         ctx.place.kind == PlaceKind.Saved -> FieldContext.Home
         ctx.place.kind == PlaceKind.Elsewhere -> FieldContext.Transit
         else -> FieldContext.Unknown

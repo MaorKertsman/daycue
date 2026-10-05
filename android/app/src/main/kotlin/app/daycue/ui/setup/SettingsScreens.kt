@@ -40,7 +40,7 @@ import app.daycue.ui.components.StateBlockKind
 import app.daycue.ui.components.SwitchRow
 import app.daycue.ui.components.TimeField
 import app.daycue.ui.theme.DayCueTheme
-import app.daycue.ui.util.formatTime
+import app.daycue.ui.util.friendlyDiffLines
 import java.time.LocalTime
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +49,7 @@ import kotlinx.coroutines.flow.stateIn
 // ---- Setup home --------------------------------------------------------------------------------------------------
 
 class SetupHomeViewModel(app: Application) : SetupViewModel(app) {
-    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val config: StateFlow<DayCueConfig?> = facade.config.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), facade.snapshot.value?.config)
     val paired: StateFlow<Boolean> = facade.remote.paired
 }
 
@@ -59,12 +59,11 @@ fun SetupHomeScreen(push: (String) -> Unit) {
     val cfg by vm.config.collectAsStateWithLifecycle()
     val paired by vm.paired.collectAsStateWithLifecycle()
     SetupFrame(stringResource(R.string.su_home_title), onBack = null) {
-        Hint(stringResource(R.string.su_home_intro))
         val config = cfg
         val placeCount = config?.places?.count { it.active } ?: 0
         val calendars = config?.calendarRules?.calendars?.size ?: 0
 
-        SectionHeader(stringResource(R.string.su_home_sense_header))
+        SectionHeader(stringResource(R.string.su_home_sense_header), topPadding = 8.dp)
         SettingRow(
             stringResource(R.string.su_places_title),
             if (config == null) stringResource(R.string.su_places_home_hint) else pluralStringResource(R.plurals.su_places_active, placeCount, placeCount),
@@ -80,17 +79,14 @@ fun SetupHomeScreen(push: (String) -> Unit) {
         SettingRow(stringResource(R.string.su_sounds_title), stringResource(R.string.su_sounds_home_hint), { push(SetupRoutes.SOUNDS) })
         SettingRow(stringResource(R.string.su_quiet_title), stringResource(R.string.su_quiet_home_hint), { push(SetupRoutes.QUIET) })
 
-        SectionHeader(stringResource(R.string.su_home_connect_header))
+        SectionHeader(stringResource(R.string.su_home_app_header))
         SettingRow(
             stringResource(R.string.su_integrations_title),
             stringResource(if (paired) R.string.su_integrations_home_paired else R.string.su_integrations_home_hint),
             { push(SetupRoutes.INTEGRATIONS) },
         )
-
-        SectionHeader(stringResource(R.string.su_home_check_header))
         SettingRow(stringResource(R.string.su_readiness_title), stringResource(R.string.su_readiness_home_hint), { push(SetupRoutes.READINESS) })
-
-        SectionHeader(stringResource(R.string.su_home_app_header))
+        SettingRow(stringResource(R.string.su_activity_title), stringResource(R.string.su_activity_home_hint), { push(SetupRoutes.ACTIVITY) })
         SettingRow(stringResource(R.string.su_settings_title), stringResource(R.string.su_settings_home_hint), { push(SetupRoutes.SETTINGS) })
     }
 }
@@ -123,20 +119,17 @@ fun SettingsScreen(onBack: () -> Unit, push: (String) -> Unit) {
         val config = cfg
         if (config == null) { repeat(4) { SkeletonRow() }; return@SetupFrame }
 
-        SectionHeader(stringResource(R.string.su_set_general_header))
         val tag = vm.currentLanguageTag()
         SettingRow(stringResource(R.string.su_set_language), languageName(tag), { langSheet = true })
         TimeField(stringResource(R.string.su_set_day_starts), config.settings.dayStartsAt.hour * 60 + config.settings.dayStartsAt.minute, { dayStartPicker = true })
-        Hint(stringResource(R.string.su_set_day_starts_hint))
         Column(Modifier.padding(vertical = 8.dp)) {
             Text(stringResource(R.string.su_set_workdays), style = DayCueTheme.type.titleSmall, color = DayCueTheme.colors.ink)
-            Hint(stringResource(R.string.su_set_workdays_hint))
+            Gap(4)
             DayChips(config.settings.workDays, { day ->
                 val next = if (day in config.settings.workDays) config.settings.workDays - day else config.settings.workDays + day
                 vm.setWorkDays(next)
             })
         }
-        SettingRow(stringResource(R.string.su_quiet_title), stringResource(R.string.su_quiet_home_hint), { push(SetupRoutes.QUIET) })
         SwitchRow(stringResource(R.string.su_set_reduce_motion), reduce, { vm.setReduceMotion(it) }, secondary = stringResource(R.string.su_set_reduce_motion_hint))
 
         SectionHeader(stringResource(R.string.su_set_backup_header))
@@ -144,15 +137,13 @@ fun SettingsScreen(onBack: () -> Unit, push: (String) -> Unit) {
         SwitchRow(stringResource(R.string.su_set_include_history), includeHistory, { includeHistory = it }, secondary = stringResource(R.string.su_set_include_history_hint))
         if (config.medications.isNotEmpty()) FieldNote(stringResource(R.string.su_set_export_medication), error = false)
         if (includeHistory) FieldNote(stringResource(R.string.su_set_export_history_note), error = false)
-        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
-        SecondaryButton(
+        Gap(8)
+        PrimaryButton(
             stringResource(R.string.su_set_export),
             { vm.prepareExport(includeHistory) { exportLauncher.launch(vm.suggestedFileName()) } },
             Modifier.fillMaxWidth(), enabled = !exporting,
         )
-        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
-        SecondaryButton(stringResource(R.string.su_set_import), { importLauncher.launch(arrayOf("*/*")) }, Modifier.fillMaxWidth())
-        Hint(stringResource(R.string.su_set_import_hint))
+        DayCueTextButton(stringResource(R.string.su_set_import), { importLauncher.launch(arrayOf("*/*")) })
 
         SectionHeader(stringResource(R.string.su_set_about_header))
         SettingRow(stringResource(R.string.su_about_title), stringResource(R.string.su_about_hint), { push(SetupRoutes.ABOUT) })
@@ -189,7 +180,6 @@ private fun languageName(tag: String?): String = when (tag) {
 fun ImportScreen(onBack: () -> Unit) {
     val vm: SettingsViewModel = viewModel()
     val state by vm.importState.collectAsStateWithLifecycle()
-    var confirm by remember { mutableStateOf(false) }
     val back = { vm.resetImport(); onBack() }
 
     SetupFrame(stringResource(R.string.su_import_title), back) {
@@ -199,7 +189,11 @@ fun ImportScreen(onBack: () -> Unit) {
             is ImportUi.NotDayCue -> StateBlock(StateBlockKind.Error, stringResource(R.string.su_import_not_daycue), body = stringResource(R.string.su_import_not_daycue_body), actionLabel = stringResource(R.string.su_back), onAction = back)
             is ImportUi.TooNew -> StateBlock(StateBlockKind.Error, stringResource(R.string.su_import_too_new), body = stringResource(R.string.su_import_too_new_body), actionLabel = stringResource(R.string.su_back), onAction = back)
             ImportUi.Unreadable -> StateBlock(StateBlockKind.Error, stringResource(R.string.su_import_unreadable), body = stringResource(R.string.su_import_unreadable_body), actionLabel = stringResource(R.string.su_back), onAction = back)
-            ImportUi.Applied -> StateBlock(StateBlockKind.Empty, stringResource(R.string.su_import_done), body = stringResource(R.string.su_import_done_body), actionLabel = stringResource(R.string.su_done), onAction = back)
+            ImportUi.Applied -> {
+                StateBlock(StateBlockKind.Empty, stringResource(R.string.su_import_done), body = stringResource(R.string.su_import_done_body))
+                Gap(16)
+                PrimaryButton(stringResource(R.string.su_done), back, Modifier.fillMaxWidth())
+            }
             is ImportUi.Failed -> StateBlock(
                 StateBlockKind.Error,
                 stringResource(if (s.conflict) R.string.su_import_conflict else R.string.su_import_failed),
@@ -215,7 +209,7 @@ fun ImportScreen(onBack: () -> Unit) {
                     !plan.valid -> {
                         FieldNote(stringResource(R.string.su_import_invalid))
                         plan.preview.errors.take(20).forEach { e ->
-                            DayCueRow(primary = e.path, secondary = stringResource(friendlyError(e)))
+                            DayCueRow(primary = importErrorSubject(e.path), secondary = stringResource(friendlyError(e)))
                         }
                         SecondaryButton(stringResource(R.string.su_back), back, Modifier.fillMaxWidth())
                     }
@@ -225,27 +219,16 @@ fun ImportScreen(onBack: () -> Unit) {
                     else -> {
                         DiffReview(
                             title = pluralStringResource(R.plurals.su_import_changes, plan.preview.lines.size, plan.preview.lines.size),
-                            lines = plan.preview.lines.map { it.text },
+                            lines = friendlyDiffLines(plan.preview.lines.map { it.text }),
                             confirmLabel = stringResource(R.string.su_import_apply),
                             backLabel = stringResource(R.string.su_cancel),
-                            onConfirm = { confirm = true },
+                            onConfirm = { vm.applyImport(plan) },
                             onBack = back,
                         )
-                        Hint(stringResource(R.string.su_import_nothing_yet))
                     }
                 }
             }
         }
-    }
-    if (confirm) {
-        val review = state as? ImportUi.Review
-        if (review != null) {
-            DayCueDialog(
-                stringResource(R.string.su_import_confirm_title), stringResource(R.string.su_import_confirm_body),
-                stringResource(R.string.su_import_apply), stringResource(R.string.su_cancel),
-                onConfirm = { confirm = false; vm.applyImport(review.plan) }, onDismiss = { confirm = false },
-            )
-        } else confirm = false
     }
 }
 
@@ -263,7 +246,6 @@ fun AboutScreen(onBack: () -> Unit) {
         Hint(stringResource(R.string.su_about_no_advice))
 
         SectionHeader(stringResource(R.string.su_licenses_header))
-        Hint(stringResource(R.string.su_licenses_intro))
         for ((id, file) in listOf("rubik" to "OFL-Rubik.txt", "frank" to "OFL-FrankRuhlLibre.txt")) {
             val title = stringResource(if (id == "rubik") R.string.su_license_rubik else R.string.su_license_frank)
             DayCueRow(
@@ -298,3 +280,20 @@ fun PrivacyScreen(onBack: () -> Unit) {
         Para(stringResource(R.string.su_privacy_control))
     }
 }
+
+/** The validation path of an import problem as a short noun ("places[home].radiusM" -> "Places"). Never the raw path. */
+@Composable
+private fun importErrorSubject(path: String): String = stringResource(
+    when (path.substringBefore('[').substringBefore('.')) {
+        "habits" -> R.string.diff_sec_habits
+        "places" -> R.string.diff_sec_places
+        "routines" -> R.string.diff_sec_routines
+        "alarms" -> R.string.diff_sec_alarms
+        "medications" -> R.string.diff_sec_medications
+        "cueProfiles" -> R.string.diff_sec_profiles
+        "calendarRules" -> R.string.diff_sec_calendar
+        "contextRules" -> R.string.diff_sec_context
+        "postureCycle" -> R.string.diff_sec_posture
+        else -> R.string.diff_sec_settings
+    },
+)

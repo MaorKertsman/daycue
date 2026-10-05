@@ -42,20 +42,18 @@ internal fun historyKindText(kind: String): String? = when (kind) {
 
 @Composable
 internal fun historyWhen(ms: Long, zone: ZoneId = zoneNow): String {
-    val locale = currentLocale()
     val at = Instant.ofEpochMilli(ms).atZone(zone)
-    val time = at.toLocalTime().let { String.format(java.util.Locale.ROOT, "%02d:%02d", it.hour, it.minute) }
-    val today = LocalDate.now(zone)
-    return if (at.toLocalDate() == today) stringResource(R.string.cues_hist_today_at, time.ltr())
-    else "${at.toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))} ${time}".ltr()
+    val time = timeText(at.toLocalTime())
+    return if (at.toLocalDate() == LocalDate.now(zone)) stringResource(R.string.cues_hist_today_at, time)
+    else "${dayHeaderText(at.toLocalDate())} $time"
 }
 
 /** Compact recent-activity list for an item (UX 3.2 history excerpt). Hidden when there is nothing yet. */
 @Composable
-internal fun RecentActivity(vm: CuesViewModel, subjectType: String, subjectId: String, limit: Int = 5) {
+internal fun RecentActivity(vm: CuesViewModel, subjectType: String, subjectId: String, limit: Int = 5, onlyKinds: Set<String>? = null) {
     val flow = remember(subjectType, subjectId) { vm.history(subjectType, subjectId, 30) }
     val rows: List<HistoryEventEntity> by flow.collectAsState(emptyList())
-    val shown = rows.filter { !it.isTest }
+    val shown = rows.filter { !it.isTest && (onlyKinds == null || it.kind in onlyKinds) }
     val words = shown.map { it to historyKindText(it.kind) }.filter { it.second != null }.take(limit)
     if (words.isEmpty()) return
     SectionHeader(stringResource(R.string.cues_recent_activity))

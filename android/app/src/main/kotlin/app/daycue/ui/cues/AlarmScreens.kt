@@ -102,19 +102,19 @@ internal fun AlarmListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Strin
             val toggle = stringResource(if (a.enabled) R.string.cues_turn_off else R.string.cues_turn_on)
             val nextAt = today?.upcoming?.firstOrNull { it.itemKey == "alarm:${a.id}" }?.at
             Column(Modifier.fillMaxWidth()) {
+                // The time leads (sans, tabular); "Name · Sun–Thu" is the second line. One serif per screen: the title.
                 DayCueRow(
-                    primary = alarmName(a.id, a.name),
-                    secondary = daysSummary(a.days ?: cfg.settings.workDays),
+                    primary = timeText(a.time),
+                    secondary = "${alarmName(a.id, a.name)} · ${daysSummary(a.days ?: cfg.settings.workDays)}",
                     leading = { CueMark(CueType.Alarm, state = if (a.enabled) CueState.Scheduled else null) },
                     extra = {
-                        Text(timeText(a.time), style = DayCueTheme.type.headline, color = if (a.enabled) DayCueTheme.colors.ink else DayCueTheme.colors.ink2)
                         val skip = skipText(a)
-                        val status = skip ?: if (!a.enabled) stringResource(R.string.cues_off) else nextAt?.let { stringResource(R.string.cues_next_at, instantTime(it)) }
+                        val status = skip ?: if (!a.enabled) null else nextAt?.let { stringResource(R.string.cues_next_at, instantTime(it)) }
                         if (status != null) Text(status, style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
                     },
                     trailing = { DayCueSwitch(a.enabled, { vm.edit(ConfigOp.SetAlarmEnabled(a.id, it)) }, Modifier.semantics { contentDescription = a.name }) },
                     onClick = { push("alarm/${a.id}") },
-                    divider = false,
+                    divider = true,
                     semanticsExtra = {
                         stateDescription = if (a.enabled) on else off
                         customActions = listOf(CustomAccessibilityAction(toggle) { vm.edit(ConfigOp.SetAlarmEnabled(a.id, !a.enabled)); true })
@@ -134,7 +134,7 @@ internal fun AlarmListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (Strin
             }
         }
         Spacer(Modifier.height(8.dp))
-        PrimaryButton(stringResource(R.string.cues_alarm_add), ::create, Modifier.fillMaxWidth())
+        DayCueTextButton(stringResource(R.string.cues_alarm_add), ::create)
     }
 }
 
@@ -153,6 +153,8 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
     var sheet by remember { mutableStateOf<String?>(null) }
     var advanced by remember { mutableStateOf(false) }
     var tested by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val openSounds: () -> Unit = { context.startActivity(app.daycue.delivery.DeepLinks.intent(context, "setup", "sounds")) }
     val def = remember { MorningAlarm(id = "x") }
     val spotify = a.source as? AlarmSource.SpotifyItem
     val showSpotify = spotifyAvailable || spotify != null
@@ -160,7 +162,7 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
     val changed = listOf(a.volumeRampSec != def.volumeRampSec, a.snoozeMin != def.snoozeMin || a.maxSnoozes != def.maxSnoozes, a.ringTimeoutMin != def.ringTimeoutMin, a.vibrate != def.vibrate)
 
     CuesScreen(
-        alarmName(a.id, a.name), onBack,
+        alarmName(a.id, a.name), onBack, mark = CueType.Alarm,
         trailing = { DayCueSwitch(a.enabled, { vm.edit(ConfigOp.SetAlarmEnabled(a.id, it)) }, Modifier.semantics { contentDescription = a.name }) },
     ) {
         CommitTextField(alarmName(a.id, a.name), { save(a.copy(name = it.take(40))) }, stringResource(R.string.cues_name))
@@ -177,15 +179,15 @@ internal fun AlarmEditorScreen(vm: CuesViewModel, id: String, onBack: () -> Unit
                 FieldErrors(errors, "$path.source")
             }
         } else {
-            DayCueRow(primary = stringResource(R.string.cues_alarm_sound), secondary = stringResource(R.string.cues_alarm_src_tone))
+            DayCueRow(primary = stringResource(R.string.cues_alarm_sound), secondary = stringResource(R.string.cues_alarm_src_tone), trailing = { GlyphIcon(Glyph.Chevron, DayCueTheme.colors.ink2) }, onClick = openSounds)
         }
-        DayCueRow(primary = stringResource(R.string.cues_alarm_backup), secondary = stringResource(R.string.cues_alarm_backup_value))
+        DayCueRow(primary = stringResource(R.string.cues_alarm_backup), secondary = stringResource(R.string.cues_alarm_backup_value), trailing = { GlyphIcon(Glyph.Chevron, DayCueTheme.colors.ink2) }, onClick = openSounds)
         val routineLabel = a.followOnRoutineId?.let { rid -> cfg.routine(rid)?.let { routineName(it.id, it.name) } } ?: stringResource(R.string.cues_alarm_then_none)
         SettingRow(stringResource(R.string.cues_alarm_then), routineLabel, { sheet = "routine" })
         FieldErrors(errors, "$path.followOnRoutineId")
 
         Spacer(Modifier.height(16.dp))
-        SecondaryButton(stringResource(R.string.cues_alarm_test), { tested = true; vm.testAlarm(a.id) }, Modifier.fillMaxWidth())
+        DayCueTextButton(stringResource(R.string.cues_alarm_test), { tested = true; vm.testAlarm(a.id) })
         Text(stringResource(R.string.cues_alarm_test_note), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 4.dp))
         if (tested && spotify != null) {
             val fell = music as? AlarmMusicState.FellBack

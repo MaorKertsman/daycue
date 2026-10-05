@@ -39,7 +39,9 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.offset
 import app.daycue.R
 import app.daycue.ui.marks.CueMark
 import app.daycue.ui.marks.CueState
@@ -220,7 +222,7 @@ fun SwitchRow(
  * so a wrapped header does not float it and at 2.0 it never reads as a hyphen. 32dp above, 8dp below.
  */
 @Composable
-fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+fun SectionHeader(text: String, modifier: Modifier = Modifier, topPadding: Dp = DayCueSpacing.section) {
     val c = DayCueTheme.colors
     val density = LocalDensity.current
     val style = DayCueTheme.type.label
@@ -229,7 +231,7 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
-            .padding(top = DayCueSpacing.section, bottom = DayCueSpacing.x2)
+            .padding(top = topPadding, bottom = DayCueSpacing.x2)
             .semantics { heading() },
         verticalAlignment = Alignment.Top,
     ) {
@@ -361,7 +363,7 @@ fun ReadinessRow(
                 Text(consequence, style = DayCueTheme.type.bodySmall, color = c.ink2)
             }
         },
-        trailing = if (problem && onFix != null) ({ DayCueTextButton(fixLabel, onFix) }) else null,
+        trailing = if (problem && onFix != null) ({ DayCueTextButton(fixLabel, onFix, Modifier.offset(x = 12.dp)) }) else null,
     )
 }
 

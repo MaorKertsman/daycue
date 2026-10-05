@@ -64,11 +64,17 @@ internal class Run(
     val ctxReady: Boolean get() = this::ctx.isInitialized
     /** One-shot guards within a single reduce (e.g. recovery cues). */
     val once = mutableSetOf<String>()
+    /** Quiet re-posts of lost notifications in this reduce: (notification key, deliver, history row). */
+    val reposts = mutableListOf<Triple<String, Effect.Deliver, Effect.RecordHistory>>()
 
     val prevEvaluatedAt: Instant? = st.lastEvaluatedAt
     /** A routine run was already running before this event (for RTN-5/6 interruption detection). */
     val routineRunningAtStart: Boolean = st.routine.run?.status == RunStatus.Running
-    val isReboot: Boolean = event is Event.BootCompleted && st.lastElapsedRealtimeMs != null && elapsedMs < st.lastElapsedRealtimeMs!!
+    /**
+     * A real reboot: `elapsedRealtime` went backwards. Detected on whichever event is reduced first after boot (a geofence
+     * signal or a config edit can arrive before `BootCompleted`), so recovery never depends on event order.
+     */
+    val isReboot: Boolean = st.lastElapsedRealtimeMs != null && elapsedMs < st.lastElapsedRealtimeMs!!
     val zoneChanged: Boolean = st.lastZone != null && st.lastZone != zone
     val timeRecovery: Boolean = event is Event.TimeChanged || event is Event.TimezoneChanged || zoneChanged
     val recovery: Boolean = isReboot || timeRecovery

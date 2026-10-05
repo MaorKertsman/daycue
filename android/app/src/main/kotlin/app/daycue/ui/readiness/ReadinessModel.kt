@@ -21,7 +21,7 @@ object ReadinessCopy {
     /** Rows that can make core reminders late or invisible: only these can appear on Today (UX 3.2). */
     private val critical = setOf(
         ReadinessId.Notifications, ReadinessId.BlockedChannels, ReadinessId.ExactAlarms, ReadinessId.BackgroundRestricted,
-        ReadinessId.BatteryOptimization, ReadinessId.Hibernation, ReadinessId.FullScreenIntent,
+        ReadinessId.BatteryOptimization, ReadinessId.Hibernation, ReadinessId.FullScreenIntent, ReadinessId.ForceStopped,
     )
 
     @StringRes fun name(id: ReadinessId): Int = when (id) {
@@ -80,10 +80,13 @@ object ReadinessCopy {
     fun sorted(report: ReadinessReport): List<ReadinessItem> =
         report.items.sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
 
-    /** How many rows may delay reminders (optional integrations never count). */
+    /** Rows that can make core reminders late or invisible; everything else (voices, speech) is optional. */
+    fun isCritical(id: ReadinessId): Boolean = id in critical
+
+    /** How many rows may delay reminders: only critical rows count, optional ones (voices, speech) never do. */
     fun problemCount(report: ReadinessReport, alarmEnabled: Boolean): Int = report.items.count {
-        (it.status == ReadinessStatus.Limited || it.status == ReadinessStatus.Off) &&
-            (it.id != ReadinessId.FullScreenIntent || alarmEnabled) && it.id != ReadinessId.SpeechFailure
+        it.id in critical && (it.status == ReadinessStatus.Limited || it.status == ReadinessStatus.Off) &&
+            (it.id != ReadinessId.FullScreenIntent || alarmEnabled)
     }
 
     @StringRes fun contextName(id: ContextReadinessId): Int = when (id) {

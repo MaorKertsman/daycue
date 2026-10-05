@@ -28,6 +28,9 @@ class SystemEventsReceiver : BroadcastReceiver() {
         runAsync(context, action) { app ->
             if (action == Intent.ACTION_BOOT_COMPLETED) LockedBootAlarms.cancelLockedAlarm(context) // unlocked: the engine owns waking again
             if (event != null) app.host.dispatch(event) else app.channels.refreshNames()
+            // The process may have started before the first unlock (direct boot) and skipped the start-up reconcile:
+            // after boot no notification survives, so re-post what the engine still lists as visible (D1).
+            if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED) app.reconcileNotifications()
             if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED) app.housekeeping()
         }
     }

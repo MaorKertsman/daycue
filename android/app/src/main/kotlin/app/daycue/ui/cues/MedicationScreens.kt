@@ -1,5 +1,7 @@
 package app.daycue.ui.cues
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -29,6 +31,7 @@ import app.daycue.domain.config.Medication
 import app.daycue.domain.engine.Event
 import app.daycue.domain.query.DoseStatus
 import app.daycue.domain.query.DoseView
+import app.daycue.ui.components.DayChip
 import app.daycue.ui.components.DayCueBottomSheet
 import app.daycue.ui.components.DayCueRow
 import app.daycue.ui.components.DayCueTextButton
@@ -41,6 +44,7 @@ import app.daycue.ui.components.StatusKind
 import app.daycue.ui.components.StatusText
 import app.daycue.ui.marks.CueMark
 import app.daycue.ui.marks.CueType
+import app.daycue.ui.theme.DayCueSpacing
 import app.daycue.ui.theme.DayCueTheme
 import app.daycue.ui.util.ltr
 import java.time.Instant
@@ -69,7 +73,8 @@ internal fun MedicationListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (
     val today by vm.today.collectAsState()
     val cfg = config
     var doseSheet by remember { mutableStateOf<DoseView?>(null) }
-    CuesScreen(stringResource(R.string.cue_medication), onBack) {
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
+    CuesScreen(stringResource(R.string.cues_med_title), onBack, mark = CueType.Medication) {
         if (cfg == null) return@CuesScreen
         if (cfg.medications.isEmpty()) {
             Spacer(Modifier.height(16.dp))
@@ -81,18 +86,22 @@ internal fun MedicationListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (
             if (doses.isNotEmpty()) {
                 SectionHeader(stringResource(R.string.cues_med_today))
                 doses.forEachIndexed { i, d ->
+                    val open = d.status == DoseStatus.Due || d.status == DoseStatus.Upcoming
+                    val takenButton = @Composable { m: Modifier ->
+                        SecondaryButton(stringResource(R.string.cues_med_taken), { vm.dispatch(Event.MedicationTaken(d.slot)) }, m, compact = true)
+                    }
                     DayCueRow(
                         primary = d.label,
                         leading = { CueMark(CueType.Medication) },
                         extra = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // The status text wraps by word and owns the full column; at large font the button moves to its own line.
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(instantTime(d.dueAt), style = DayCueTheme.type.numeric, color = DayCueTheme.colors.ink)
                                 StatusText(d.status.kind(), detail = if (d.status == DoseStatus.Taken && d.takenAt != null) instantTime(d.takenAt!!) else null, cue = app.daycue.ui.marks.CueType.Medication)
                             }
+                            if (open && largeText) takenButton(Modifier.padding(top = 8.dp))
                         },
-                        trailing = if (d.status == DoseStatus.Due || d.status == DoseStatus.Upcoming) ({
-                            SecondaryButton(stringResource(R.string.cues_med_taken), { vm.dispatch(Event.MedicationTaken(d.slot)) }, compact = true)
-                        }) else null,
+                        trailing = if (open && !largeText) ({ takenButton(Modifier) }) else null,
                         onClick = { doseSheet = d },
                         divider = i < doses.lastIndex,
                     )
@@ -101,7 +110,7 @@ internal fun MedicationListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (
             SectionHeader(stringResource(R.string.cues_med_all))
             cfg.medications.forEach { m -> MedicationRow(m, doses.filter { it.slot.medicationId == m.id }) { push("med/${m.id}") } }
             Spacer(Modifier.height(8.dp))
-            PrimaryButton(stringResource(R.string.cues_med_add), { push("med/new") }, Modifier.fillMaxWidth())
+            DayCueTextButton(stringResource(R.string.cues_med_add), { push("med/new") })
         }
         Spacer(Modifier.height(16.dp))
         DayCueTextButton(stringResource(R.string.cues_med_history), { push("med/history") })
@@ -113,14 +122,12 @@ internal fun MedicationListScreen(vm: CuesViewModel, onBack: () -> Unit, push: (
 @Composable
 private fun MedicationRow(m: Medication, doses: List<DoseView>, onClick: () -> Unit) {
     val times = m.times.sorted().map { timeText(it) }.joinToString(" · ")
-    val todayText = doses.map { "${instantTime(it.dueAt)} ${doseStatusText(it)}" }.joinToString(" · ")
     val ended = m.endDate?.takeIf { it.isBefore(LocalDate.now()) }
     DayCueRow(
         primary = m.label,
         secondary = "$times · ${daysSummary(m.days)}",
         leading = { CueMark(CueType.Medication, state = if (ended != null) app.daycue.ui.marks.CueState.Paused else null) },
         extra = {
-            if (todayText.isNotEmpty()) Text(todayText, style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2)
             m.endDate?.let { Text(stringResource(if (ended != null) R.string.cues_med_stopped_on else R.string.cues_med_stops_on, dateText(it)), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2) }
         },
         onClick = onClick,
@@ -168,9 +175,10 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
     CuesScreen(stringResource(R.string.cues_med_history), onBack) {
         if (cfg == null) return@CuesScreen
         if (cfg.medications.size > 1) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton(stringResource(R.string.cues_hist_all), { filter = null }, compact = true, selected = filter == null)
-                cfg.medications.forEach { m -> SecondaryButton(m.label, { filter = m.id }, compact = true, selected = filter == m.id) }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val all = stringResource(R.string.cues_hist_all)
+                DayChip("  $all  ", all, filter == null, { filter = null })
+                cfg.medications.forEach { m -> DayChip("  ${m.label}  ", m.label, filter == m.id, { filter = m.id }) }
             }
         }
         val shown = rows.filter { it.subjectType == "medication" && !it.isTest && it.kind in MED_KINDS && (filter == null || it.subjectId == filter) }
@@ -185,20 +193,28 @@ internal fun MedicationHistoryScreen(vm: CuesViewModel, onBack: () -> Unit) {
             Instant.ofEpochMilli(r.occurredAtMs).atZone(zone).minusHours(dayStart.hour.toLong()).minusMinutes(dayStart.minute.toLong()).toLocalDate()
         }
         byDay.forEach { (day, list) ->
-            SectionHeader(dateText(day))
+            SectionHeader(dayHeaderText(day))
             list.forEachIndexed { i, r ->
                 val label = cfg.medication(r.subjectId)?.label ?: stringResource(R.string.cues_med_removed)
                 val slot = r.payloadJson?.let { runCatching { DayCueJson.decodeFromString(HistoryPayload.serializer(), it).itemKey.substringAfterLast('|') }.getOrNull() }
                 val at = Instant.ofEpochMilli(r.occurredAtMs).atZone(zone).toLocalTime()
                 val word = if (r.kind == "Delivered") stringResource(R.string.cues_hist_reminder) else (historyKindText(r.kind) ?: r.kind)
-                DayCueRow(
-                    primary = label,
-                    secondary = buildString {
-                        if (slot != null && slot.contains(':') && slot.length <= 5) append(stringResource(R.string.cues_med_hist_dose, runCatching { LocalTime.parse(slot) }.getOrNull()?.let { timeText(it) } ?: slot)).append(" · ")
-                        append(word).append(" ").append(timeText(at))
-                    },
-                    divider = i < list.lastIndex,
-                )
+                val doseText = if (slot != null && slot.contains(':') && slot.length <= 5) stringResource(R.string.cues_med_hist_dose, runCatching { LocalTime.parse(slot) }.getOrNull()?.let { timeText(it) } ?: slot) else null
+                if (r.kind == "Delivered" || r.kind == "Dismissed") {
+                    // Reminder sent / notification dismissed are context for the dose, not events of their own: ink2 secondary line.
+                    Text(
+                        listOfNotNull(label, doseText, "$word ${timeText(at)}").joinToString(" · "),
+                        style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2,
+                        modifier = Modifier.padding(start = DayCueSpacing.markSlot + DayCueSpacing.inRow, top = 2.dp, bottom = 6.dp),
+                    )
+                } else {
+                    DayCueRow(
+                        primary = label,
+                        secondary = listOfNotNull(doseText, "$word ${timeText(at)}").joinToString(" · "),
+                        leading = { CueMark(CueType.Medication) },
+                        divider = i < list.lastIndex,
+                    )
+                }
             }
         }
         Text(stringResource(R.string.cues_med_disclaimer), style = DayCueTheme.type.bodySmall, color = DayCueTheme.colors.ink2, modifier = Modifier.padding(top = 16.dp))

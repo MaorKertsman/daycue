@@ -67,6 +67,52 @@ sealed interface AlarmMusicState {
     data class FellBack(val failure: SpotifyFailure, val recovery: RecoveryAction, val stoppedAfterPlaying: Boolean = false) : AlarmMusicState
 }
 
+/** Connection state of the Spotify alarm source as Settings shows it. */
+enum class SpotifyConnection {
+    /** This build cannot use Spotify (no SDK AAR or no client id). */
+    Unavailable,
+    /** Usable build, but the Spotify app is not installed. */
+    NotInstalled,
+    /** Ready; nothing is connected now (App Remote connects only while an alarm rings or on "Try again"). */
+    Idle,
+    Connecting,
+    Playing,
+    /** The last attempt fell back to the local tone ([SpotifyAvailability.lastFailure] says why). */
+    FellBack,
+}
+
+/**
+ * APP_API §11 `facade.spotify`: whether the Spotify alarm source exists in this build ([available]), can be used
+ * on this phone ([enabled]: available and installed), and its connection state.
+ */
+data class SpotifyAvailability(
+    val sdkBundled: Boolean,
+    val clientIdConfigured: Boolean,
+    val installed: Boolean,
+    val connection: SpotifyConnection,
+    val lastFailure: SpotifyFailure? = null,
+) {
+    val available: Boolean get() = sdkBundled && clientIdConfigured
+    val enabled: Boolean get() = available && installed
+
+    companion object {
+        /** Pure (JVM-tested). */
+        fun of(sdkBundled: Boolean, clientIdConfigured: Boolean, installed: Boolean, music: AlarmMusicState): SpotifyAvailability {
+            val connection = when {
+                !sdkBundled || !clientIdConfigured -> SpotifyConnection.Unavailable
+                !installed -> SpotifyConnection.NotInstalled
+                else -> when (music) {
+                    AlarmMusicState.Idle -> SpotifyConnection.Idle
+                    AlarmMusicState.Connecting -> SpotifyConnection.Connecting
+                    AlarmMusicState.Playing -> SpotifyConnection.Playing
+                    is AlarmMusicState.FellBack -> SpotifyConnection.FellBack
+                }
+            }
+            return SpotifyAvailability(sdkBundled, clientIdConfigured, installed, connection, (music as? AlarmMusicState.FellBack)?.failure)
+        }
+    }
+}
+
 class AlarmMusicStatus {
     private val s = MutableStateFlow<AlarmMusicState>(AlarmMusicState.Idle)
     val state: StateFlow<AlarmMusicState> = s.asStateFlow()
