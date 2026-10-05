@@ -200,6 +200,7 @@ A signed ack that arrives after the relay marked the command `expired` is accept
 | `GET /v1/phone/activity` | The latest signed signal **per companion** plus the companion public keys; the phone verifies each signal's signature (message in 4.5, `signals[].signature`) with the listed key. **Trust model: see 4.4.1.** Used by the opt-in "frequent check" mode. Response below |
 | `DELETE /v1/companion/self` | Companion credential only (see 3.4): the companion revokes itself |
 | `DELETE /v1/phone/self` | Phone credential only: **unpair**. Revokes this phone (credential and FCM token dropped, record keeps id/label/public key), clears the paired-phone slot, expires every non-terminal command ("phone was unpaired"), audits `phone.self_revoked`; `200 {ok, serverTime}`. The app should call it best effort before deleting its local credential; afterwards the old credential gets `401`. Without it the credential stays valid until the owner revokes the device |
+| `DELETE /v1/phone/companions/:id` | The paired phone revokes one companion; signed with the phone key, see 4.4.2 |
 | `GET /v1/phone/grants` | The grant list (4.6) |
 | `POST /v1/phone/grants/:id/decision` | Approve, decline or revoke a grant (4.6) |
 
@@ -211,6 +212,26 @@ A signed ack that arrives after the relay marked the command `expired` is accept
 ```
 
 `signals` has one entry per non-revoked companion that has a stored signal (most recent `observedAt` first; `[]` if none). `signal` is the legacy single-signal field, kept for backward compatibility: the most recent signal by `observedAt` in the old shape (`sig` instead of `signature`), or `null`. New clients should read `signals`. The relay does not filter by freshness here; the phone applies `observedAt + ttlSeconds` itself.
+
+#### 4.4.2 Phone revokes a companion
+
+`DELETE /v1/phone/companions/:id` (phone credential, no body). Two request headers carry the proof, because DELETE bodies are unreliable through proxies and clients:
+
+```
+Authorization: Bearer <phone dcd_... credential>
+X-DayCue-Signed-At: <epoch milliseconds, integer>
+X-DayCue-Signature: <base64url ECDSA P-256/SHA-256 signature by the phone device key, same encoding as grant decisions>
+```
+
+The signature is over the UTF-8 string (lines joined with `\n`, no trailing newline):
+
+```
+daycue.companion.revoke.v1
+<companion id, exactly as in the URL path (decoded)>
+<signedAt as integer>
+```
+
+`signedAt` must be within 10 minutes of the relay clock (same window as grant decisions); a stolen credential without the key, a signature for another companion id, or an old signature cannot revoke. Order of checks: phone credential (`401 unauthorized`, also for another phone's or a revoked credential), `signedAt` present and in window (`400 invalid_request`), signature (`403 bad_signature`, audited as `companion.revoke_bad_signature`), then lookup. Results: `204` revoked now; `204` also when that companion was already revoked (idempotent, no second audit entry); `404 unknown_companion` when the id was never a companion on this relay (the app treats this as "gone"). Effects: credential dropped (the companion's next call gets `401`), signal slot deleted, it disappears from `GET /v1/phone/activity`; the record keeps id, label and public key. Audit action: `companion.phone_revoked`. The list needs no new endpoint: `GET /v1/phone/activity` already returns `companions[].{id,label,publicKey}` (the app derives the fingerprint itself); `pairedAt`/`lastSeenAt` are not exposed because the app does not use them.
 
 #### 4.4.1 Trust model for companion keys (corrected)
 

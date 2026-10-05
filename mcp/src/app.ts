@@ -338,6 +338,11 @@ export function createApp(relay: Relay, opts: AppOptions = {}): Hono {
     return c.json({ grants: await relay.auth.grantsForPhone(), serverTime: relay.clock.now() });
   });
   app.post('/v1/phone/grants/:id/decision', async (c) => c.json(await relay.phoneGrantDecision(await phone(c), c.req.param('id'), await json(c))));
+  app.delete('/v1/phone/companions/:id', async (c) => {
+    const p = await phone(c);
+    await relay.revokeCompanionByPhone(p, c.req.param('id'), c.req.header('x-daycue-signed-at'), c.req.header('x-daycue-signature'));
+    return c.body(null, 204);
+  });
   app.get('/v1/phone/activity', async (c) => {
     await phone(c);
     return c.json(await relay.activityForPhone());

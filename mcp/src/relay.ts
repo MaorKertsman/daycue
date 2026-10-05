@@ -84,6 +84,10 @@ export function ackMessageV2(c: { id: string; payloadHash: string }, outcome: st
 export function grantDecisionMessage(grantId: string, decision: string, scopes: string[], decidedAt: number) {
   return `daycue.grant.v1\n${grantId}\n${decision}\n${[...scopes].sort().join(' ')}\n${decidedAt}`;
 }
+/** Phone revokes one paired companion. Signed with the phone key (a stolen phone credential alone cannot unpair companions). */
+export function companionRevokeMessage(companionId: string, signedAt: number) {
+  return `daycue.companion.revoke.v1\n${companionId}\n${signedAt}`;
+}
 export function signalMessage(companionId: string, state: string, observedAt: number, ttlSeconds: number) {
   return `daycue.signal.v1\n${companionId}\n${state}\n${observedAt}\n${ttlSeconds}`;
 }
@@ -258,6 +262,28 @@ export class Relay {
     await this.revokeDevice(co.id);
     await this.audit(`companion:${co.id}`, 'companion.self_revoked', { deviceId: co.id });
     return { ok: true, serverTime: this.now };
+  }
+
+  /**
+   * The paired phone revokes a companion. Requires the phone key's signature over companionRevokeMessage within 10 minutes of
+   * the relay clock. Idempotent: an already revoked companion returns `{already: true}` without a second audit entry; an id that
+   * was never a companion throws 404 unknown_companion.
+   */
+  async revokeCompanionByPhone(phone: Device, companionId: string, signedAtRaw: string | undefined, signature: string | undefined) {
+    const signedAt = signedAtRaw !== undefined && /^\d{1,16}$/.test(signedAtRaw) ? Number(signedAtRaw) : NaN;
+    if (!Number.isSafeInteger(signedAt) || Math.abs(this.now - signedAt) > 10 * 60_000) {
+      throw new RelayError('invalid_request', 'X-DayCue-Signed-At must be epoch milliseconds within 10 minutes of the relay clock', 400);
+    }
+    if (typeof signature !== 'string' || !(await verifyEcdsaP256(phone.publicKey, companionRevokeMessage(companionId, signedAt), signature))) {
+      await this.audit(`phone:${phone.id}`, 'companion.revoke_bad_signature', { companionId: companionId.slice(0, 64) });
+      throw new RelayError('bad_signature', 'Revoke signature does not verify against the paired device key', 403);
+    }
+    const co = await this.store.get<Device>('device', companionId);
+    if (!co || co.role !== 'companion') throw new RelayError('unknown_companion', 'No such companion', 404);
+    if (co.revokedAt) return { already: true };
+    await this.revokeDevice(co.id);
+    await this.audit(`phone:${phone.id}`, 'companion.phone_revoked', { deviceId: co.id });
+    return { already: false };
   }
 
   async pairPhone(body: { code: string; publicKey: string; label?: string; fcmToken?: string }, source = 'unknown') {
