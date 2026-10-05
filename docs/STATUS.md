@@ -44,28 +44,27 @@ _Last updated: 2026-10-04 (session 1)_
 - Relay hosting question open with owner: (A) Render free + Supabase free Postgres, $0, cold starts; (B) Render Starter + disk ~$7/mo. Lead recommends A. Do not deploy before the owner chooses.
 - One early commit (8141492) contains the local path with the Windows username in docs/setup/MCP.md; fixed forward; owner told, history not rewritten.
 
-## Session 1 ended (owner went offline, 2026-10-04)
+## State at 2026-10-05 (session continued)
 
-Committed and pushed through 93602b4: phone relay client, companion signal intake, Spotify alarm path (off by default), relay follow-ups (60 relay tests).
+Committed through c59b66a; CI green at 9584927 (re-check after each push — it was red for several commits on lint errors and the lead missed it).
 
-Two agents were still running when the session stopped; their work is UNCOMMITTED in the working tree and may be half-finished:
-- UI engineer applying docs/design/REVIEW-1.md in android/app ui/** and src/debug/**; screenshots go to ../daycue-review/design-system-2 (emulator-5556, AVD daycue_ui).
-- Scheduling engineer adding integrations/location/** and integrations/calendar/** (+ facade, manifest, ADR-0004, FEASIBILITY updates) (emulator-5554, AVD daycue_test).
+Done since the earlier notes: places/geofencing/activity recognition/calendar provider; security review 1 and its fixes (relay hardening 103 tests, domain value-level redaction + explicit op sensitivity, app adoption, grant approval, backup exclusion); real screens for all three tabs + onboarding/readiness/alarm; design reviews 1 and 2 with fix rounds; QA report docs/VALIDATION.md (10 pass / 7 partial / 1 fail before fixes); engine/platform fixes for QA defects D1, D2, D4, D6 (analysis), D7, D8, posture extend/pause, place override, dose correction, clock-jump medication catch-up (owner decision: one merged notice, 48 h window).
 
-To resume:
-1. `git status`; run `.gradlew.bat :domain:test :app:testDebugUnitTest :app:assembleDebug`. If green, review and commit; if not, hand the failing area back to the owning role with the error.
-2. Check for leftover headless emulators (`adb devices`) and stop them with `adb -s <id> emu kill` if not needed.
-3. Re-run whichever of the two tasks did not finish (task briefs are summarized above; specs are in docs/).
+Owner decisions so far: communicate in English; Render offered for hosting; medication catch-up notice after clock jumps (yes).
+Still open with owner: relay hosting A (Render free + Supabase free Postgres) vs B (Render Starter + disk); Spotify alarms (shipped off; policy forbids alarm use without approval); whether global pause should also pause calendar cues; posture after long manual pause now keeps position (owner may object).
 
-Open decisions with the owner (none blocks other work):
-- Relay hosting: (A) Render free + Supabase free Postgres, $0, cold starts, PgStore untested; (B) Render Starter + disk, ~$7/mo unconfirmed. Lead recommends A.
-- Spotify alarms: Spotify Developer Policy forbids alarm functionality without written approval; shipped off. Owner chooses: keep off / enable for self / ask Spotify.
-- Global pause currently does not pause calendar cues.
+## In progress
+
+- UI engineer (single owner of ui/**): adopting new facade APIs, remaining REVIEW-2 shell/shared items, QA D3/D5; captures to ../daycue-review/app-3 (emulator-5556).
+- Integrations engineer: relay DELETE /v1/phone/companions/:id (signed) — app request shape may need adjusting afterwards.
+- Docs writer: README.md, docs/QUICKSTART.he.md, docs/setup/INSTALL.md, docs/LIMITATIONS.md.
 
 ## Next steps
 
-1. Finish and commit the two in-flight tasks above.
-2. UI engineer: real screens wired to the facade (docs/architecture/APP_API.md): Today, Cues (habits, medication, posture, routines, alarms), Setup (places, calendar, cues, integrations incl. remote-access confirmation screen and daycue://open/remote deep link, readiness, settings, export/import), onboarding (ask full-screen-intent access when the first alarm is created), styled alarm screen reading facade.alarmMusic. Add android:icon/roundIcon to the main manifest.
-3. Designers review real screens (second review); QA runs docs/ACCEPTANCE.md and writes docs/VALIDATION.md; security reviewer audits repo, relay, pairing, permissions.
-4. Signed release APK (owner keystore, docs/setup/BUILD.md), GitHub release, Hebrew quick start, final docs, limitations list.
-5. Owner bundle: hosting choice, Spotify choice, Firebase (optional push wake), phone model + USB debugging for physical-device tests (speech audibility, geofence latency, lock-screen alarm, companion end to end).
+1. Build (incl. lint) + commit each result; confirm CI.
+2. If the relay endpoint requires a signature the app does not send, have the integrations engineer adjust integrations/relay (small).
+3. QA re-verification of fixed defects (D1 reboot, D2 release manifest, D3, D4, D5, D7, D8, posture) and scenarios 8/9 with the real companion against a local relay; update VALIDATION.md.
+4. Final designer pass on ../daycue-review/app-3 if time allows.
+5. Release: owner must create a keystore (docs/setup/BUILD.md) for a signed APK; until then attach a debug-signed APK to a GitHub pre-release and say so. Handle Dependabot PRs (#1 close; #2-#4 rebase/merge).
+6. Deploy relay only after the owner picks hosting; then live checks with Claude Code / Claude.ai.
+7. Owner bundle: hosting, Spotify, Firebase (optional), keystore, phone model + USB debugging for the physical checks in VALIDATION.md section 5.
