@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Hebrew for strings_app.xml. Gender-neutral: no second-person masculine or feminine forms; first-person past
+         (שתיתי, מרחתי, לקחתי, עברתי) and infinitives are neutral. Times and numbers arrive already isolated. -->
+
+    <!-- Navigation and shared -->
+    <string name="app_nav_today">היום</string>
+    <string name="app_nav_cues">תזכורות</string>
+    <string name="app_nav_setup">הגדרות</string>
+    <string name="app_back">חזרה</string>
+    <string name="app_undo">ביטול</string>
+    <string name="app_continue">המשך</string>
+    <string name="app_skip">דילוג</string>
+    <string name="app_allow">אישור</string>
+    <string name="app_not_now">לא עכשיו</string>
+    <string name="app_yes">כן</string>
+    <string name="app_no">לא</string>
+    <string name="app_resume">חידוש</string>
+    <string name="app_help">עזרה</string>
+
+    <!-- Default names that follow the app language -->
+    <string name="app_name_morning_routine">שגרת בוקר</string>
+    <string name="app_name_morning_alarm">שעון מעורר בבוקר</string>
+    <string name="app_place_home">בית</string>
+    <string name="app_place_office">משרד</string>
+    <string name="app_place_gym">חדר כושר</string>
+
+    <!-- Today: sections and states -->
+    <string name="app_now">עכשיו</string>
+    <string name="app_running">פעיל</string>
+    <string name="app_next">הבא</string>
+    <string name="app_see_today">כל מה שמתוכנן להיום</string>
+    <plurals name="app_more_due">
+        <item quantity="one">עוד אחד ממתין</item>
+        <item quantity="two">עוד שניים ממתינים</item>
+        <item quantity="many">עוד %d ממתינים</item>
+        <item quantity="other">עוד %d ממתינים</item>
+    </plurals>
+    <string name="app_nothing_else">אין עוד דבר להיום.</string>
+    <string name="app_empty_nothing_enabled">אפשר לבחור במה DayCue תעזור</string>
+    <string name="app_empty_nothing_enabled_body">עדיין לא הופעל דבר.</string>
+    <string name="app_empty_choose">לבחירה</string>
+
+    <!-- Today: context -->
+    <string name="app_place_unknown">המיקום לא ברור</string>
+    <string name="app_place_elsewhere">במקום אחר</string>
+    <string name="app_env_indoor">בפנים</string>
+    <string name="app_env_outdoor">בחוץ</string>
+    <string name="app_env_unknown">בפנים או בחוץ: לא ברור</string>
+    <string name="app_act_working">בעבודה</string>
+    <string name="app_act_studying">בלימודים</string>
+    <string name="app_act_meeting">בפגישה</string>
+    <string name="app_act_routine">בשגרה</string>
+    <string name="app_act_none">ללא</string>
+    <string name="app_set_it">לקבוע</string>
+    <string name="app_set_by_you">נקבע ידנית</string>
+    <string name="app_detection_paused">הזיהוי האוטומטי מושהה</string>
+    <string name="app_detection_paused_until">הזיהוי האוטומטי מושהה עד %1$s</string>
+    <string name="app_resume_detection">חידוש הזיהוי האוטומטי</string>
+    <string name="app_src_manual">נקבע ידנית</string>
+    <string name="app_src_location">לפי מיקום</string>
+    <string name="app_src_place">לפי המקום</string>
+    <string name="app_src_motion">לפי תנועה</string>
+    <string name="app_src_assumed">הנחה</string>
+    <string name="app_src_computer">לפי המחשב</string>
+    <string name="app_src_calendar">לפי היומן</string>
+    <string name="app_src_routine">לפי השגרה</string>
+    <string name="app_src_session">לפי הפעילות</string>
+    <string name="app_src_paused">הזיהוי מושהה</string>
+    <string name="app_src_since">%1$s · מאז %2$s</string>
+    <string name="app_src_line">%1$s: %2$s (%3$s)</string>
+
+    <!-- Today: context sheet and pauses -->
+    <string name="app_ctx_title">המיקום וההקשר</string>
+    <string name="app_ctx_place">מקום</string>
+    <string name="app_ctx_environment">סביבה</string>
+    <string name="app_ctx_activity">פעילות</string>
+    <string name="app_ctx_for">למשך כמה זמן</string>
+    <string name="app_choice_auto">אוטומטי</string>
+    <string name="app_for_until_change">עד החלפת מקום</string>
+    <string name="app_for_1h">שעה</string>
+    <string name="app_for_2h">שעתיים</string>
+    <string name="app_for_rest_of_today">עד סוף היום</string>
+    <string name="app_ctx_adjust_places">משהו לא מדויק? אפשר לכוונן מקומות</string>
+    <string name="app_pause_detection_title">השהיית זיהוי אוטומטי</string>
+    <string name="app_pause_detection_button">השהיית זיהוי אוטומטי…</string>
+    <string name="app_pause_detection_body">בזמן ההשהיה האפליקציה לא מנחשת איפה אתם. אפשר עדיין לקבוע ידנית.</string>
+    <string name="app_dur_30m">30 דקות</string>
+    <string name="app_dur_1h">שעה</string>
+    <string name="app_dur_2h">שעתיים</string>
+    <string name="app_dur_4h">4 שעות</string>
+    <string name="app_dur_rest_of_today">עד סוף היום</string>
+    <string name="app_dur_until_resume">עד לחידוש ידני</string>
+    <string name="app_dur_until_indoors">עד שאהיה בפנים</string>
+    <string name="app_pause_title">השהיית %1$s</string>
+    <string name="app_menu_pause">השהיה…</string>
+    <string name="app_more_title">עוד</string>
+    <string name="app_back_to_auto">חזרה לזיהוי אוטומטי</string>
+    <string name="app_help_title">על המסך הזה</string>
+    <string name="app_help_body">המסך מציג את המיקום שהאפליקציה מזהה, מה צריך לעשות עכשיו, מה פועל ומה הבא. הקשה על השורה הראשונה מאפשרת לתקן אותה.</string>
+
+    <!-- Today: quick controls -->
+    <string name="app_quick_outdoors">בחוץ</string>
+    <string name="app_quick_indoors">בפנים</string>
+    <string name="app_quick_start_working">התחלת עבודה</string>
+    <string name="app_quick_end_session">סיום הפעילות</string>
+    <string name="app_quick_start_studying">התחלת לימוד</string>
+    <string name="app_quick_leaving">יציאה עכשיו</string>
+    <string name="app_quick_more">עוד</string>
+
+    <!-- Today: messages -->
+    <string name="app_msg_paused">הושהה</string>
+    <string name="app_msg_context_set">ההקשר נקבע ידנית</string>
+    <string name="app_msg_context_auto">חזרה לזיהוי אוטומטי</string>
+    <string name="app_msg_session_started">הפעילות התחילה</string>
+    <string name="app_msg_session_ended">הפעילות הסתיימה</string>
+    <string name="app_msg_detection_paused">הזיהוי האוטומטי הושהה</string>
+    <string name="app_msg_leaving_now">היציאה נרשמה</string>
+
+    <!-- Today: due cards -->
+    <string name="app_act_applied">מרחתי</string>
+    <string name="app_act_drank">שתיתי</string>
+    <string name="app_act_done">סיימתי</string>
+    <string name="app_act_got_it">לקחתי</string>
+    <string name="app_act_not_needed">אין צורך</string>
+    <string name="app_act_taken">לקחתי</string>
+    <string name="app_act_snooze">דחייה</string>
+    <string name="app_act_snooze_min">דחייה ב־%1$s</string>
+    <string name="app_act_switched">עברתי</string>
+    <string name="app_act_skip">דילוג</string>
+    <string name="app_act_extend5">הארכה ב־5 דק׳</string>
+    <string name="app_act_start">התחלה</string>
+    <string name="app_act_skip_today">דילוג להיום</string>
+    <string name="app_act_not_now">לא עכשיו</string>
+    <string name="app_last_at">לאחרונה ב־%1$s</string>
+    <string name="app_dose_at">מתוכננת ל־%1$s</string>
+    <string name="app_time_to">הגיע הזמן לעבור ל%1$s</string>
+    <string name="app_time_to_switch">הגיע הזמן להחליף תנוחה</string>
+    <string name="app_timer_starts_on_switch">הטיימר מתחיל בלחיצה על ״עברתי״.</string>
+    <string name="app_routine_prompt">%1$s · להתחיל?</string>
+    <string name="app_session_prompt">להתחיל לעבוד?</string>
+    <string name="app_session_prompt_at">להתחיל לעבוד ב%1$s?</string>
+    <string name="app_calendar_cue">תזכורת מהיומן</string>
+
+    <!-- Today: running and next rows -->
+    <string name="app_posture_frozen">בהשהיה בזמן התרחקות מהמחשב</string>
+    <string name="app_posture_paused">בהשהיה</string>
+    <string name="app_kept_min">נשמרו %1$s</string>
+    <string name="app_left_min">נותרו %1$s</string>
+    <string name="app_then">אחר כך %1$s %2$s</string>
+    <string name="app_test_run">בדיקה</string>
+    <string name="app_step_of">שלב %1$d מתוך %2$d</string>
+    <string name="app_session_working">עבודה</string>
+    <string name="app_session_studying">לימודים</string>
+    <string name="app_session_since">מאז %1$s</string>
+    <string name="app_session_paused_since">בהשהיה מאז %1$s</string>
+    <string name="app_override_title">נקבע: %1$s</string>
+    <string name="app_until_place_change">עד החלפת מקום</string>
+    <string name="app_until_time">עד %1$s</string>
+    <string name="app_in_duration">בעוד %1$s</string>
+    <string name="app_now_soon">עוד רגע</string>
+    <string name="app_tomorrow_at">מחר ב־%1$s</string>
+    <string name="app_date_at">%1$s ב־%2$s</string>
+    <string name="app_wait_outdoors">כשבחוץ</string>
+    <string name="app_wait_indoors">כשבפנים</string>
+    <string name="app_wait_working">בזמן עבודה</string>
+    <string name="app_wait_studying">בזמן לימודים</string>
+    <string name="app_wait_session">במהלך עבודה</string>
+    <string name="app_wait_generic">כשהתנאים מתקיימים</string>
+    <string name="app_wait_paused_until">בהשהיה עד %1$s</string>
+    <string name="app_wait_paused">בהשהיה</string>
+    <string name="app_wait_quiet">אחרי שעות השקט (%1$s)</string>
+    <string name="app_wait_meeting">אחרי הפגישה</string>
+    <string name="app_wait_routine">אחרי השגרה</string>
+    <string name="app_wait_from">החל מ־%1$s</string>
+    <string name="app_wait_covered">הבא אחרי %1$s</string>
+    <string name="app_wait_first">אחרי האישור הראשון</string>
+    <string name="app_wait_frozen">בהשהיה בזמן התרחקות מהמחשב</string>
+
+    <!-- Today: Field description for TalkBack -->
+    <string name="app_fd_posture">%1$s, נותרו %2$s</string>
+    <string name="app_fd_routine">שגרה: %1$s</string>
+    <string name="app_fd_due">עכשיו: %1$s</string>
+    <string name="app_fd_next">הבא: %1$s בעוד %2$s</string>
+
+    <!-- Item detail -->
+    <string name="app_detail_title">פרטים</string>
+    <string name="app_detail_state">מצב</string>
+    <string name="app_detail_last">אישור אחרון</string>
+    <string name="app_detail_next">הבא</string>
+    <string name="app_detail_no_schedule">אין תזמון כרגע</string>
+    <string name="app_detail_history">לאחרונה</string>
+    <string name="app_detail_history_empty">עוד לא נרשם דבר.</string>
+    <string name="app_hist_reminded">תזכורת</string>
+    <string name="app_hist_reminded_again">תזכורת חוזרת</string>
+    <string name="app_hist_confirmed">אושר</string>
+    <string name="app_hist_unanswered">ללא מענה</string>
+    <string name="app_hist_withdrawn">בוטלה</string>
+
+    <!-- Why now? rules in plain words -->
+    <string name="app_rule_interval">היא חוזרת זמן קבוע אחרי האישור האחרון.</string>
+    <string name="app_rule_covered">יש אישור עדכני, לכן התזכורת הבאה ממתינה.</string>
+    <string name="app_rule_condition">היא ממתינה עד שהתנאים שנבחרו מתקיימים.</string>
+    <string name="app_rule_first">היא מתחילה אחרי האישור הראשון.</string>
+    <string name="app_rule_paused">היא בהשהיה, לכן לא תגיע תזכורת עד סיום ההשהיה.</string>
+    <string name="app_rule_pending">תזכורת ממתינה למענה. היא חוזרת בעדינות עד שיש תגובה.</string>
+    <string name="app_rule_hours">היא מגיעה רק בשעות הפעילות שלה.</string>
+    <string name="app_rule_quiet">היא ממתינה עד סוף שעות השקט.</string>
+    <string name="app_rule_meeting">היא ממתינה עד סוף הפגישה.</string>
+    <string name="app_rule_routine">היא ממתינה עד סוף השגרה הפעילה.</string>
+    <string name="app_rule_dose">תזכורת למנה מגיעה בשעה שנקבעה.</string>
+    <string name="app_rule_alarm">השעון המעורר מצלצל בשעה שנקבעה, בימים שנבחרו.</string>
+    <string name="app_rule_calendar">כלל ביומן התאים לאירוע, לכן יש תזכורת לפני שהוא מתחיל.</string>
+    <string name="app_rule_posture">מחזור התנוחות מחליף תנוחה בסיום הטיימר.</string>
+    <string name="app_rule_generic">DayCue פועלת לפי הכלל שהוגדר לפריט הזה.</string>
+
+    <!-- Reminder readiness -->
+    <string name="app_rd_title">מוכנות התזכורות</string>
+    <string name="app_rd_all_ready">התזכורות מוכנות</string>
+    <plurals name="app_rd_problems">
+        <item quantity="one">דבר אחד עלול לעכב תזכורות</item>
+        <item quantity="two">שני דברים עלולים לעכב תזכורות</item>
+        <item quantity="many">%1$d דברים עלולים לעכב תזכורות</item>
+        <item quantity="other">%1$d דברים עלולים לעכב תזכורות</item>
+    </plurals>
+    <string name="app_rd_send_test">שליחת תזכורת לבדיקה</string>
+    <string name="app_rd_test_sent">תזכורת הבדיקה נשלחה. היא אמורה להופיע בעוד כמה שניות.</string>
+    <string name="app_rd_section_reminders">תזכורות</string>
+    <string name="app_rd_section_context">מקומות ויומן</string>
+    <string name="app_rd_section_connections">חיבורים</string>
+    <string name="app_rd_install">התקנה</string>
+    <string name="app_rd_notifications">התראות</string>
+    <string name="app_rd_exact">תזמון מדויק</string>
+    <string name="app_rd_fullscreen">שעון מעורר במסך מלא</string>
+    <string name="app_rd_battery">סוללה</string>
+    <string name="app_rd_background">פעילות ברקע</string>
+    <string name="app_rd_hibernation">השהיית אפליקציות שלא בשימוש</string>
+    <string name="app_rd_voices">קולות</string>
+    <string name="app_rd_channels">סוגי התראות</string>
+    <string name="app_rd_speech">הקראה</string>
+    <string name="app_rd_forcestop">עצירה בכוח</string>
+    <string name="app_rd_notifications_why">תזכורות לא יוכלו להופיע עד שההתראות יופעלו.</string>
+    <string name="app_rd_exact_why">תזכורות עלולות להגיע באיחור של עד כ־10 דקות.</string>
+    <string name="app_rd_fullscreen_why">שעון מעורר מצלצל עלול לא להיפתח מעל אפליקציות אחרות או מסך הנעילה.</string>
+    <string name="app_rd_battery_why">הטלפון עלול לעכב תזכורות כדי לחסוך בסוללה.</string>
+    <string name="app_rd_background_why">תזכורות עלולות להיעצר כשהאפליקציה סגורה.</string>
+    <string name="app_rd_hibernation_why">הטלפון עלול להשהות את DayCue אם לא פותחים אותה זמן רב.</string>
+    <string name="app_rd_channels_why">חלק מסוגי התזכורות חסומים בהגדרות הטלפון.</string>
+    <string name="app_rd_speech_why">ההקראה האחרונה נכשלה. ההתראה עצמה הגיעה.</string>
+    <string name="app_rd_forcestop_why">התזכורות היו כבויות עד שהאפליקציה נפתחה שוב.</string>
+    <string name="app_rd_voice_he_missing">אין קול עברי מותקן. תזכורות בעברית יישמעו כצליל בלבד.</string>
+    <string name="app_rd_voice_en_missing">אין קול באנגלית מותקן. תזכורות באנגלית יישמעו כצליל בלבד.</string>
+    <string name="app_rd_voice_both_missing">אין נתוני קול מותקנים. תזכורות יישמעו כצליל בלבד.</string>
+    <string name="app_rd_voice_no_engine">אין מנוע הקראה בטלפון. תזכורות יישמעו כצליל בלבד.</string>
+    <string name="app_rd_voice_network">הקול דורש חיבור לרשת. ללא רשת התזכורות יישמעו כצליל בלבד.</string>
+    <string name="app_rd_voice_other">ייתכן שההקראה לא תעבוד בכל שפה.</string>
+    <string name="app_rd_place_detection">זיהוי מקום</string>
+    <string name="app_rd_precise">מיקום מדויק</string>
+    <string name="app_rd_bg_location">מיקום ברקע</string>
+    <string name="app_rd_location_services">שירותי מיקום</string>
+    <string name="app_rd_play_services">שירותי Google Play</string>
+    <string name="app_rd_activity">פעילות גופנית</string>
+    <string name="app_rd_calendar_access">גישה ליומן</string>
+    <string name="app_rd_calendar_sync">סנכרון יומן</string>
+    <string name="app_rd_place_detection_why">אי אפשר לזהות מקומות אוטומטית. הפקדים הידניים עדיין פועלים.</string>
+    <string name="app_rd_precise_why">שינויי מקום עלולים לא להתגלות עם מיקום מקורב.</string>
+    <string name="app_rd_bg_location_why">שינויי מקום יזוהו רק כשהאפליקציה פתוחה.</string>
+    <string name="app_rd_location_services_why">שירותי המיקום כבויים בטלפון.</string>
+    <string name="app_rd_play_services_why">זיהוי מקום אוטומטי דורש שירותי Google Play.</string>
+    <string name="app_rd_activity_why">אי אפשר לזהות הליכה, לכן המצב ״בחוץ״ לא ינוחש.</string>
+    <string name="app_rd_calendar_access_why">בלי גישה אין תזכורות מהיומן.</string>
+    <string name="app_rd_calendar_sync_why">היומן לא מעודכן, לכן תזכורות חדשות מהיומן מושהות.</string>
+    <string name="app_rd_remote">גישה מרחוק</string>
+    <string name="app_rd_companion">מלווה במחשב</string>
+    <string name="app_rd_not_set_up">לא הוגדר</string>
+    <string name="app_rd_remote_ok">מחובר</string>
+    <string name="app_rd_remote_off">כבוי</string>
+    <string name="app_rd_remote_offline">אין חיבור. הסנכרון יתבצע כשיהיה חיבור.</string>
+    <string name="app_rd_remote_failed">הסנכרון האחרון נכשל</string>
+    <string name="app_rd_remote_unpaired">הטלפון נותק מהממסר. אפשר להתחבר שוב בהגדרות.</string>
+    <string name="app_rd_companion_none">לא מחובר · העבודה מתחילה ידנית</string>
+    <string name="app_rd_companion_active">פעיל · אות עדכני</string>
+    <string name="app_rd_companion_quiet">אין אות עדכני</string>
+    <string name="app_rd_optional_note">חיבורים אופציונליים לעולם לא נחשבים לבעיה.</string>
+
+    <!-- Onboarding -->
+    <string name="app_step_x_of_y">שלב %1$d מתוך %2$d</string>
+    <string name="app_lang_title">Language · שפה</string>
+    <string name="app_lang_body">You can change this later. · אפשר לשנות בהמשך.</string>
+    <string name="app_tpl_title">מה להפעיל להתחלה?</string>
+    <string name="app_tpl_body">אפשר לשנות הכול בהמשך.</string>
+    <string name="app_tpl_sunscreen">בחוץ: כל שעתיים במהלך היום</string>
+    <string name="app_tpl_hydration">כל שעה במהלך היום</string>
+    <string name="app_tpl_bottle">ביציאה ממקום, או בלחיצה על ״יציאה עכשיו״</string>
+    <string name="app_tpl_posture">ישיבה, עמידה והליכה לסירוגין, 30 דקות כל אחת</string>
+    <string name="app_tpl_routine">מקלחת, ניקוי פנים, צחצוח שיניים, התלבשות</string>
+    <string name="app_tpl_alarm">שעון מעורר בבוקר בימי עבודה</string>
+    <string name="app_tpl_calendar">תזכורת לפני פגישות ותורים</string>
+    <string name="app_tpl_medication">אפשר להוסיף תרופות בהמשך מלשונית ״תזכורות״. הרשימה מתחילה ריקה.</string>
+    <string name="app_tpl_failed">לא ניתן היה לשמור את הבחירות. אפשר לנסות שוב.</string>
+    <string name="app_perm_title">הרשאות, רק כשצריך</string>
+    <string name="app_perm_body">כל הרשאה היא אופציונלית. אפשר להפעיל אותן בהמשך במסך מוכנות התזכורות.</string>
+    <string name="app_perm_none">אין צורך בעוד דבר כרגע.</string>
+    <string name="app_perm_later">מה שדילגתם עליו זמין במסך מוכנות התזכורות.</string>
+    <string name="app_perm_notif_why">DayCue מציגה כל תזכורת כהתראה.</string>
+    <string name="app_perm_notif_without">בלי זה התזכורות לא יגיעו.</string>
+    <string name="app_perm_exact_why">כדי שתזכורות יגיעו בדיוק בדקה שנקבעה.</string>
+    <string name="app_perm_exact_without">בלי זה הן עלולות להגיע באיחור של עד כ־10 דקות.</string>
+    <string name="app_perm_fs_why">כדי ששעון מעורר מצלצל ייפתח מעל מסך הנעילה.</string>
+    <string name="app_perm_fs_without">בלי זה השעון עדיין יצלצל, אבל המסך שלו עלול לא להיפתח.</string>
+    <string name="app_perm_cal_why">כדי שתזכורות יגיעו לפני פגישות. האפליקציה רק קוראת אירועים; דבר לא משתנה ולא נשלח.</string>
+    <string name="app_perm_cal_without">בלי זה אין תזכורות מהיומן.</string>
+    <string name="app_perm_battery_why">כדי שהטלפון לא יעכב תזכורות כדי לחסוך בסוללה.</string>
+    <string name="app_perm_battery_without">בלי זה תזכורות עלולות להגיע באיחור כשהטלפון במנוחה.</string>
+    <string name="app_perm_hib_why">כדי שהטלפון לא ישהה את DayCue אם לא פותחים אותה שבועות.</string>
+    <string name="app_perm_hib_without">בלי זה התזכורות עלולות להיפסק עד לפתיחה הבאה של האפליקציה.</string>
+    <string name="app_test_title">ניסוי תזכורת</string>
+    <string name="app_test_body">תישלח תזכורת אחת לבדיקה, כדי לראות ולשמוע איך היא נראית.</string>
+    <string name="app_test_question">האם ראית ושמעת אותה?</string>
+    <string name="app_test_again">שליחה חוזרת</string>
+    <string name="app_done_title">הכול מוכן</string>
+    <string name="app_done_body">מקומות נשמרים רק בטלפון הזה. אפשר להוסיף אותם בהגדרות, כדי ש־DayCue תדע איפה אתם.</string>
+    <string name="app_done_button">מעבר להיום</string>
+
+    <!-- Ringing alarm -->
+    <string name="app_alarm_snooze">דחייה</string>
+    <string name="app_alarm_test">בדיקה · לא נרשמת</string>
+    <string name="app_alarm_connecting">Spotify מתחילה…</string>
+    <string name="app_alarm_recover_install">התקנת Spotify</string>
+    <string name="app_alarm_recover_authorize">התחברות ל־Spotify</string>
+    <string name="app_alarm_recover_network">הגדרות רשת</string>
+    <string name="app_alarm_recover_open">פתיחת Spotify</string>
+    <string name="app_alarm_recover_account">פתיחת Spotify</string>
+    <string name="app_alarm_recover_retry">ניסיון חוזר</string>
+</resources>

@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App shell, Today, onboarding, readiness, alarm screen (ui/app, ui/today, ui/onboarding, ui/readiness, ui/alarm).
+         Times and numbers are always passed in already isolated by the ui.util bidi helpers. -->
+
+    <!-- Navigation and shared -->
+    <string name="app_nav_today">Today</string>
+    <string name="app_nav_cues">Cues</string>
+    <string name="app_nav_setup">Setup</string>
+    <string name="app_back">Back</string>
+    <string name="app_undo">Undo</string>
+    <string name="app_continue">Continue</string>
+    <string name="app_skip">Skip</string>
+    <string name="app_allow">Allow</string>
+    <string name="app_not_now">Not now</string>
+    <string name="app_yes">Yes</string>
+    <string name="app_no">No</string>
+    <string name="app_resume">Resume</string>
+    <string name="app_help">Help</string>
+
+    <!-- Default names that follow the app language -->
+    <string name="app_name_morning_routine">Morning routine</string>
+    <string name="app_name_morning_alarm">Morning alarm</string>
+    <string name="app_place_home">Home</string>
+    <string name="app_place_office">Office</string>
+    <string name="app_place_gym">Gym</string>
+
+    <!-- Today: sections and states -->
+    <string name="app_now">Now</string>
+    <string name="app_running">Running</string>
+    <string name="app_next">Next</string>
+    <string name="app_see_today">See everything today</string>
+    <plurals name="app_more_due">
+        <item quantity="one">%d more due</item>
+        <item quantity="other">%d more due</item>
+    </plurals>
+    <string name="app_nothing_else">Nothing else today.</string>
+    <string name="app_empty_nothing_enabled">Choose what DayCue should help with</string>
+    <string name="app_empty_nothing_enabled_body">Nothing is turned on yet.</string>
+    <string name="app_empty_choose">Choose</string>
+
+    <!-- Today: context -->
+    <string name="app_place_unknown">Not sure where you are</string>
+    <string name="app_place_elsewhere">Somewhere else</string>
+    <string name="app_env_indoor">Indoors</string>
+    <string name="app_env_outdoor">Outdoors</string>
+    <string name="app_env_unknown">Indoors or out: not sure</string>
+    <string name="app_act_working">Working</string>
+    <string name="app_act_studying">Studying</string>
+    <string name="app_act_meeting">In a meeting</string>
+    <string name="app_act_routine">In a routine</string>
+    <string name="app_act_none">None</string>
+    <string name="app_set_it">Set it</string>
+    <string name="app_set_by_you">set by you</string>
+    <string name="app_detection_paused">Automatic detection paused</string>
+    <string name="app_detection_paused_until">Automatic detection paused until %1$s</string>
+    <string name="app_resume_detection">Resume automatic detection</string>
+    <string name="app_src_manual">set by you</string>
+    <string name="app_src_location">from location</string>
+    <string name="app_src_place">from the place</string>
+    <string name="app_src_motion">from movement</string>
+    <string name="app_src_assumed">assumed</string>
+    <string name="app_src_computer">from your computer</string>
+    <string name="app_src_calendar">from your calendar</string>
+    <string name="app_src_routine">from the routine</string>
+    <string name="app_src_session">from the session</string>
+    <string name="app_src_paused">detection paused</string>
+    <string name="app_src_since">%1$s · since %2$s</string>
+    <string name="app_src_line">%1$s: %2$s (%3$s)</string>
+
+    <!-- Today: context sheet and pauses -->
+    <string name="app_ctx_title">Where you are</string>
+    <string name="app_ctx_place">Place</string>
+    <string name="app_ctx_environment">Environment</string>
+    <string name="app_ctx_activity">Activity</string>
+    <string name="app_ctx_for">For how long</string>
+    <string name="app_choice_auto">Auto</string>
+    <string name="app_for_until_change">Until I change place</string>
+    <string name="app_for_1h">1 hour</string>
+    <string name="app_for_2h">2 hours</string>
+    <string name="app_for_rest_of_today">Rest of today</string>
+    <string name="app_ctx_adjust_places">Something often wrong? Adjust places</string>
+    <string name="app_pause_detection_title">Pause automatic detection</string>
+    <string name="app_pause_detection_button">Pause automatic detection…</string>
+    <string name="app_pause_detection_body">While paused, DayCue does not guess where you are. Manual controls still work.</string>
+    <string name="app_dur_30m">30 minutes</string>
+    <string name="app_dur_1h">1 hour</string>
+    <string name="app_dur_2h">2 hours</string>
+    <string name="app_dur_4h">4 hours</string>
+    <string name="app_dur_rest_of_today">Rest of today</string>
+    <string name="app_dur_until_resume">Until I turn it back on</string>
+    <string name="app_dur_until_indoors">Until I’m indoors</string>
+    <string name="app_pause_title">Pause %1$s</string>
+    <string name="app_menu_pause">Pause…</string>
+    <string name="app_more_title">More</string>
+    <string name="app_back_to_auto">Back to automatic</string>
+    <string name="app_help_title">About this screen</string>
+    <string name="app_help_body">Today shows where DayCue thinks you are, what is due now, what is running and what comes next. Tap the first line to correct it.</string>
+
+    <!-- Today: quick controls -->
+    <string name="app_quick_outdoors">Outdoors</string>
+    <string name="app_quick_indoors">Indoors</string>
+    <string name="app_quick_start_working">Start working</string>
+    <string name="app_quick_end_session">End session</string>
+    <string name="app_quick_start_studying">Start studying</string>
+    <string name="app_quick_leaving">Leaving now</string>
+    <string name="app_quick_more">More</string>
+
+    <!-- Today: messages -->
+    <string name="app_msg_paused">Paused</string>
+    <string name="app_msg_context_set">Context set by you</string>
+    <string name="app_msg_context_auto">Back to automatic</string>
+    <string name="app_msg_session_started">Session started</string>
+    <string name="app_msg_session_ended">Session ended</string>
+    <string name="app_msg_detection_paused">Automatic detection paused</string>
+    <string name="app_msg_leaving_now">Leaving now noted</string>
+
+    <!-- Today: due cards -->
+    <string name="app_act_applied">Applied</string>
+    <string name="app_act_drank">Drank</string>
+    <string name="app_act_done">Done</string>
+    <string name="app_act_got_it">Got it</string>
+    <string name="app_act_not_needed">Not needed</string>
+    <string name="app_act_taken">Taken</string>
+    <string name="app_act_snooze">Snooze</string>
+    <string name="app_act_snooze_min">Snooze %1$s</string>
+    <string name="app_act_switched">Switched</string>
+    <string name="app_act_skip">Skip</string>
+    <string name="app_act_extend5">+5 min</string>
+    <string name="app_act_start">Start</string>
+    <string name="app_act_skip_today">Skip today</string>
+    <string name="app_act_not_now">Not now</string>
+    <string name="app_last_at">Last at %1$s</string>
+    <string name="app_dose_at">Planned for %1$s</string>
+    <string name="app_time_to">Time to switch to %1$s</string>
+    <string name="app_time_to_switch">Time to switch posture</string>
+    <string name="app_timer_starts_on_switch">The timer starts when you tap Switched.</string>
+    <string name="app_routine_prompt">%1$s · Start?</string>
+    <string name="app_session_prompt">Start working?</string>
+    <string name="app_session_prompt_at">Start working at %1$s?</string>
+    <string name="app_calendar_cue">Calendar reminder</string>
+
+    <!-- Today: running and next rows -->
+    <string name="app_posture_frozen">Paused while away from the computer</string>
+    <string name="app_posture_paused">Paused</string>
+    <string name="app_kept_min">%1$s kept</string>
+    <string name="app_left_min">%1$s left</string>
+    <string name="app_then">then %1$s %2$s</string>
+    <string name="app_test_run">Test</string>
+    <string name="app_step_of">Step %1$d of %2$d</string>
+    <string name="app_session_working">Working</string>
+    <string name="app_session_studying">Studying</string>
+    <string name="app_session_since">Since %1$s</string>
+    <string name="app_session_paused_since">Paused since %1$s</string>
+    <string name="app_override_title">Set to %1$s</string>
+    <string name="app_until_place_change">until you change place</string>
+    <string name="app_until_time">until %1$s</string>
+    <string name="app_in_duration">in %1$s</string>
+    <string name="app_now_soon">any moment</string>
+    <string name="app_tomorrow_at">Tomorrow %1$s</string>
+    <string name="app_date_at">%1$s %2$s</string>
+    <string name="app_wait_outdoors">when outdoors</string>
+    <string name="app_wait_indoors">when indoors</string>
+    <string name="app_wait_working">while working</string>
+    <string name="app_wait_studying">while studying</string>
+    <string name="app_wait_session">during a work session</string>
+    <string name="app_wait_generic">when conditions match</string>
+    <string name="app_wait_paused_until">paused until %1$s</string>
+    <string name="app_wait_paused">paused</string>
+    <string name="app_wait_quiet">after quiet hours (%1$s)</string>
+    <string name="app_wait_meeting">after your meeting</string>
+    <string name="app_wait_routine">after the routine</string>
+    <string name="app_wait_from">from %1$s</string>
+    <string name="app_wait_covered">next after %1$s</string>
+    <string name="app_wait_first">after your first confirmation</string>
+    <string name="app_wait_frozen">paused while away from the computer</string>
+
+    <!-- Today: Field description for TalkBack -->
+    <string name="app_fd_posture">%1$s, %2$s left</string>
+    <string name="app_fd_routine">Routine: %1$s</string>
+    <string name="app_fd_due">Now: %1$s</string>
+    <string name="app_fd_next">Next: %1$s in %2$s</string>
+
+    <!-- Item detail -->
+    <string name="app_detail_title">Details</string>
+    <string name="app_detail_state">State</string>
+    <string name="app_detail_last">Last confirmed</string>
+    <string name="app_detail_next">Next</string>
+    <string name="app_detail_no_schedule">Nothing scheduled right now</string>
+    <string name="app_detail_history">Recent</string>
+    <string name="app_detail_history_empty">Nothing recorded yet.</string>
+    <string name="app_hist_reminded">Reminded</string>
+    <string name="app_hist_reminded_again">Reminded again</string>
+    <string name="app_hist_confirmed">Confirmed</string>
+    <string name="app_hist_unanswered">No answer</string>
+    <string name="app_hist_withdrawn">Withdrawn</string>
+
+    <!-- Why now? rules in plain words -->
+    <string name="app_rule_interval">It comes back a set time after you last confirmed it.</string>
+    <string name="app_rule_covered">You confirmed it recently, so the next reminder waits.</string>
+    <string name="app_rule_condition">It waits until the conditions you chose are true.</string>
+    <string name="app_rule_first">It starts after the first time you confirm it.</string>
+    <string name="app_rule_paused">It is paused, so nothing comes until the pause ends.</string>
+    <string name="app_rule_pending">A reminder is waiting for your answer. It repeats gently until you respond.</string>
+    <string name="app_rule_hours">It only comes during its active hours.</string>
+    <string name="app_rule_quiet">It waits until quiet hours end.</string>
+    <string name="app_rule_meeting">It waits until your meeting ends.</string>
+    <string name="app_rule_routine">It waits until the running routine ends.</string>
+    <string name="app_rule_dose">A dose reminder comes at its set time.</string>
+    <string name="app_rule_alarm">The alarm rings at its set time on its days.</string>
+    <string name="app_rule_calendar">A calendar rule matched this event, so it reminds you before it starts.</string>
+    <string name="app_rule_posture">The posture cycle switches mode when the timer ends.</string>
+    <string name="app_rule_generic">DayCue follows the rule you set for this item.</string>
+
+    <!-- Reminder readiness -->
+    <string name="app_rd_title">Reminder readiness</string>
+    <string name="app_rd_all_ready">Reminders are ready</string>
+    <plurals name="app_rd_problems">
+        <item quantity="one">One thing may delay reminders</item>
+        <item quantity="other">%1$d things may delay reminders</item>
+    </plurals>
+    <string name="app_rd_send_test">Send a test reminder</string>
+    <string name="app_rd_test_sent">Test reminder sent. It should appear in a few seconds.</string>
+    <string name="app_rd_section_reminders">Reminders</string>
+    <string name="app_rd_section_context">Places and calendar</string>
+    <string name="app_rd_section_connections">Connections</string>
+    <string name="app_rd_install">Install</string>
+    <string name="app_rd_notifications">Notifications</string>
+    <string name="app_rd_exact">Exact timing</string>
+    <string name="app_rd_fullscreen">Full-screen alarms</string>
+    <string name="app_rd_battery">Battery</string>
+    <string name="app_rd_background">Background use</string>
+    <string name="app_rd_hibernation">Pause of unused apps</string>
+    <string name="app_rd_voices">Voices</string>
+    <string name="app_rd_channels">Notification types</string>
+    <string name="app_rd_speech">Speech</string>
+    <string name="app_rd_forcestop">Force stop</string>
+    <string name="app_rd_notifications_why">Reminders can’t appear until notifications are on.</string>
+    <string name="app_rd_exact_why">Reminders may arrive up to about 10 minutes late.</string>
+    <string name="app_rd_fullscreen_why">A ringing alarm may not open over other apps or the lock screen.</string>
+    <string name="app_rd_battery_why">The phone may delay reminders to save power.</string>
+    <string name="app_rd_background_why">Reminders may stop while DayCue is closed.</string>
+    <string name="app_rd_hibernation_why">The phone may pause DayCue if you don’t open it for a while.</string>
+    <string name="app_rd_channels_why">Some reminder types are blocked in the phone’s settings.</string>
+    <string name="app_rd_speech_why">The last spoken reminder failed. The notification still arrived.</string>
+    <string name="app_rd_forcestop_why">Reminders stayed off until DayCue was opened again.</string>
+    <string name="app_rd_voice_he_missing">Hebrew voice is not installed. Hebrew reminders use sound only.</string>
+    <string name="app_rd_voice_en_missing">English voice is not installed. English reminders use sound only.</string>
+    <string name="app_rd_voice_both_missing">No voice data is installed. Reminders use sound only.</string>
+    <string name="app_rd_voice_no_engine">There is no speech engine on this phone. Reminders use sound only.</string>
+    <string name="app_rd_voice_network">The voice needs a connection. Offline, reminders use sound only.</string>
+    <string name="app_rd_voice_other">Speech may not work for every language.</string>
+    <string name="app_rd_place_detection">Place detection</string>
+    <string name="app_rd_precise">Precise location</string>
+    <string name="app_rd_bg_location">Location in the background</string>
+    <string name="app_rd_location_services">Location services</string>
+    <string name="app_rd_play_services">Google Play services</string>
+    <string name="app_rd_activity">Physical activity</string>
+    <string name="app_rd_calendar_access">Calendar access</string>
+    <string name="app_rd_calendar_sync">Calendar sync</string>
+    <string name="app_rd_place_detection_why">Places can’t be detected automatically. Manual controls still work.</string>
+    <string name="app_rd_precise_why">Place changes may be missed with approximate location.</string>
+    <string name="app_rd_bg_location_why">Place changes are noticed only while the app is open.</string>
+    <string name="app_rd_location_services_why">Location is turned off on the phone.</string>
+    <string name="app_rd_play_services_why">Automatic place detection needs Google Play services.</string>
+    <string name="app_rd_activity_why">Walking can’t be detected, so outdoors is not guessed.</string>
+    <string name="app_rd_calendar_access_why">Without access there are no calendar reminders.</string>
+    <string name="app_rd_calendar_sync_why">The calendar is out of date, so new calendar reminders are paused.</string>
+    <string name="app_rd_remote">Remote access</string>
+    <string name="app_rd_companion">Desktop companion</string>
+    <string name="app_rd_not_set_up">Not set up</string>
+    <string name="app_rd_remote_ok">Connected</string>
+    <string name="app_rd_remote_off">Turned off</string>
+    <string name="app_rd_remote_offline">Offline. Will sync when online.</string>
+    <string name="app_rd_remote_failed">Last sync failed</string>
+    <string name="app_rd_remote_unpaired">Unpaired by the relay. Pair again in Setup.</string>
+    <string name="app_rd_companion_none">Not paired · sessions start manually</string>
+    <string name="app_rd_companion_active">Active · recent signal</string>
+    <string name="app_rd_companion_quiet">No recent signal</string>
+    <string name="app_rd_optional_note">Optional connections never count as problems.</string>
+
+    <!-- Onboarding -->
+    <string name="app_step_x_of_y">Step %1$d of %2$d</string>
+    <string name="app_lang_title">Language · שפה</string>
+    <string name="app_lang_body">You can change this later. · אפשר לשנות בהמשך.</string>
+    <string name="app_tpl_title">What should be turned on to start?</string>
+    <string name="app_tpl_body">You can change all of this later.</string>
+    <string name="app_tpl_sunscreen">While outdoors: every 2 hours during the day</string>
+    <string name="app_tpl_hydration">Every hour during the day</string>
+    <string name="app_tpl_bottle">When leaving a place, or with Leaving now</string>
+    <string name="app_tpl_posture">Sit, stand and walk in turns, 30 minutes each</string>
+    <string name="app_tpl_routine">Shower, face cleanser, brush teeth, get dressed</string>
+    <string name="app_tpl_alarm">A morning alarm on workdays</string>
+    <string name="app_tpl_calendar">A reminder before meetings and appointments</string>
+    <string name="app_tpl_medication">Add medication later from Cues. The list starts empty.</string>
+    <string name="app_tpl_failed">Couldn’t save your choices. Try again.</string>
+    <string name="app_perm_title">Permissions, only when useful</string>
+    <string name="app_perm_body">Each one is optional. You can turn any of them on later in Reminder readiness.</string>
+    <string name="app_perm_none">Nothing else is needed right now.</string>
+    <string name="app_perm_later">Skipped items stay available in Reminder readiness.</string>
+    <string name="app_perm_notif_why">DayCue shows every reminder as a notification.</string>
+    <string name="app_perm_notif_without">Without it, reminders can’t reach you.</string>
+    <string name="app_perm_exact_why">So reminders arrive at the minute they are due.</string>
+    <string name="app_perm_exact_without">Without it, they may arrive up to about 10 minutes late.</string>
+    <string name="app_perm_fs_why">So a ringing alarm opens over the lock screen.</string>
+    <string name="app_perm_fs_without">Without it, the alarm still rings but its screen may not open.</string>
+    <string name="app_perm_cal_why">So DayCue can remind you before meetings. It only reads events; nothing is changed or sent.</string>
+    <string name="app_perm_cal_without">Without it, there are no calendar reminders.</string>
+    <string name="app_perm_battery_why">So the phone doesn’t delay reminders to save power.</string>
+    <string name="app_perm_battery_without">Without it, reminders may arrive late when the phone is idle.</string>
+    <string name="app_perm_hib_why">So the phone doesn’t pause DayCue if you don’t open it for weeks.</string>
+    <string name="app_perm_hib_without">Without it, reminders could stop until you open the app again.</string>
+    <string name="app_test_title">Try a reminder</string>
+    <string name="app_test_body">DayCue sends one test reminder so you can see and hear how it looks.</string>
+    <string name="app_test_question">Did you see and hear it?</string>
+    <string name="app_test_again">Send again</string>
+    <string name="app_done_title">All set</string>
+    <string name="app_done_body">Places are only stored on this phone. Add them in Setup so DayCue knows where you are.</string>
+    <string name="app_done_button">Open Today</string>
+
+    <!-- Ringing alarm -->
+    <string name="app_alarm_snooze">Snooze</string>
+    <string name="app_alarm_test">Test · not recorded</string>
+    <string name="app_alarm_connecting">Starting Spotify…</string>
+    <string name="app_alarm_recover_install">Install Spotify</string>
+    <string name="app_alarm_recover_authorize">Sign in to Spotify</string>
+    <string name="app_alarm_recover_network">Network settings</string>
+    <string name="app_alarm_recover_open">Open Spotify</string>
+    <string name="app_alarm_recover_account">Open Spotify</string>
+    <string name="app_alarm_recover_retry">Try again</string>
+</resources>
