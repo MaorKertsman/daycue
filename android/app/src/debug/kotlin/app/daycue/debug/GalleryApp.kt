@@ -93,7 +93,11 @@ fun rememberGalleryScrollState(): androidx.compose.foundation.ScrollState {
     androidx.compose.runtime.LaunchedEffect(px) {
         if (px > 0) {
             androidx.compose.runtime.snapshotFlow { state.maxValue }.first { it > 0 }
-            state.scrollTo(px)
+            // Layout (fonts, Field) settles over a few frames, so re-apply until the maximum stops moving.
+            repeat(5) {
+                kotlinx.coroutines.delay(500)
+                state.scrollTo(if (px == Int.MAX_VALUE) state.maxValue else px)
+            }
         }
     }
     return state
