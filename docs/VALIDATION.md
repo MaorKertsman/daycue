@@ -2,7 +2,7 @@
 
 Independent QA of DayCue against `docs/ACCEPTANCE.md` (18 scenarios) and the rule IDs in `docs/PRODUCT.md`. Expectations were derived from those documents, not from the implementation or the implementers' claims. Evidence labels: **unit** (JVM), **JVM-integration**, **emulator-UI** (real app UI driven by `input tap` and `uiautomator dump`), **emulator-debug** (debug broadcast receiver and state dumps), **unverified**. Nothing here was run on a physical phone.
 
-Screenshots and the APKs are in `C:\Users\maork\my-stuff\daycue-review\qa\` (outside the repository; synthetic data only).
+Screenshots and the APKs are in `..\daycue-review\qa\` (outside the repository; synthetic data only).
 
 ## 1. Environment
 
