@@ -1,6 +1,6 @@
 # Building and installing DayCue on a phone
 
-There is no signed release APK yet (see `docs/setup/BUILD.md` section 4 and `docs/STATUS.md`). To use DayCue today you build a debug APK on a Windows PC and install it. Nothing in this guide has been run on a physical phone: the install, permission and reminder behavior below was observed on an Android 17 emulator or read from the code and the Android documentation, as noted.
+A signed APK of version 0.1.0 is published as a pre-release at https://github.com/MaorKertsman/daycue/releases: download `daycue-0.1.0.apk` and install it as described in step 2 onward (skip step 1). You can also build a debug APK yourself as described below; a debug build and the signed release cannot be installed over each other (different signing keys). Nothing in this guide has been run on a physical phone: the install, permission and reminder behavior below was observed on an Android 17 emulator or read from the code and the Android documentation, as noted.
 
 ## Requirements
 

@@ -2,7 +2,7 @@
 
 DayCue is a personal Android assistant for recurring habits and routines: sunscreen, water, a water-bottle check when leaving a place, posture cycles, medication reminders, a morning routine, a morning alarm, and cues before calendar events. It is a personal-use project in a public repository. The app has English and Hebrew (right-to-left) interfaces.
 
-**Status: nothing has been verified on a physical phone.** Everything below was checked with JVM unit tests and an Android 17 emulator only. There is no signed release APK yet.
+**Status: nothing has been verified on a physical phone.** Everything below was checked with JVM unit tests and an Android 17 emulator only. A signed APK of version 0.1.0 is published as a pre-release at https://github.com/MaorKertsman/daycue/releases; it was smoke-tested on the emulator only (fresh install, launch, no crash).
 
 ## What the phone does on its own
 

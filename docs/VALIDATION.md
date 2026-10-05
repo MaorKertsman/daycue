@@ -209,3 +209,18 @@ Evidence in `..\daycue-review\qa-2\` (screenshots `s01..s30`, UI dumps `*.xml`, 
 - **D13 (Low).** Hebrew summary string "בעוד 19 שעות דקה" (minutes number missing); English "in 0 minutes" at the due minute.
 
 Doc note for the owner: a detached launch of the companion needs `DOTNET_ROOT` when .NET is not installed system-wide (`docs/setup/COMPANION.md`).
+
+## 7. Fixes after the re-verification (commit 69ee2d6) — not yet independently re-tested by QA
+
+The defects below were fixed by the scheduling engineer after section 6. The evidence is the implementer's own (unit tests plus an emulator run on `daycue_qa`), so QA status stays "open" in the tables above until a QA re-run.
+
+| Defect | Fix | Implementer's evidence |
+|---|---|---|
+| D9 | A recorded merged medication notice no longer blocks recovery; each recovery event replaces it with one notice counting still-unconfirmed and never-cued doses from the last 48 h | Unit test `NotificationRecoveryTest` "D9"; emulator: real reboot -> one merged notice; +26 h -> one notice with 4; +2 days -> one notice, no per-dose cues |
+| D10 | One clock formatter for UI, notifications and speech using the app language (Hebrew day-period markers); default names re-localized when the language is chosen in onboarding; work days decided by device region (IL -> Sunday-Thursday), language only when no region | `ClockFormatTest`, `DefaultsRelocalizeTest`, `PlatformFixesTest` "D10c"; emulator: Hebrew 12-hour UI shows no Latin AM/PM on Today, an alarm row, a dose notification and the alarm screen; hydration notification title in Hebrew after choosing Hebrew in onboarding |
+| D11 | "Why now?" on every due card and in the dose sheet | Emulator: medication card and dose sheet; calendar, posture, routine and bottle lines not checked on the emulator |
+| D12 | Alarm screen layout distributes space; illustration dropped (not squashed) when there is no room; no heads-up over the alarm screen in the foreground | Emulator captures at font scale 1.0 and 2.0 in Hebrew (`..\daycue-review\qa-3\`) |
+| D13 | Hebrew hours-and-minutes joiner, "now" under one minute | `DurationWordsTest` |
+| — | Notification and in-app action labels unified; medication cues dismissible (dismissal logged, dose stays due); language-switch race guarded | `ActionLabelParityTest`, `NotificationRecoveryTest`, `LanguageSyncTest`; dismissal not swiped on the emulator |
+
+Signed release APK 0.1.0 (built locally at 69ee2d6): `apksigner verify` passes; fresh install and launch on the emulator with an empty crash log. Nothing else was run on that exact binary.

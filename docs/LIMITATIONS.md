@@ -52,7 +52,7 @@ Sources: `docs/architecture/FEASIBILITY.md`, which separates documentation, emul
 - **Push wake (Firebase Cloud Messaging)**: needs the owner's Firebase project and a build with it set up. The Setup screen says "Not available in this build". Without it the phone checks the relay about every 15 minutes or more, or more often if you turn on the opt-in frequent check.
 - **Windows companion**: built and unit tested; not run live with a phone. Without it, work sessions are manual, which is a supported setup.
 - **Spotify alarm**: off by default. Spotify's Developer Policy says alarm functionality in an app that uses its SDK needs Spotify's written approval; the app does not have it. The SDK binary is not in the repository (`docs/setup/SPOTIFY.md`). The local alarm tone always rings first. Do not rely on Spotify to wake you.
-- **Android release build**: no signed release APK exists. See section 6.
+- **Android release build**: a signed APK (0.1.0) is published as a pre-release at https://github.com/MaorKertsman/daycue/releases. It was built and signed on the owner's PC, not by the CI release workflow, and smoke-tested on the emulator only.
 
 ## 5. Features not built
 
@@ -68,7 +68,7 @@ From `docs/STATUS.md`, the architecture documents and the code:
 
 ## 6. Release and install limits
 
-- No signed release APK exists. A debug build can be produced with the commands in `docs/setup/BUILD.md`.
+- The signing key lives only on the owner's PC (outside the repository). Updates must be signed with the same key, so it has to be backed up; see `docs/setup/BUILD.md` section 4. The GitHub release workflow has not run yet because its signing secrets are not set.
 - The release workflow (`.github/workflows/release.yml`) has not run; it needs the keystore secrets and a pushed tag.
 - Updating later with a different signing key requires uninstalling, which deletes app data. Export your setup first (**Setup**, **Settings**, **Save setup as a file**).
 - Android backup and device transfer are disabled by design. The manifest sets `allowBackup="false"`, and `res/xml/data_extraction_rules.xml` and `res/xml/backup_rules.xml` exclude every data domain. The in-app export is the only backup. An export file includes your configuration, with place coordinates and medication names; history only if you chose it.
