@@ -1,3 +1,11 @@
+| PARTIAL: language call fixed; Hebrew first run and AM/PM not (D10, D11) |
+| FIXED (foreground + screen off, Snooze and Stop) |
+| not re-run (physical phone needed) |
+| FIXED for chips, reorder and 48 dp; TalkBack still NOT VERIFIED |
+| FIXED (formatVersion, schemaVersion, garbage) |
+| FIXED (en + he) |
+| FIXED (manifest + dex) |
+| FIXED (emulator, real reboot) |
 # Validation report
 
 Independent QA of DayCue against `docs/ACCEPTANCE.md` (18 scenarios) and the rule IDs in `docs/PRODUCT.md`. Expectations were derived from those documents, not from the implementation or the implementers' claims. Evidence labels: **unit** (JVM), **JVM-integration**, **emulator-UI** (real app UI driven by `input tap` and `uiautomator dump`), **emulator-debug** (debug broadcast receiver and state dumps), **unverified**. Nothing here was run on a physical phone.
@@ -14,13 +22,14 @@ Screenshots and the APKs are in `..\daycue-review\qa\` (outside the repository; 
 | Test APK | `app-debug.apk` built once with `:app:assembleDebug`. Release check: `:app:assembleRelease` (debug-signed locally, no release keystore). |
 | Emulator clock | Deliberately moved with `adb root` + `date` and the time zone with `service call alarm 3` (Asia/Tokyo and back to GMT). All "time passes" evidence is a clock jump plus the app's real alarms; it is not Doze over hours. |
 | Local relay | `npm`/`tsx` relay on port 8799 (owner secret generated with `npm run gen-secret`), reached through `adb reverse`. Stopped and its data and secret deleted. |
+| Re-verification | 2026-10-05, commit `1740ef9` (working tree clean). Debug and release APKs already built at HEAD (14:14 and 14:17 local; the commit at 14:19 is the polish they contain). Same AVD, port 5562, headless; real companion against a local relay (section 6). |
 | Cleanup | Emulator killed; font scale, auto time, time zone, app locale, `adb reverse` reset before shutdown. |
 
 Automated suites run at the start (all green): domain 131 tests, app unit 198 tests, mcp 103 tests (Node 20.20), companion 42 tests, instrumented 3 pass + 1 skipped (`RelayEmulatorTest.keystoreKeySignsAcksTheRealRelayAccepts` skips without relay arguments; the same signing path was exercised live in scenario 15). QA-added tests: `android/domain/src/test/kotlin/app/daycue/domain/qa/QaAcceptanceTest.kt` (7 tests) and `mcp/test/qa-offline.test.ts` (3 tests), all pass.
 
 ## 2. Summary
 
-**PASS 10, PARTIAL 7, FAIL 1, NOT VERIFIED 0.**
+**First run: PASS 10, PARTIAL 7, FAIL 1. After re-verification (section 6, 2026-10-05, commit `1740ef9`): PASS 13, PARTIAL 5, FAIL 0, NOT VERIFIED 0.** The Status column below shows `first run -> re-verified` where it changed; every other row was not re-run.
 
 | # | Scenario | Status | Method |
 |---|---|---|---|
@@ -28,11 +37,11 @@ Automated suites run at the start (all green): domain 131 tests, app unit 198 te
 | 2 | Outdoor / indoor / outdoor keeps history, no duplicate timers | PASS | emulator-UI (context sheet) + engine QA test |
 | 3 | Posture pause/resume position | PASS | emulator-UI + engine QA test (cold-start "0:00" not reproduced) |
 | 4 | Dismissal does not mark medication taken | PASS | emulator-UI (swipe away, Taken button), unit |
-| 5 | Routine follows timing policy, survives process recreation | PARTIAL | emulator-UI (built in editor, run, `kill -9`); two recovery options and one policy combination only unit-tested |
+| 5 | Routine follows timing policy, survives process recreation | PARTIAL -> **PASS** | emulator-UI (built in editor, run, `kill -9`); two recovery options and one policy combination only unit-tested |
 | 6 | Manual context with location permission denied | PASS | emulator-UI with every location permission revoked |
 | 7 | Boundary movement / stale signals | PARTIAL | unit only (no real geofence) |
-| 8 | Computer activity starts a session only under the rules | PARTIAL | unit + companion tests; no live companion run |
-| 9 | Locked / disconnected computer | PARTIAL | unit + companion tests; no live companion run |
+| 8 | Computer activity starts a session only under the rules | PARTIAL -> **PASS** | unit + companion tests; no live companion run |
+| 9 | Locked / disconnected computer | PARTIAL -> **PASS** (gone/stale; lock not driven) | unit + companion tests; no live companion run |
 | 10 | Matching calendar events cue, excluded do not | PARTIAL | unit / JVM only; no emulator calendar data |
 | 11 | Changed or canceled event updates or removes the cue | PARTIAL | unit / JVM only |
 | 12 | Simultaneous cues follow the collision policy | PASS | emulator-debug (real delivery logs), unit |
@@ -40,21 +49,26 @@ Automated suites run at the start (all green): domain 131 tests, app unit 198 te
 | 14 | Local alarm works when Spotify fails | PASS | emulator-UI (ringing screen captured); audibility is manual |
 | 15 | MCP changes validated, applied once, acknowledged | PASS | emulator-UI against a real local relay; JVM tests |
 | 16 | Offline MCP commands stay pending | PASS | emulator + real local relay; JVM tests |
-| 17 | Reboot and time zone recovery policy | **FAIL** | emulator (real reboot, time zone, clock changes); defect D1 |
+| 17 | Reboot and time zone recovery policy | **FAIL -> PARTIAL** (D1 fixed; MED-11 catch-up notice not seen, D9) | emulator (real reboot, time zone, clock changes); defect D1 |
 | 18 | Hebrew RTL, large text, accessibility | PARTIAL | emulator-UI (Hebrew, font scale 2.0, dump audits); no TalkBack run; defects D5 |
 
 ## 3. Defects
 
-| ID | Severity | Rule | Summary |
-|---|---|---|---|
-| D1 | High | MED-8, MED-4, GEN-7 | After a real reboot the pending medication doses (and other cues) are not re-surfaced as notifications |
-| D2 | Medium | owner requirement | The release APK still contains the debug receiver |
-| D3 | Low-Medium | usability of MED-9/import review | Import review shows raw JSON for added items |
-| D4 | Low | import validation | Import accepts `formatVersion: 2` |
-| D5 | Low-Medium | accessibility | Weekday chips are single letters with no content description; drag handles not verifiable |
-| D6 | Medium (physical check) | ALM-1 | Android 17 logged "AudioHardening background playback would be muted" for the alarm stream |
-| D7 | Low | ALM-1 UX | Alarm screen does not open while DayCue is in the foreground |
-| D8 | Low | consistency | Config `language` (ConfigOp `setLanguage`) does not change the UI language |
+| ID | Severity | Rule | Summary | Re-verification (2026-10-05, `1740ef9`) |
+|---|---|---|---|---|
+| D1 | High | MED-8, MED-4, GEN-7 | After a real reboot the pending medication doses (and other cues) are not re-surfaced as notifications | FIXED (emulator, real reboot) |
+| D2 | Medium | owner requirement | The release APK still contains the debug receiver | FIXED (manifest + dex) |
+| D3 | Low-Medium | usability of MED-9/import review | Import review shows raw JSON for added items | FIXED (en + he) |
+| D4 | Low | import validation | Import accepts `formatVersion: 2` | FIXED (formatVersion, schemaVersion, garbage) |
+| D5 | Low-Medium | accessibility | Weekday chips are single letters with no content description; drag handles not verifiable | FIXED for chips, reorder and 48 dp; TalkBack still NOT VERIFIED |
+| D6 | Medium (physical check) | ALM-1 | Android 17 logged "AudioHardening background playback would be muted" for the alarm stream | not re-run (physical phone needed) |
+| D7 | Low | ALM-1 UX | Alarm screen does not open while DayCue is in the foreground | FIXED (foreground and screen off; Snooze and Stop) |
+| D8 | Low | consistency | Config `language` (ConfigOp `setLanguage`) does not change the UI language | PARTIAL: language call fixed; Hebrew first run and AM/PM not (D10, D11) |
+| D9 | Medium | MED-11 | After a clock jump forward by 1 day or more, no merged catch-up notice is posted | open (new) |
+| D10 | Low-Medium | Hebrew | Hebrew UI on a 12-hour device shows Latin AM/PM; Hebrew first run seeds Mon-Fri work days (not Sun-Thu) and, if Hebrew is tapped in onboarding, English template names | open (new) |
+| D11 | Low | GEN-9 | Medication has no "Why now?" on Today or in the dose sheet | open (new) |
+| D12 | Low | design | Alarm screen: thin illustration strip at font scale 2.0, large empty bands, heads-up notification covers the time in the foreground | open (new) |
+| D13 | Low | copy | Hebrew "19 שעות דקה" (missing minutes number); English "in 0 minutes" | open (new) |
 
 **D1. Reboot does not re-post pending medication cues (MED-8). High.**
 Steps: synthetic doses `loc1`, `loc2`, `home1` due and unacknowledged, plus sunscreen and hydration cues showing. `adb reboot`, wait for `BOOT_COMPLETED` (it arrived about 90 s after boot) with the clock set to the pre-reboot time.
@@ -158,3 +172,40 @@ Do these on the real phone with the release build (debug-signed or your own keys
 12. **TalkBack (scenario 18, D5).** Walk onboarding, Today, one editor from each tab, the alarm screen and the remote-approval screen with TalkBack on in Hebrew and English; confirm every control has a spoken name and role, weekday chips are distinguishable, routine/posture steps can be reordered without dragging, and the hold-to-approve action is reachable through the TalkBack actions menu.
 13. **Notification tap routing.** Tap each notification body type and confirm it opens the matching screen (the shell test with an explicit `daycue://open/posture` intent only showed the Cues/Today screen, so the intended notification path was not exercised).
 14. **Cold-start live posture control.** Repeat a few cold starts (and one after a reboot) directly into Posture live control to look for the "0:00 left while Running" display that an implementer saw.
+
+## 6. Re-verification (2026-10-05, commit `1740ef9`)
+
+Evidence in `..\daycue-review\qa-2\` (screenshots `s01..s30`, UI dumps `*.xml`, `rel-manifest.txt`, `rel-dex-classes.txt`, `d1-pre/post-*.txt`, `relay.log`). Method for all rows: **emulator** (real app, debug build unless noted; `adb`, uiautomator, logcat, debug receiver for state dumps and demo config). No physical phone.
+
+| # | Probe | Result | Evidence |
+|---|---|---|---|
+| 1a | D1 / scenario 17: real `adb reboot`, clock untouched | PASS | Two due synthetic doses (separate cues, 11:34 and 11:35) plus a due hydration cue. After `BOOT_COMPLETED` (about 3 min after boot on this slow emulator) logcat: `delivered habit:hydration silent=true`, `delivered med:merged ch=medication silent=false`, one utterance. `dumpsys notification` = {med:merged, habit:hydration}; engine `visible=[habit:hydration, med:merged]` (same set). Title "2 medication reminders not confirmed". |
+| 1b | Time zone to Asia/Tokyo, one FollowLocalTime and one KeepHomeTimezone(UTC) dose | PASS | One silent notice "Time zone changed: now Asia/Tokyo. 1 follow local time, 1 keep home time"; the FollowLocalTime dose moved to 02:34Z, the KeepHome dose stayed 11:35Z. Both policies were in the same run, not separately. |
+| 1c | Manual clock jump forward by more than a day, MED-11 | **FAIL** (D9) | Three jumps (+1 d 2 h, +2 d, +2 d) with doses uncued on the earlier days (notifications cleared before two of them): no catch-up notice in any, `visible=[]`, earlier-day doses silently Due. In the first jump the two current-day doses were posted as separate cues (grouped) rather than one merged notice, and the stale "2 not confirmed" merged cue from the reboot stayed unchanged. No "missed" wording anywhere. Code reading: `MedicationModule` skips the recovery branch while `ms.mergedCue != null`; unconfirmed. |
+| 2 | D2 release APK | PASS | `aapt dump xmltree`: no DevToolsReceiver, no gallery activity, no `debuggable`, no `usesCleartextTraffic` or `networkSecurityConfig`, `allowBackup=false`; exported: MainActivity, SystemEventsReceiver, LockedBootReceiver, LocationSystemReceiver. `dexdump` of `classes.dex` (5302 classes, 665 in `app/daycue`): nothing matching DevTools, Gallery or Debug; kotlinx-serialization `$$serializer` classes present. |
+| 3 | D3 import review wording | PASS | Synthetic file with an added medication, removed place, renamed habit, changed interval, alarm time, quiet hours and work days. English: "Renamed: Sunscreen -> Sun cream", "Hydration: every 1 h -> every 45 min", "Added medication: SynM", "Time (Morning alarm): 7:00 AM -> 6:30 AM", "Removed place: Gym", "Work days: Mon-Fri -> Sun-Thu", "Quiet hours: On -> Off"; Hebrew equivalents (`s14`, `s15`). No JSON, no enum tokens, no "Setting changed (". Hebrew still shows Latin "7:00 AM" (D10). |
+| 4 | D4 newer `formatVersion`, newer `schemaVersion`, garbage | PASS | Both newer files: "This setup is from a newer DayCue ... Nothing was imported"; garbage: "This file isn't a DayCue setup". Nothing applied. |
+| 5 | D5 accessibility | PASS (TalkBack not run) | Work-day chips: the checkable, clickable, focusable parent carries a child content description "Sunday".."Saturday" (full names, en and he), 129x126 px (48 dp at 420 dpi = 126 px). Reorder: the drag handle is now clickable and opens a "Change order" sheet with Move up / Move down; Move up on "Standing" reordered the list. Touch targets from bounds: Today 13 clickables, 0 under 126 px; habit editor 26, 0 under after scrolling (one row partly behind the bottom bar before); alarm screen buttons 974x210 px = 80 dp tall. Role names are not visible to uiautomator. |
+| 6 | D7 alarm screen, foreground and screen off | PASS | `appops USE_FULL_SCREEN_INTENT allow`. Foreground: `AlarmActivity` on top at the ring; Snooze re-rang +9 min later; Stop ended it (no alarm player, no service). Screen off: wakefulness Awake and `AlarmActivity` on top at the ring (0 ms late); Snooze worked; Stop tapped on the screen-off alarm worked (activity back to MainActivity). Designs: `s16` light en foreground, `s17` light en screen off, `s18` light he, `s19` dark he, `s20` dark he font scale 2.0. Nothing clipped or overlapping; big serif time, title, illustration, Snooze (outlined) and Stop (filled) 80 dp tall, RTL mirrored. Layout notes in D12; Latin "PM" in Hebrew (D10). |
+| 7a | D8 language from onboarding / Settings | PASS | Hebrew chosen in onboarding: UI Hebrew, `config lang=he`, cues and test reminder Hebrew. Settings > General > Language English: UI English at once, `config v4 lang=en`, next test notification English. The system route (`cmd locale set-app-locales`) updated the config while the app ran (en > he > en within 6 s each); once earlier the config stayed `he` after a switch to en (cue buttons Hebrew under an English UI) and I could not reproduce it. |
+| 7b | Hebrew first run seeds Sun-Thu and Hebrew template names | **FAIL** (D10) | Release, app locale `he` before first launch: Hebrew template names ("שתיית מים") but work days Mon-Fri (Sunday unchecked). Debug, Hebrew tapped in onboarding: config names English (notification title "Hydration" with a Hebrew body) and Mon-Fri. |
+| 7c | Hebrew UI on a 12-hour device shows localized AM/PM | **FAIL** (D10) | `time_12_24=12`: Today header "11:28 AM", "7:00 AM" next alarm, Settings "4:00 AM", import lines, alarm screen "12:01 PM", medication times: all Latin AM/PM in Hebrew. |
+| 8a | Posture: manual pause longer than 15 min | PASS | Standing 29 min left, Pause, clock +22 min, Resume: "Standing, 29 minutes left" (same mode, same remaining; the first run reset to the first mode). |
+| 8b | Extend on an overdue mode counts from now | PASS | A 5 min demo mode ended 12:39:57; at 12:42:17, 2 min 20 s overdue, Extend 5 gave "Sitting, 4 minutes left" (5 min from now). |
+| 8c | Mode-end cue on time, screen on and off | PASS | Screen on: alarm fired 13 ms late, cue and speech delivered. Screen off with `dumpsys battery unplug`: fired 689 ms late. The emulator did not enter Doze within 5 min, so deep-Doze behaviour is NOT VERIFIED (section 5 item 6). |
+| 9 | Medication: Taken at..., Correct, dismissal | PASS | Dose 12:04, "I took it", Change time to 12:00: medication list "Taken 12:00 PM"; history "Dose 12:04 PM - Corrected: taken 12:00 PM" beside the original "Taken 12:04 PM". History Correct > Not confirmed worked (row "Corrected: not confirmed", no re-cue). Dismissal: the dose notification is ongoing and cannot be swiped away on this build; the dose stayed Due with its cue, so nothing confirms it. |
+| 10 | "Why now?" | PARTIAL | Habit (hydration item detail): "Every 1 h - Place: Not sure where you are - Environment: Indoors or out: not sure". Medication: no "Why now?" on Today (cards have no overflow) or in the dose sheet (D11). |
+| 11 | Scenario 5 gap | PASS | Routine built in the editor UI (New routine, renamed, added a step with a 60 s timer, "about 3 min"). Recovery policy has no UI control, so it was set through `upsertRoutine`. `Cancel`: `kill -9`, clock +17 min, relaunch: the run is gone, no prompt, `RoutineCanceled` rows in the database. `ResumeCurrentStep`: kill, +35 min, relaunch: one routine cue and the step restarted ("1:54 left", Step 1 of 2). |
+| 12 | Scenarios 8 and 9, real companion | PASS (manual remainder below) | Local relay (`gen-secret`, tsx server on :8787, `adb reverse`), phone paired in Setup > Connections > Remote access, companion built with `dotnet build companion -c Debug`. Phone shows "Active" within a minute of the first signal. Office set manually (work place, AutoStart, hours 08-19), a synthetic input pinger kept the PC active: Working session started 12:47:21 (first Active 12:42:16, 5 min sustained). Graceful companion exit (final minimum-TTL signal): "Reporting paused on the computer", activity Unknown, session Suspended within 10 s. Restart: session Active again. Companion killed (no final signal), phone clock +12 min: "Not seen recently", Unknown, Suspended. Not driven: "suggest" start mode, locked PC. **Manual remainder:** the companion's pairing dialog and tray menu (Pair, Pause, Exit, Unpair) are WinForms GUI and were not driven. I paired with a PowerShell script doing what `TrayApp.DoPair` does (CNG key, `POST /v1/pair/companion`, DPAPI `pairing.json` in a throwaway `DAYCUE_COMPANION_DIR`), then ran the real exe. Pausing from the tray was not tested. The phone has no companion revoke (documented relay gap), so the companion was revoked with the owner API; the phone was unpaired from the UI. |
+| 13 | Crash watch | PASS | `logcat -b crash` empty before the reboot and at the end (the reboot clears the buffer, so the final read covers post-reboot time). No app ANR; SystemUI and Launcher "isn't responding" dialogs appeared right after emulator boot (memory pressure, not DayCue). |
+| 14 | Release APK fresh install | PASS | `pm clear`, Hebrew onboarding with four templates, "send a test reminder" posted, Today and Settings render, no crash and no Room or serialization error in logcat. |
+
+### New defects, with steps
+
+- **D9 (Medium, MED-11).** Debug build, add two daily medications via `ops` (11:34, 11:35), let them become due, `adb reboot` (merged cue shows), then `date` +1 day (again +2 days, +2 days; notifications cleared in between). Expected: one merged catch-up notice counting unconfirmed doses of the last 48 h and nothing per dose. Actual: none (row 1c). Possible cause: recovery branch skipped while a merged cue is recorded, and it requires `s.cue == null`.
+- **D10 (Low-Medium).** (a) Hebrew UI on a 12-hour clock formats times with Latin AM/PM; (b) Hebrew first run seeds work days Mon-Fri, and English template names when Hebrew is tapped in onboarding.
+- **D11 (Low).** Medication cards and the dose sheet have no "Why now?".
+- **D12 (Low).** Alarm screen: at font scale 2.0 the illustration collapses to a thin strip; large empty bands at every size; with DayCue in the foreground the heads-up notification (own Snooze/Stop) covers the large time for a few seconds.
+- **D13 (Low).** Hebrew summary string "בעוד 19 שעות דקה" (minutes number missing); English "in 0 minutes" at the due minute.
+
+Doc note for the owner: a detached launch of the companion needs `DOTNET_ROOT` when .NET is not installed system-wide (`docs/setup/COMPANION.md`).
