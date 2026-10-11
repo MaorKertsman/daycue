@@ -147,7 +147,7 @@ dependencies {
 
     if (hasSpotifySdk) {
         implementation(files(spotifyAar!!))
-        implementation("com.google.code.gson:gson:2.6.1") // required by the App Remote AAR (per Spotify's quick start)
+        implementation("com.google.code.gson:gson:2.14.0") // required by the App Remote AAR (per Spotify's quick start)
     }
 
     testImplementation(libs.junit)
